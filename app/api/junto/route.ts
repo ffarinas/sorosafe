@@ -3,6 +3,8 @@ import { Buffer } from "node:buffer";
 import { all, db, digest, one, run, token } from "@/lib/store";
 import {
   account,
+  accountBalances,
+  networkRules,
   checkPolicy,
   combine,
   decode,
@@ -13,6 +15,7 @@ import {
   submit,
 } from "@/lib/stellar";
 import type { Contact, Payment, Person, Vault, State } from "@/lib/domain";
+import { canSpend, decimal, sameAsset, units } from "@/lib/assets";
 export const dynamic = "force-dynamic";
 const now = () => Math.floor(Date.now() / 1000);
 const vaultFields =
@@ -190,6 +193,7 @@ function error(e: unknown) {
     "PAYMENT_EXPIRED",
     "STALE_PAYMENT",
     "INSUFFICIENT_FUNDS",
+    "ASSET_UNAVAILABLE",
     "TRUSTLINE_REQUIRED",
     "SUBMISSION_UNCERTAIN",
     "INVITE_CLOSED",
@@ -313,20 +317,20 @@ export async function GET(req: Request) {
       "SELECT s.payment,s.address,p.name FROM signatures s JOIN people p ON p.address=s.address JOIN payments t ON t.id=s.payment WHERE t.vault=?",
       id,
     );
-    for (const p of state.payments)
+    for (const p of state.payments) {
+      p.fee = decimal(BigInt(decode(p.xdr).fee));
       p.approvals = signatures
         .filter((s) => s.payment === p.id)
         .map((s) => ({ address: s.address, name: s.name }));
+    }
     if (v.status === "active" && v.address) {
       try {
-        const a = await account(v.address);
-        state.balances = a.balances
-          .filter((b) => b.asset_type === "native" || b.asset_code)
-          .map((b) => ({
-            code: b.asset_code || "XLM",
-            issuer: b.asset_issuer || "",
-            balance: b.balance,
-          }));
+        const [a, rules] = await Promise.all([
+          account(v.address),
+          networkRules(),
+        ]);
+        state.paymentFee = decimal(rules.fee);
+        state.balances = accountBalances(a, rules, state.payments);
         if (
           !checkPolicy(
             a,
@@ -549,6 +553,20 @@ export async function POST(req: Request) {
         note = str(b, "note", 160);
       if (!issuer && code !== "XLM") fail("INVALID_INPUT");
       if (issuer) addr(issuer);
+      const rules = await networkRules();
+      const balances = accountBalances(a, rules);
+      const chosen = balances.find((balance) =>
+        sameAsset(balance, { code, issuer }),
+      );
+      if (!chosen) fail("ASSET_UNAVAILABLE");
+      if (!canSpend(chosen, amount)) fail("INSUFFICIENT_FUNDS");
+      const native = balances.find((balance) => !balance.issuer);
+      if (
+        !native ||
+        units(native.balance) <
+          units(native.reserve) + units(native.liabilities) + rules.fee
+      )
+        fail("INSUFFICIENT_FUNDS");
       if (
         !a.balances.some((x) =>
           issuer
@@ -569,7 +587,16 @@ export async function POST(req: Request) {
       )
         fail("TRUSTLINE_REQUIRED");
       const expires = now() + 86400,
-        xdr = paymentXdr(a, c.address, amount, code, issuer, c.memo, expires);
+        xdr = paymentXdr(
+          a,
+          c.address,
+          amount,
+          code,
+          issuer,
+          c.memo,
+          expires,
+          rules.fee.toString(),
+        );
       const hash = Buffer.from(decode(xdr).hash()).toString("hex");
       await run(
         "INSERT INTO payments(id,vault,contact,recipient,destination,memo,amount,code,issuer,note,proposer,xdr,hash,expires,status,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?)",

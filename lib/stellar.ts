@@ -10,17 +10,23 @@ import {
   xdr,
 } from "@stellar/stellar-sdk";
 import { Buffer } from "node:buffer";
+import { decimal, units, pendingAmount } from "./assets";
+import type { Balance, Payment } from "./domain";
 export const NETWORK = Networks.TESTNET;
 export const HORIZON = "https://horizon-testnet.stellar.org";
 export type ChainAccount = {
   id: string;
   sequence: string;
+  subentry_count: number;
+  num_sponsoring: number;
+  num_sponsored: number;
   balances: {
     asset_type: string;
     asset_code?: string;
     asset_issuer?: string;
     balance: string;
     is_authorized?: boolean;
+    selling_liabilities: string;
   }[];
   signers: { key: string; weight: number; type: string }[];
   thresholds: {
@@ -29,6 +35,85 @@ export type ChainAccount = {
     high_threshold: number;
   };
 };
+export async function networkRules() {
+  const r = await fetch(`${HORIZON}/ledgers?order=desc&limit=1`, {
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!r.ok) throw new Error("NETWORK_UNAVAILABLE");
+  const data = (await r.json()) as {
+    _embedded: {
+      records: {
+        base_reserve_in_stroops: number;
+        base_fee_in_stroops: number;
+      }[];
+    };
+  };
+  const ledger = data._embedded?.records?.[0];
+  if (
+    !ledger ||
+    !Number.isSafeInteger(ledger.base_reserve_in_stroops) ||
+    ledger.base_reserve_in_stroops <= 0 ||
+    !Number.isSafeInteger(ledger.base_fee_in_stroops) ||
+    ledger.base_fee_in_stroops <= 0
+  )
+    throw new Error("NETWORK_UNAVAILABLE");
+  return {
+    reserve: BigInt(ledger.base_reserve_in_stroops),
+    fee: BigInt(ledger.base_fee_in_stroops),
+  };
+}
+export function accountBalances(
+  a: ChainAccount,
+  rules: { reserve: bigint; fee: bigint },
+  payments: Payment[] = [],
+): Balance[] {
+  const entries = 2 + a.subentry_count + a.num_sponsoring - a.num_sponsored;
+  if (!Number.isSafeInteger(entries) || entries < 0)
+    throw new Error("NETWORK_UNAVAILABLE");
+  const reserve = BigInt(entries) * rules.reserve;
+  const pendingFees = payments
+    .filter((p) => ["pending", "submitting"].includes(p.status))
+    .reduce((sum, p) => sum + units(p.fee), BigInt(0));
+  return a.balances
+    .filter(
+      (b) =>
+        b.asset_type === "native" ||
+        b.asset_type === "credit_alphanum4" ||
+        b.asset_type === "credit_alphanum12",
+    )
+    .map((b) => {
+      const native = b.asset_type === "native";
+      const identity = {
+        code: native ? "XLM" : b.asset_code!,
+        issuer: native ? "" : b.asset_issuer!,
+      };
+      const liabilities = units(b.selling_liabilities);
+      const allocated = pendingAmount(identity, payments);
+      const authorized = native || b.is_authorized === true;
+      return {
+        ...identity,
+        balance: b.balance,
+        authorized,
+        reserve: decimal(native ? reserve : BigInt(0)),
+        liabilities: decimal(liabilities),
+        pending: decimal(allocated),
+        available: decimal(
+          authorized
+            ? units(b.balance) -
+                liabilities -
+                allocated -
+                (native ? reserve + pendingFees + rules.fee : BigInt(0))
+            : BigInt(0),
+        ),
+      };
+    })
+    .sort(
+      (a, b) =>
+        Number(!!a.issuer) - Number(!!b.issuer) ||
+        a.code.localeCompare(b.code) ||
+        a.issuer.localeCompare(b.issuer),
+    );
+}
 export async function account(address: string): Promise<ChainAccount> {
   const r = await fetch(`${HORIZON}/accounts/${address}`, {
     signal: AbortSignal.timeout(15000),
@@ -121,6 +206,7 @@ export function paymentXdr(
   issuer: string,
   memo: string,
   expires: number,
+  fee: string,
 ) {
   if (
     !/^\d+(\.\d{1,7})?$/.test(amount) ||
@@ -132,7 +218,7 @@ export function paymentXdr(
   if (Buffer.byteLength(memo, "utf8") > 28) throw new Error("MEMO_TOO_LONG");
   const asset = issuer ? new Asset(code, issuer) : Asset.native();
   let b = new TransactionBuilder(new Account(a.id, a.sequence), {
-    fee: "100",
+    fee,
     networkPassphrase: NETWORK,
     timebounds: { minTime: 0, maxTime: expires },
   }).addOperation(Operation.payment({ destination, asset, amount }));

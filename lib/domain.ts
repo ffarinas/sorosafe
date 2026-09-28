@@ -39,8 +39,18 @@ export type Payment = {
   status: "pending" | "submitting" | "paid" | "expired" | "failed";
   created: number;
   approvals: { address: string; name: string }[];
+  fee: string;
 };
-export type Balance = { code: string; issuer: string; balance: string };
+export type Balance = {
+  code: string;
+  issuer: string;
+  balance: string;
+  available: string;
+  reserve: string;
+  liabilities: string;
+  pending: string;
+  authorized: boolean;
+};
 export type State = {
   user: Person | null;
   vaults: Vault[];
@@ -49,6 +59,7 @@ export type State = {
   contacts: Contact[];
   payments: Payment[];
   balances: Balance[];
+  paymentFee?: string;
   chainError?: boolean;
   invite?: {
     name: string;

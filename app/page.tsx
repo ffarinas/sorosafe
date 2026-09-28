@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -49,7 +48,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Toaster, toast } from "sonner";
-import type { Payment, State } from "@/lib/domain";
+import type { Balance, Payment, State } from "@/lib/domain";
+import { assetKey, findAsset, canSpend, mainnetCatalog } from "@/lib/assets";
+import { VaultAssets, AssetMark } from "@/components/vault-assets";
 import { SHORT } from "@/lib/domain";
 import { errors } from "@/lib/messages";
 import { useVaultTools } from "@/lib/use-vault-tools";
@@ -115,7 +116,8 @@ export default function Home() {
     [search, setSearch] = useState("");
   const [contactId, setContactId] = useState(""),
     [amount, setAmount] = useState(""),
-    [asset, setAsset] = useState("XLM|"),
+    [asset, setAsset] = useState(""),
+    [assetLocked, setAssetLocked] = useState(false),
     [note, setNote] = useState(""),
     [review, setReview] = useState(false);
   useVaultTools(data, setTab);
@@ -205,8 +207,12 @@ export default function Home() {
     }
   };
   const choose = (id: string) => {
+    setModal("");
+    setAsset("");
+    setData(empty);
+    setLoaded(false);
     setSelected(id);
-    history.replaceState(null, "", "?vault=" + id);
+    history.replaceState(null, "", "/?vault=" + id);
     setTab("overview");
     setShowCreate(false);
     void refresh(id);
@@ -262,6 +268,15 @@ export default function Home() {
   const payment = data.payments.find((p) => p.id === payId);
   const contact = data.contacts.find((c) => c.id === contactId);
   const [code, issuer] = asset.split("|");
+  const chosenAsset = findAsset(data.balances, asset);
+  const nativeBalance = data.balances.find((balance) => !balance.issuer);
+  const sendReady =
+    !!v &&
+    v.status === "active" &&
+    !data.chainError &&
+    !loadError &&
+    !pending.length &&
+    !!data.paymentFee;
   const money = (n: string) =>
     new Intl.NumberFormat(es ? "es-ES" : "en-US", {
       maximumFractionDigits: 7,
@@ -284,17 +299,18 @@ export default function Home() {
                 `${p.approvals.length} de ${v?.threshold} aprobaciones`,
                 `${p.approvals.length} of ${v?.threshold} approvals`,
               );
-  const newPayment = () => {
+  const newPayment = (chosen?: Balance) => {
     setReview(false);
     setAmount("");
     setNote("");
     setContactId("");
-    setAsset(
-      data.balances[0]
-        ? `${data.balances[0].code}|${data.balances[0].issuer}`
-        : "XLM|",
-    );
+    setAsset(chosen ? assetKey(chosen) : "");
+    setAssetLocked(!!chosen);
     setModal("send");
+  };
+  const receive = (chosen?: Balance) => {
+    setAsset(chosen ? assetKey(chosen) : "");
+    setModal("receive");
   };
   const configure = () => {
     setSize(v?.size || 3);
@@ -719,19 +735,21 @@ export default function Home() {
               <div className="overview-grid">
                 <section className="balance-panel">
                   <div className="section-label">
-                    {t("Saldo de la bóveda", "Vault balance")}
+                    {t("Saldo en XLM", "XLM balance")}
                     <Wallet size={19} />
                   </div>
                   <div
                     className="balance"
-                    title={money(data.balances[0]?.balance || "0")}
+                    title={
+                      nativeBalance ? money(nativeBalance.balance) : undefined
+                    }
                   >
-                    {data.chainError
+                    {data.chainError || !nativeBalance
                       ? "—"
                       : new Intl.NumberFormat(es ? "es-ES" : "en-US", {
                           maximumFractionDigits: 2,
-                        }).format(Number(data.balances[0]?.balance || "0"))}
-                    <span>{data.balances[0]?.code || "XLM"}</span>
+                        }).format(Number(nativeBalance.balance))}
+                    <span>XLM</span>
                   </div>
                   <p className="balance-caption">
                     {v.status === "active"
@@ -747,8 +765,8 @@ export default function Home() {
                   <div className="balance-actions">
                     <button
                       className="primary"
-                      disabled={v.status !== "active" || !!pending.length}
-                      onClick={newPayment}
+                      disabled={!sendReady}
+                      onClick={() => newPayment()}
                     >
                       <ArrowUpRight size={19} />
                       {t("Enviar", "Send")}
@@ -756,22 +774,12 @@ export default function Home() {
                     <button
                       className="secondary"
                       disabled={v.status !== "active"}
-                      onClick={() => setModal("receive")}
+                      onClick={() => receive()}
                     >
                       <ArrowDownLeft size={19} />
                       {t("Recibir", "Receive")}
                     </button>
                   </div>
-                  <Link className="token-preview-link" href="/preview/monedas">
-                    {t("Ver diseño con USDC y USDT0", "Preview USDC and USDT0")}
-                    <ArrowUpRight size={15} />
-                  </Link>
-                  {data.balances.slice(1).map((b) => (
-                    <p className="other-balance" key={b.code + b.issuer}>
-                      {b.code}
-                      <span>{money(b.balance)}</span>
-                    </p>
-                  ))}
                 </section>
                 <section className="next-panel">
                   <span className="eyebrow">
@@ -889,6 +897,17 @@ export default function Home() {
                   )}
                 </section>
               </div>
+              <VaultAssets
+                data={data}
+                es={es}
+                onSend={newPayment}
+                onReceive={receive}
+                onDetails={(balance) => {
+                  setAsset(assetKey(balance));
+                  setModal("asset");
+                }}
+                onCatalog={() => setModal("catalog")}
+              />
               <section className="section">
                 <div className="section-heading">
                   <h2>{t("Actividad reciente", "Recent activity")}</h2>
@@ -966,8 +985,8 @@ export default function Home() {
                   </div>
                   <button
                     className="primary"
-                    onClick={newPayment}
-                    disabled={v.status !== "active" || !!pending.length}
+                    onClick={() => newPayment()}
+                    disabled={!sendReady}
                   >
                     <Plus size={18} />
                     {t("Nuevo pago", "New payment")}
@@ -1240,81 +1259,101 @@ export default function Home() {
             <X size={19} />
           </DialogClose>
           <DialogTitle className="dialog-title">
-            {modal === "connect"
-              ? t("Entra en Junto", "Sign in to Junto")
-              : modal === "configure"
-                ? t("Configuración de la bóveda", "Vault settings")
-                : modal === "contact"
-                  ? t("Nuevo contacto compartido", "New shared contact")
-                  : modal === "send"
-                    ? review
-                      ? t("Revisa tu pago", "Review your payment")
-                      : t("Prepara un pago", "Prepare a payment")
-                    : modal === "invite"
-                      ? t("Invita a esta bóveda", "Invite to this vault")
-                      : modal === "receive"
-                        ? t("Recibir fondos", "Receive funds")
-                        : modal === "activate"
-                          ? t(
-                              "Todo listo para decidir juntos",
-                              "Ready to decide together",
-                            )
-                          : modal === "payment"
-                            ? t("Detalle del pago", "Payment details")
-                            : modal === "vaults"
-                              ? t("Tus bóvedas", "Your vaults")
-                              : t("Tu wallet", "Your wallet")}
+            {modal === "asset"
+              ? chosenAsset?.code ||
+                t("Moneda no disponible", "Currency unavailable")
+              : modal === "catalog"
+                ? t("Catálogo de monedas", "Currency catalog")
+                : modal === "receive" && chosenAsset
+                  ? t(
+                      `Recibir ${chosenAsset.code}`,
+                      `Receive ${chosenAsset.code}`,
+                    )
+                  : modal === "connect"
+                    ? t("Entra en Junto", "Sign in to Junto")
+                    : modal === "configure"
+                      ? t("Configuración de la bóveda", "Vault settings")
+                      : modal === "contact"
+                        ? t("Nuevo contacto compartido", "New shared contact")
+                        : modal === "send"
+                          ? review
+                            ? t("Revisa tu pago", "Review your payment")
+                            : t("Prepara un pago", "Prepare a payment")
+                          : modal === "invite"
+                            ? t("Invita a esta bóveda", "Invite to this vault")
+                            : modal === "receive"
+                              ? t("Recibir fondos", "Receive funds")
+                              : modal === "activate"
+                                ? t(
+                                    "Todo listo para decidir juntos",
+                                    "Ready to decide together",
+                                  )
+                                : modal === "payment"
+                                  ? t("Detalle del pago", "Payment details")
+                                  : modal === "vaults"
+                                    ? t("Tus bóvedas", "Your vaults")
+                                    : t("Tu wallet", "Your wallet")}
           </DialogTitle>
           <DialogDescription className="dialog-description">
-            {modal === "connect"
+            {modal === "catalog"
               ? t(
-                  "Usa tu wallet de Stellar para crear tu cuenta o volver a entrar. Solo confirmarás tu identidad; no se enviará dinero.",
-                  "Use your Stellar wallet to create your account or sign back in. You’ll confirm your identity; no money will be sent.",
+                  "USDC y USDT0 están previstas para la integración en mainnet.",
+                  "USDC and USDT0 are planned for the mainnet integration.",
                 )
-              : modal === "configure"
+              : modal === "asset"
                 ? t(
-                    "Estas reglas se aplicarán al activar la bóveda. Puedes ajustarlas mientras preparas el equipo.",
-                    "These rules will apply when you activate the vault. You can edit them while setting up your team.",
+                    "Saldo y disponibilidad consultados en Stellar Testnet.",
+                    "Balance and availability read from Stellar Testnet.",
                   )
-                : modal === "contact"
+                : modal === "connect"
                   ? t(
-                      "Todo el equipo verá este contacto y quién lo añadió.",
-                      "The whole team will see this contact and who added it.",
+                      "Usa tu wallet de Stellar para crear tu cuenta o volver a entrar. Solo confirmarás tu identidad; no se enviará dinero.",
+                      "Use your Stellar wallet to create your account or sign back in. You’ll confirm your identity; no money will be sent.",
                     )
-                  : modal === "send"
+                  : modal === "configure"
                     ? t(
-                        "El dinero se envía cuando el equipo completa las aprobaciones.",
-                        "Money is sent when the team completes the approvals.",
+                        "Estas reglas se aplicarán al activar la bóveda. Puedes ajustarlas mientras preparas el equipo.",
+                        "These rules will apply when you activate the vault. You can edit them while setting up your team.",
                       )
-                    : modal === "invite"
+                    : modal === "contact"
                       ? t(
-                          "Quien abra el enlace entrará a esta misma bóveda.",
-                          "Anyone opening this link will join this same vault.",
+                          "Todo el equipo verá este contacto y quién lo añadió.",
+                          "The whole team will see this contact and who added it.",
                         )
-                      : modal === "activate"
+                      : modal === "send"
                         ? t(
-                            "Revisa las personas y la regla. Así quedará protegida la bóveda en Stellar.",
-                            "Review the people and rule. This is how Stellar will protect your vault.",
+                            "El dinero se envía cuando el equipo completa las aprobaciones.",
+                            "Money is sent when the team completes the approvals.",
                           )
-                        : modal === "receive"
+                        : modal === "invite"
                           ? t(
-                              "Usa esta dirección únicamente en Stellar Testnet.",
-                              "Use this address only on Stellar Testnet.",
+                              "Quien abra el enlace entrará a esta misma bóveda.",
+                              "Anyone opening this link will join this same vault.",
                             )
-                          : modal === "payment"
+                          : modal === "activate"
                             ? t(
-                                "Revisa el destinatario, el importe y la dirección antes de firmar.",
-                                "Check the recipient, amount, and address before signing.",
+                                "Revisa las personas y la regla. Así quedará protegida la bóveda en Stellar.",
+                                "Review the people and rule. This is how Stellar will protect your vault.",
                               )
-                            : modal === "vaults"
+                            : modal === "receive"
                               ? t(
-                                  "Cada bóveda tiene su equipo y sus contactos.",
-                                  "Every vault has its own team and contacts.",
+                                  "Usa esta dirección únicamente en Stellar Testnet.",
+                                  "Use this address only on Stellar Testnet.",
                                 )
-                              : t(
-                                  "La clave privada permanece en tu wallet.",
-                                  "The private key stays in your wallet.",
-                                )}
+                              : modal === "payment"
+                                ? t(
+                                    "Revisa el destinatario, el importe y la dirección antes de firmar.",
+                                    "Check the recipient, amount, and address before signing.",
+                                  )
+                                : modal === "vaults"
+                                  ? t(
+                                      "Cada bóveda tiene su equipo y sus contactos.",
+                                      "Every vault has its own team and contacts.",
+                                    )
+                                  : t(
+                                      "La clave privada permanece en tu wallet.",
+                                      "The private key stays in your wallet.",
+                                    )}
           </DialogDescription>
           {modal === "connect" ? (
             <div className="modal-body">
@@ -1375,6 +1414,124 @@ export default function Home() {
                   <ArrowUpRight size={17} />
                 </button>
               </div>
+            </div>
+          ) : null}
+          {modal === "catalog" ? (
+            <div className="modal-body">
+              {mainnetCatalog.map((currency) => (
+                <div className="catalog-currency" key={assetKey(currency)}>
+                  <div className="catalog-heading">
+                    <AssetMark asset={currency} />
+                    <div>
+                      <strong>{currency.code}</strong>
+                      <p>{currency.issuerName} · Stellar Mainnet</p>
+                    </div>
+                    <span className="badge">
+                      {t("Próximamente", "Coming soon")}
+                    </span>
+                  </div>
+                  <details>
+                    <summary>
+                      {t("Identidad de la moneda", "Currency identity")}
+                    </summary>
+                    <p className="full-address">{currency.issuer}</p>
+                    <a
+                      className="text-button"
+                      href={currency.source}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {t("Información del activo", "Asset information")}
+                      <ExternalLink size={14} />
+                    </a>
+                  </details>
+                </div>
+              ))}
+              <p className="footnote">
+                {t(
+                  "Estas monedas todavía no se pueden habilitar desde Junto. Aquí no se muestran como fondos de tu bóveda.",
+                  "These currencies cannot be enabled through Junto yet. They are not shown as vault funds here.",
+                )}
+              </p>
+            </div>
+          ) : null}
+          {modal === "asset" ? (
+            <div className="modal-body">
+              {chosenAsset && !data.chainError ? (
+                <>
+                  <AssetMark asset={chosenAsset} />
+                  <div className="review-amount">
+                    {money(chosenAsset.balance)} <span>{chosenAsset.code}</span>
+                  </div>
+                  <dl className="details">
+                    <dt>{t("Disponible para enviar", "Available to send")}</dt>
+                    <dd>
+                      {money(chosenAsset.available)} {chosenAsset.code}
+                    </dd>
+                    <dt>{t("Por aprobar", "Awaiting approval")}</dt>
+                    <dd>
+                      {money(chosenAsset.pending)} {chosenAsset.code}
+                    </dd>
+                    {Number(chosenAsset.reserve) > 0 ? (
+                      <>
+                        <dt>{t("Reserva de la cuenta", "Account reserve")}</dt>
+                        <dd>{money(chosenAsset.reserve)} XLM</dd>
+                      </>
+                    ) : null}
+                    {Number(chosenAsset.liabilities) > 0 ? (
+                      <>
+                        <dt>
+                          {t("Comprometido en ofertas", "Committed to offers")}
+                        </dt>
+                        <dd>
+                          {money(chosenAsset.liabilities)} {chosenAsset.code}
+                        </dd>
+                      </>
+                    ) : null}
+                    <dt>
+                      {t(
+                        "Comisión prevista por pago",
+                        "Expected fee per payment",
+                      )}
+                    </dt>
+                    <dd>
+                      {data.paymentFee ? money(data.paymentFee) : "—"} XLM
+                    </dd>
+                    <dt>{t("Red", "Network")}</dt>
+                    <dd>Stellar Testnet</dd>
+                    {chosenAsset.issuer ? (
+                      <>
+                        <dt>{t("Emisor", "Issuer")}</dt>
+                        <dd className="full-address">{chosenAsset.issuer}</dd>
+                      </>
+                    ) : null}
+                  </dl>
+                  <div className="balance-actions">
+                    <button
+                      className="primary"
+                      disabled={
+                        !sendReady ||
+                        !chosenAsset.authorized ||
+                        Number(chosenAsset.available) <= 0
+                      }
+                      onClick={() => newPayment(chosenAsset)}
+                    >
+                      <ArrowUpRight size={17} />
+                      {t("Enviar", "Send")}
+                    </button>
+                    <button
+                      className="secondary"
+                      disabled={!chosenAsset.authorized}
+                      onClick={() => receive(chosenAsset)}
+                    >
+                      <ArrowDownLeft size={17} />
+                      {t("Recibir", "Receive")}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="notice">{err(new Error("ASSET_UNAVAILABLE"))}</p>
+              )}
             </div>
           ) : null}
           {modal === "configure" && v ? (
@@ -1590,6 +1747,14 @@ export default function Home() {
               className="modal-body"
               onSubmit={(e) => {
                 e.preventDefault();
+                if (!sendReady || !chosenAsset || !contact) {
+                  toast.error(err(new Error("ASSET_UNAVAILABLE")));
+                  return;
+                }
+                if (!canSpend(chosenAsset, amount)) {
+                  toast.error(err(new Error("INSUFFICIENT_FUNDS")));
+                  return;
+                }
                 if (!review) {
                   setReview(true);
                   return;
@@ -1599,8 +1764,8 @@ export default function Home() {
                     vault: v?.id,
                     contact: contactId,
                     amount,
-                    code,
-                    issuer,
+                    code: chosenAsset.code,
+                    issuer: chosenAsset.issuer,
                     note,
                   });
                   setModal("");
@@ -1656,6 +1821,7 @@ export default function Home() {
                   </Select>
                   {contact ? (
                     <p className="destination-hint">
+                      {t("Añadido por", "Added by")} {contact.creatorName} ·{" "}
                       {SHORT(contact.address)} ·{" "}
                       {contact.paidCount
                         ? t("Ya recibió pagos", "Paid before")
@@ -1681,24 +1847,61 @@ export default function Home() {
                     </label>
                     <div>
                       <label>{t("Moneda", "Asset")}</label>
-                      <Select value={asset} onValueChange={setAsset}>
-                        <SelectTrigger className="junto-select">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {data.balances.map((b) => (
-                            <SelectItem
-                              key={b.code + b.issuer}
-                              value={`${b.code}|${b.issuer}`}
-                            >
-                              {b.code}
-                              {b.issuer ? " · " + SHORT(b.issuer) : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {assetLocked ? (
+                        <div
+                          className="locked-asset"
+                          aria-label={t("Moneda del pago", "Payment currency")}
+                        >
+                          <LockKeyhole size={17} />
+                          <strong>{code}</strong>
+                        </div>
+                      ) : (
+                        <Select value={asset} onValueChange={setAsset}>
+                          <SelectTrigger
+                            className="junto-select"
+                            aria-label={t("Elegir moneda", "Choose currency")}
+                          >
+                            <SelectValue
+                              placeholder={t(
+                                "Elige una moneda",
+                                "Choose a currency",
+                              )}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {data.balances.map((b) => (
+                              <SelectItem
+                                key={b.code + b.issuer}
+                                value={`${b.code}|${b.issuer}`}
+                              >
+                                {b.code}
+                                {b.issuer ? " · " + SHORT(b.issuer) : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                   </div>
+                  {chosenAsset ? (
+                    <div className="destination-hint">
+                      <p>
+                        {t("Disponible", "Available")}:{" "}
+                        {money(chosenAsset.available)} {chosenAsset.code} ·
+                        Stellar Testnet
+                      </p>
+                      {chosenAsset.issuer ? (
+                        <details>
+                          <summary>{t("Ver emisor", "View issuer")}</summary>
+                          <p className="full-address">{chosenAsset.issuer}</p>
+                        </details>
+                      ) : null}
+                    </div>
+                  ) : asset ? (
+                    <p className="notice" role="alert">
+                      {err(new Error("ASSET_UNAVAILABLE"))}
+                    </p>
+                  ) : null}
                   <label>
                     {t("¿Para qué es?", "What’s it for?")}
                     <input
@@ -1715,7 +1918,10 @@ export default function Home() {
                   <button
                     className="primary wide"
                     disabled={
-                      !contactId || !amount || !note || Number(amount) <= 0
+                      !sendReady ||
+                      !contactId ||
+                      !note ||
+                      !canSpend(chosenAsset, amount)
                     }
                   >
                     {t("Revisar pago", "Review payment")}
@@ -1730,6 +1936,8 @@ export default function Home() {
                   <dl className="details">
                     <dt>{t("Para", "To")}</dt>
                     <dd>{contact?.name}</dd>
+                    <dt>{t("Red", "Network")}</dt>
+                    <dd>Stellar Testnet</dd>
                     <dt>{t("Dirección", "Address")}</dt>
                     <dd className="full-address">{contact?.address}</dd>
                     {issuer ? (
@@ -1747,15 +1955,22 @@ export default function Home() {
                       {v?.threshold} / {v?.size}
                     </dd>
                     <dt>{t("Comisión prevista", "Expected fee")}</dt>
-                    <dd>0.00001 XLM</dd>
+                    <dd>
+                      {data.paymentFee ? money(data.paymentFee) : "—"} XLM
+                    </dd>
                   </dl>
                   <div className="notice">
                     {t(
-                      "El destinatario y el importe quedarán fijos al pedir las firmas.",
-                      "The recipient and amount are fixed once signatures are requested.",
+                      "La moneda, el emisor, el destinatario y el importe quedarán fijos al pedir las firmas.",
+                      "The currency, issuer, recipient and amount are fixed once signatures are requested.",
                     )}
                   </div>
-                  <button className="primary wide" disabled={busy}>
+                  <button
+                    className="primary wide"
+                    disabled={
+                      busy || !sendReady || !canSpend(chosenAsset, amount)
+                    }
+                  >
                     {t("Pedir aprobaciones", "Request approvals")}
                     {busy ? (
                       <Loader2 className="spin" size={18} />
@@ -1804,7 +2019,7 @@ export default function Home() {
                 <dt>{t("Preparado por", "Prepared by")}</dt>
                 <dd>{payment.proposerName}</dd>
                 <dt>{t("Comisión prevista", "Expected fee")}</dt>
-                <dd>0.00001 XLM</dd>
+                <dd>{payment.fee ? money(payment.fee) : "—"} XLM</dd>
               </dl>
               <h3 className="mini-heading">
                 {t("Aprobaciones del equipo", "Team approvals")}
@@ -1887,9 +2102,29 @@ export default function Home() {
                 <ArrowDownLeft size={36} />
               </div>
               <h3>{v.name}</h3>
+              {chosenAsset ? (
+                <div className="receive-asset">
+                  <AssetMark asset={chosenAsset} />
+                  <strong>{chosenAsset.code} · Stellar Testnet</strong>
+                  {chosenAsset.issuer ? (
+                    <details>
+                      <summary>{t("Ver emisor", "View issuer")}</summary>
+                      <p className="full-address">{chosenAsset.issuer}</p>
+                    </details>
+                  ) : null}
+                </div>
+              ) : (
+                <p>
+                  {data.balances
+                    .filter((balance) => balance.authorized)
+                    .map((balance) => balance.code)
+                    .join(" · ")}
+                </p>
+              )}
               <div className="address-block">{v.address}</div>
               <button
                 className="primary wide"
+                disabled={!!asset && (!chosenAsset || !chosenAsset.authorized)}
                 onClick={() => void copy(v.address || "")}
               >
                 <Copy size={17} />

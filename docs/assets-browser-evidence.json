@@ -1,0 +1,19 @@
+{
+  "date": "2026-09-28T22:12:56.284187+00:00",
+  "network": "Stellar Testnet",
+  "vaultId": "2b69dd61-e305-4136-b753-32e711e2e782",
+  "vaultAddress": "GBUIKZDHDQK44ZFLTORC5EPXO5YNFLEEMRBNTEET4LKTTC72LXSPJQDL",
+  "asset": {
+    "code": "QAUSD",
+    "issuer": "GAS5HFE3TKH7JTEF7QVXYJPWNKSL6WCGZF66B4BKMOJ3REGYAC5WNTUQ"
+  },
+  "amount": "3.25",
+  "paymentHash": "9fd569df829f735f45ee52708ec6eaeab8e880b4cf1c54fb38d5fe90768d5270",
+  "checks": [
+    "Live vault members and contacts rendered from authenticated API",
+    "Asset row opens payment with code and issuer locked",
+    "Review shows chosen asset, issuer, recipient and network",
+    "Payment created from browser and signed by two independent Testnet wallets",
+    "USDC and USDT0 catalog has no simulated balance or enable action"
+  ]
+}

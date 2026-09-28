@@ -15,11 +15,13 @@ Una wallet multifirma de Stellar para equipos. Una invitación abre la misma bó
 - Datos persistentes en D1, verificación de membresía en servidor y textos ES/EN.
 - Interfaz adaptable a móvil: Resumen, Pagos, Contactos y Equipo y ajustes.
 
-## Vista interactiva de monedas
+## Monedas de la bóveda
 
-Abrir `/preview/monedas`, sin iniciar sesión. El resumen de una bóveda también incluye el enlace «Ver diseño con USDC y USDT0».
+El resumen incorpora las monedas reales de la cuenta: saldo, disponible, reserva de XLM, detalle de emisor y acciones para enviar y recibir. El enlace antiguo `/preview/monedas` abre esta misma interfaz autenticada. No hay equipos, contactos, balances ni aprobaciones simulados.
 
-La vista muestra saldos por moneda, disponible, reservas de XLM, solicitudes pendientes, catálogo, detalles del emisor, envío y recepción. Permite añadir EURC y simular las aprobaciones de pagos o habilitaciones. Los valores son ejemplos y las cotizaciones son ilustrativas. El QR y la dirección de recepción son marcadores visuales, no destinos de depósito. Todas las interacciones viven en memoria, se restablecen al recargar y no acceden a wallets, APIs de pagos ni a la red Stellar.
+Un envío iniciado desde una moneda conserva su código y emisor: el formulario los bloquea y la operación firmada debe coincidir exactamente. El envío general exige elegir la moneda. Si un activo desaparece o no se pueden verificar sus fondos, se bloquea la acción sin sustituirlo por XLM. El servidor verifica saldo disponible y reservas con importes exactos; la interfaz usa la misma respuesta.
+
+USDC y USDT0 están en un catálogo informativo para mainnet, sin saldos ni acciones de habilitación ficticias. El catálogo no convierte un activo de Testnet con el mismo nombre en una moneda oficial. Las habilitaciones de tokens todavía no tienen interfaz.
 
 ## Ejecutar localmente
 
@@ -52,7 +54,7 @@ npm run test:auth
 
 La prueba de integración requiere el servidor en el puerto 8789. Genera cuentas nuevas y transacciones de testnet; no usa fondos ni wallets de personas. Conserva solo direcciones públicas y recibos en `docs/testnet-evidence.json`.
 
-Prueba ejecutada: **64 comprobaciones de integración y 34 de autenticación aprobadas**, incluida la negativa de Stellar a aceptar una sola firma y la confirmación al alcanzar el umbral. Se verificaron identidad, acceso ajeno, contenido alterado, duplicación de firmas y de envíos, y actualización del historial del contacto. Además se completó el recorrido desde el navegador y se revisaron las vistas en ES/EN y móvil.
+Prueba ejecutada: **90 comprobaciones de integración y 34 de autenticación aprobadas**, incluida la negativa de Stellar a aceptar una sola firma y la confirmación al alcanzar el umbral. Se verificaron identidad, acceso ajeno, contenido alterado, duplicación de firmas y de envíos, y actualización del historial del contacto. Además se completó el recorrido desde el navegador y se revisaron las vistas en ES/EN y móvil.
 
 ## Cómo está organizado
 
@@ -70,7 +72,7 @@ El servidor requiere `STELLAR_AUTH_SIGNING_SEED` como secreto y `STELLAR_AUTH_OR
 
 ## Límites de esta versión
 
-- El recorrido validado usa **XLM**. El código contempla pagos de activos emitidos ya habilitados en la cuenta, pero aún no incluye un flujo para habilitar USDC/USDT0, obtenerlos ni elegir su emisor. Su manejo está definido en `PLAN.md`; no se requiere hacerlos funcionar en Testnet para el hackathon. La integración y las pruebas con esos tokens quedan para una etapa posterior en mainnet.
+- El recorrido validado usa **XLM** y un activo de QA emitido en Testnet, con dos emisores del mismo código para comprobar que no se confunden. El código contempla pagos de activos emitidos ya habilitados en la cuenta, pero aún no incluye un flujo para habilitar USDC/USDT0, obtenerlos ni elegir su emisor. Su manejo está definido en `PLAN.md`; no se requiere hacerlos funcionar en Testnet para el hackathon. La integración y las pruebas con esos tokens quedan para una etapa posterior en mainnet.
 - Solo hay un pago pendiente a la vez por bóveda. Una firma vence a las 24 horas. Todavía no hay cancelación anticipada, lotes ni gestión de secuencias avanzada.
 - No hay acceso por correo ni passkeys. SEP-10 es un estándar de Stellar, no un servicio de identidad alojado por Stellar. Freighter requiere extensión.
 - No permite cambiar firmantes ni umbrales después de activar. Tampoco hay recuperación de claves, firma con hardware validada o acceso con passkeys.

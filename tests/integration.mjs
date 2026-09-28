@@ -7,6 +7,7 @@ import {
   Operation,
   Networks,
   WebAuth,
+  Asset,
 } from "@stellar/stellar-sdk";
 const base = "http://localhost:8789",
   horizon = "https://horizon-testnet.stellar.org";
@@ -304,6 +305,176 @@ assert.equal(
   "10012.3456789",
 );
 checks++;
+// Exercise real issued assets on Testnet, including two identical tickers with
+// different issuers. No wallet state, balances or approvals are simulated.
+console.log("Checking issued-asset identity and balances on Stellar Testnet");
+const issuers = [Keypair.random(), Keypair.random()];
+await Promise.all(issuers.map(fund));
+const issued = issuers.map((key) => new Asset("QAUSD", key.publicKey()));
+async function chainTransaction(source, operations, signers) {
+  const account = await (await fetch(horizon + "/accounts/" + source)).json();
+  let builder = new TransactionBuilder(new Account(source, account.sequence), {
+    fee: "100",
+    networkPassphrase: Networks.TESTNET,
+  });
+  for (const operation of operations) builder = builder.addOperation(operation);
+  const tx = builder.setTimeout(180).build();
+  tx.sign(...signers);
+  const response = await fetch(horizon + "/transactions", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ tx: tx.toXDR() }),
+  });
+  const result = await response.json();
+  assert.equal(result.successful, true, JSON.stringify(result));
+  checks++;
+  return result;
+}
+await chainTransaction(
+  vaultKey.publicKey(),
+  issued.map((asset) => Operation.changeTrust({ asset })),
+  [a.key, c.key],
+);
+await chainTransaction(
+  recipient.publicKey(),
+  issued.map((asset) => Operation.changeTrust({ asset })),
+  [recipient],
+);
+for (const [index, asset] of issued.entries()) {
+  await chainTransaction(
+    issuers[index].publicKey(),
+    [
+      Operation.payment({
+        destination: vaultKey.publicKey(),
+        asset,
+        amount: "100",
+      }),
+    ],
+    [issuers[index]],
+  );
+}
+current = (await state(a, id)).data;
+assert.equal(
+  current.balances.filter((balance) => balance.code === "QAUSD").length,
+  2,
+);
+assert.equal(
+  current.balances.find((balance) => balance.issuer === issued[1].getIssuer())
+    .available,
+  "100.0000000",
+);
+assert.equal(current.chainError, undefined);
+checks += 3;
+const ledger = (
+  await (await fetch(horizon + "/ledgers?order=desc&limit=1")).json()
+)._embedded.records[0];
+const actualAccount = await (
+  await fetch(horizon + "/accounts/" + vaultKey.publicKey())
+).json();
+assert.equal(
+  Number(current.balances.find((balance) => !balance.issuer).reserve),
+  ((2 +
+    actualAccount.subentry_count +
+    actualAccount.num_sponsoring -
+    actualAccount.num_sponsored) *
+    ledger.base_reserve_in_stroops) /
+    10000000,
+);
+checks++;
+const body = {
+  vault: id,
+  contact: current.contacts[0].id,
+  amount: "7.1234567",
+  code: "QAUSD",
+  issuer: issued[1].getIssuer(),
+  note: "Real asset identity regression",
+};
+await rejected(a, "payment", { ...body, issuer: "" }, "INVALID_INPUT");
+await rejected(
+  a,
+  "payment",
+  { ...body, issuer: outsider.key.publicKey() },
+  "ASSET_UNAVAILABLE",
+);
+await rejected(
+  a,
+  "payment",
+  { ...body, amount: "100.0000001" },
+  "INSUFFICIENT_FUNDS",
+);
+await rejected(
+  a,
+  "payment",
+  {
+    ...body,
+    code: "XLM",
+    issuer: "",
+    amount: current.balances.find((balance) => !balance.issuer).balance,
+  },
+  "INSUFFICIENT_FUNDS",
+);
+await ok(b, "payment", body);
+current = (await state(a, id)).data;
+const tokenPayment = current.payments.find(
+  (payment) => payment.status === "pending",
+);
+assert.equal(tokenPayment.code, body.code);
+assert.equal(tokenPayment.issuer, body.issuer);
+const tokenTx = TransactionBuilder.fromXDR(tokenPayment.xdr, Networks.TESTNET);
+assert.equal(tokenTx.operations[0].asset.getIssuer(), body.issuer);
+assert.equal(tokenTx.operations[0].asset.getCode(), body.code);
+assert.equal(
+  current.balances.find((balance) => balance.issuer === body.issuer).available,
+  "92.8765433",
+);
+assert.equal(
+  current.balances.find((balance) => balance.issuer === issued[0].getIssuer())
+    .available,
+  "100.0000000",
+);
+checks += 6;
+const nativeBefore = current.balances.find(
+  (balance) => !balance.issuer,
+).balance;
+await ok(a, "approve", {
+  vault: id,
+  payment: tokenPayment.id,
+  signed: sign(tokenPayment.xdr, a.key),
+});
+await ok(c, "approve", {
+  vault: id,
+  payment: tokenPayment.id,
+  signed: sign(tokenPayment.xdr, c.key),
+});
+current = (await state(a, id)).data;
+assert.equal(
+  current.payments.find((payment) => payment.id === tokenPayment.id).status,
+  "paid",
+);
+assert.equal(
+  current.balances.find((balance) => balance.issuer === body.issuer).balance,
+  "92.8765433",
+);
+assert.equal(
+  current.balances.find((balance) => balance.issuer === issued[0].getIssuer())
+    .balance,
+  "100.0000000",
+);
+const toUnits = (value) => BigInt(value.replace(".", ""));
+assert.equal(
+  toUnits(nativeBefore) -
+    toUnits(current.balances.find((balance) => !balance.issuer).balance),
+  BigInt(tokenTx.fee),
+);
+const received = await (
+  await fetch(horizon + "/accounts/" + recipient.publicKey())
+).json();
+assert.equal(
+  received.balances.find((balance) => balance.asset_issuer === body.issuer)
+    .balance,
+  "7.1234567",
+);
+checks += 5;
 const evidence = {
   date: new Date().toISOString(),
   checks,
@@ -312,6 +483,8 @@ const evidence = {
   paymentHash: p.hash,
   receipt: `https://stellar.expert/explorer/testnet/tx/${p.hash}`,
   network: "Stellar Testnet",
+  tokenPaymentHash: tokenPayment.hash,
+  tokenIssuer: body.issuer,
   tests: [
     "login proof and replay",
     "shared invitations and capacity",
@@ -326,6 +499,11 @@ const evidence = {
     "threshold payment confirmed",
     "contact history after confirmation",
     "double submission idempotent",
+    "real issued-asset payment preserves code and issuer",
+    "identical tickers with different issuers stay separate",
+    "no XLM fallback for missing or invalid assets",
+    "native balance changes only by fee for issued-asset payment",
+    "live reserve and insufficient available-balance validation",
   ],
 };
 await writeFile(

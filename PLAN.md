@@ -56,7 +56,7 @@ La primera implementación utiliza exclusivamente Stellar Testnet. Los fondos de
 
 USDC y USDT0 quedan contemplados como monedas de uso diario de la bóveda. Para el hackathon basta con dejar definido su manejo; no se exige que funcionen en Testnet ni crear tokens de prueba. La demostración funcional continúa con XLM. Las pruebas con los tokens se harán en una etapa posterior en mainnet.
 
-El recorrido ya tiene una vista interactiva en `/preview/monedas`, con datos de ejemplo y sin operaciones en la red. La integración real todavía está pendiente:
+El resumen de la bóveda ya muestra monedas, equipo, contactos y pagos reales. `/preview/monedas` abre la misma interfaz autenticada; se eliminó la simulación. Los envíos desde un activo fijan su código y emisor. Las siguientes capacidades definen el alcance completo; la habilitación de stablecoins y su validación en mainnet siguen pendientes:
 
 - Gestionar las monedas dentro de la bóveda, con un catálogo inicial de XLM, USDC y USDT0. Las monedas habilitadas y sus saldos serán compartidos por todo el equipo.
 - Identificar cada activo por red, código y emisor verificado. Mostrar nombres reconocibles y dejar los identificadores completos en los detalles.
@@ -112,6 +112,6 @@ https://developers.stellar.org/docs/build/guides/freighter
 
 ## Estado de ejecución · 28 de septiembre de 2026
 
-Los pasos 1 a 6 están implementados. El MVP ya realiza pagos reales de Stellar Testnet con firmas independientes; no es una simulación de aprobaciones. Pasaron 64 comprobaciones de integración y 34 de autenticación; un pago completo de 65 XLM se confirmó después del recorrido en navegador. La evidencia está en `docs/testnet-evidence.json`, `docs/auth-evidence.json` y `docs/browser-evidence.json`.
+Los pasos 1 a 6 están implementados. El MVP ya realiza pagos reales de Stellar Testnet con firmas independientes; no es una simulación de aprobaciones. Pasaron 90 comprobaciones de integración y 34 de autenticación; un pago completo de 65 XLM se confirmó después del recorrido en navegador. La evidencia está en `docs/testnet-evidence.json`, `docs/auth-evidence.json` y `docs/browser-evidence.json`.
 
 La siguiente iteración prioriza una prueba con personas nuevas y probar Freighter de extremo a extremo. El manejo de stablecoins queda definido; su integración y pruebas se reservan para una etapa posterior en mainnet. Después: acceso duradero más sencillo, recuperación y validación por modelo de hardware. El alcance probado, las instrucciones y las limitaciones están en `README.md`.

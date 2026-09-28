@@ -1,4 +1,8 @@
 export const errors: Record<string, [string, string]> = {
+  ASSET_UNAVAILABLE: [
+    "Esta moneda ya no está disponible en la bóveda. Actualiza los saldos y vuelve a preparar el pago.",
+    "This currency is no longer available in the vault. Refresh balances and prepare the payment again.",
+  ],
   TEST_WALLET_GONE: [
     "La clave de esta wallet temporal se perdió al recargar. Desconecta para empezar otra prueba con una nueva wallet.",
     "This temporary wallet’s key was lost when the page reloaded. Disconnect to start a new test with a new wallet.",

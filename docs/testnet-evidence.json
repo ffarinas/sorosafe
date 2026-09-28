@@ -1,11 +1,13 @@
 {
-  "date": "2026-09-28T20:41:58.489Z",
-  "checks": 64,
-  "vaultId": "b45641e5-14bd-4a2b-aa8e-9e90096abf82",
-  "vaultAddress": "GAHZCBWZVXJQNHX3INKDSJKY7EDMZ632CQ4IIADEWR62DXJQCNWM4YGI",
-  "paymentHash": "b0d95376ad22649e7d0641f9848eeaf8e11fe0004ac5bf1c305e40812dd8ebeb",
-  "receipt": "https://stellar.expert/explorer/testnet/tx/b0d95376ad22649e7d0641f9848eeaf8e11fe0004ac5bf1c305e40812dd8ebeb",
+  "date": "2026-09-28T22:09:38.711Z",
+  "checks": 90,
+  "vaultId": "e57b76ba-0bb9-4548-b802-d5e6b4045546",
+  "vaultAddress": "GBRNUCTQURKHXUXHDW4RIVKTMXRQ6UONM5BU2N55PU3TKOHEKHKOFS7L",
+  "paymentHash": "817a2972f32b699cd3e87ae656f5b280f6ebe52238c39588a57b788180614461",
+  "receipt": "https://stellar.expert/explorer/testnet/tx/817a2972f32b699cd3e87ae656f5b280f6ebe52238c39588a57b788180614461",
   "network": "Stellar Testnet",
+  "tokenPaymentHash": "670a82b27940f001e886e5a680c68c088769a653ee6a35556b8947ee7826c0a6",
+  "tokenIssuer": "GCKILKHFBAFKSD6ABMKSQNSO5JZZZMEEQK74VUFZHEAVBXP7OWO3DU7S",
   "tests": [
     "login proof and replay",
     "shared invitations and capacity",
@@ -19,6 +21,11 @@
     "pending payment serialization",
     "threshold payment confirmed",
     "contact history after confirmation",
-    "double submission idempotent"
+    "double submission idempotent",
+    "real issued-asset payment preserves code and issuer",
+    "identical tickers with different issuers stay separate",
+    "no XLM fallback for missing or invalid assets",
+    "native balance changes only by fee for issued-asset payment",
+    "live reserve and insufficient available-balance validation"
   ]
 }
