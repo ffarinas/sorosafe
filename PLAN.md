@@ -52,6 +52,21 @@ La primera implementación utiliza exclusivamente Stellar Testnet. Los fondos de
 - XLM y activos emitidos presentes en la cuenta. No usar un ticker como garantía del emisor; cada activo conserva código + emisor.
 - Soroban/Passkey Kit: no son necesarios para el primer recorrido de multifirma nativa. Se estudiarían al incorporar cuentas inteligentes, passkeys o un protocolo de rendimiento.
 
+## Monedas: alcance definido, validación posterior en mainnet
+
+USDC y USDT0 quedan contemplados como monedas de uso diario de la bóveda. Para el hackathon basta con dejar definido su manejo; no se exige que funcionen en Testnet ni crear tokens de prueba. La demostración funcional continúa con XLM. Las pruebas con los tokens se harán en una etapa posterior en mainnet.
+
+El recorrido ya tiene una vista interactiva en `/preview/monedas`, con datos de ejemplo y sin operaciones en la red. La integración real todavía está pendiente:
+
+- Gestionar las monedas dentro de la bóveda, con un catálogo inicial de XLM, USDC y USDT0. Las monedas habilitadas y sus saldos serán compartidos por todo el equipo.
+- Identificar cada activo por red, código y emisor verificado. Mostrar nombres reconocibles y dejar los identificadores completos en los detalles.
+- Habilitar una moneda mediante una solicitud que cumpla la regla de aprobaciones de la bóveda. Explicar cualquier reserva y comisión antes de firmar.
+- Mostrar saldos por moneda y distinguir XLM disponible de XLM reservado para la cuenta. Un total convertido a dólares, si se incorpora, será una estimación con cotizaciones.
+- Al recibir, elegir la moneda y mostrar claramente Stellar como red; comprobar que la bóveda puede recibir ese activo.
+- Al pagar, elegir contacto, moneda e importe; comprobar la disponibilidad de saldo y que el destinatario pueda recibirlo antes de solicitar firmas.
+
+La integración posterior se validará en mainnet con los emisores oficiales: habilitación, recepción, saldos y pago multifirma. El prototipo actual permanece en Testnet y no presenta esos recorridos como ya disponibles o probados.
+
 ## Colaboración y seguridad
 
 - Base compartida persistente para membresía, contactos y transacciones pendientes. El almacenamiento local no decide permisos ni representa el saldo.
@@ -88,6 +103,7 @@ El ejemplo «Pedro quiere colocar 1.000 USDT» debe convertirse en una propuesta
 - Recargar no pierde contactos ni propuestas.
 - Un usuario de otra bóveda no puede leerlos ni modificarlos.
 - Todo el recorrido funciona en ES/EN y en pantalla estrecha.
+- El manejo previsto de USDC y USDT0 queda documentado. Su funcionamiento en Testnet no es un criterio de aceptación del hackathon.
 
 ## Fuentes técnicas
 
@@ -96,6 +112,6 @@ https://developers.stellar.org/docs/build/guides/freighter
 
 ## Estado de ejecución · 28 de septiembre de 2026
 
-Los pasos 1 a 6 están implementados. El MVP ya realiza pagos reales de Stellar Testnet con firmas independientes; no es una simulación de aprobaciones. Pasaron 49 comprobaciones de integración y un pago completo de 65 XLM se confirmó después del recorrido en navegador. La evidencia está en `docs/testnet-evidence.json` y `docs/browser-evidence.json`.
+Los pasos 1 a 6 están implementados. El MVP ya realiza pagos reales de Stellar Testnet con firmas independientes; no es una simulación de aprobaciones. Pasaron 64 comprobaciones de integración y 34 de autenticación; un pago completo de 65 XLM se confirmó después del recorrido en navegador. La evidencia está en `docs/testnet-evidence.json`, `docs/auth-evidence.json` y `docs/browser-evidence.json`.
 
-La siguiente iteración prioriza una prueba con personas nuevas, completar el uso de una stablecoin y probar Freighter de extremo a extremo. Después: acceso duradero más sencillo, recuperación y validación por modelo de hardware. El alcance probado, las instrucciones y las limitaciones están en `README.md`.
+La siguiente iteración prioriza una prueba con personas nuevas y probar Freighter de extremo a extremo. El manejo de stablecoins queda definido; su integración y pruebas se reservan para una etapa posterior en mainnet. Después: acceso duradero más sencillo, recuperación y validación por modelo de hardware. El alcance probado, las instrucciones y las limitaciones están en `README.md`.

@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -761,6 +762,10 @@ export default function Home() {
                       {t("Recibir", "Receive")}
                     </button>
                   </div>
+                  <Link className="token-preview-link" href="/preview/monedas">
+                    {t("Ver diseño con USDC y USDT0", "Preview USDC and USDT0")}
+                    <ArrowUpRight size={15} />
+                  </Link>
                   {data.balances.slice(1).map((b) => (
                     <p className="other-balance" key={b.code + b.issuer}>
                       {b.code}

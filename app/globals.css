@@ -1688,3 +1688,17 @@ button.brand {
     max-width: 225px;
   }
 }
+
+.token-preview-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  color: #ccc;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.token-preview-link:hover {
+  color: #fff;
+}
