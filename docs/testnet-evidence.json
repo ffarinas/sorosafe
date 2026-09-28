@@ -1,0 +1,24 @@
+{
+  "date": "2026-09-28T18:53:13.433Z",
+  "checks": 49,
+  "vaultId": "e3b404da-9cbb-4ad9-9988-0995fafb1e7b",
+  "vaultAddress": "GAPWGGRBZJH3C44H7LCON6YWCIZXTTB7YSEQP4MBAMG3DFFMFMEXL6XZ",
+  "paymentHash": "293626e8a08d4a2e5a271c75847fa44c8efc9cab5e473c62a13465c5288dc40f",
+  "receipt": "https://stellar.expert/explorer/testnet/tx/293626e8a08d4a2e5a271c75847fa44c8efc9cab5e473c62a13465c5288dc40f",
+  "network": "Stellar Testnet",
+  "tests": [
+    "login proof and replay",
+    "shared invitations and capacity",
+    "membership isolation",
+    "master key disabled",
+    "shared contact creator",
+    "immutable payment payload",
+    "invalid signature rejected",
+    "on-chain insufficient signatures rejected",
+    "duplicate signatures idempotent",
+    "pending payment serialization",
+    "threshold payment confirmed",
+    "contact history after confirmation",
+    "double submission idempotent"
+  ]
+}

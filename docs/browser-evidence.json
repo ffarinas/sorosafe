@@ -1,0 +1,22 @@
+{
+  "date": "2026-09-28",
+  "network": "Stellar Testnet",
+  "vaultId": "cc5bb957-60fa-4111-8c8d-558d8521bfe0",
+  "paymentHash": "b660f40bd8434ff16924b8b0ae0f96a257f45e2e006a7620566ebae916708bca",
+  "receipt": "https://stellar.expert/explorer/testnet/tx/b660f40bd8434ff16924b8b0ae0f96a257f45e2e006a7620566ebae916708bca",
+  "amount": "65",
+  "asset": "XLM",
+  "checks": [
+    "Create a named vault through the interface",
+    "Two independent companion wallets join through the shared invitation API",
+    "Review all three participants and activate native 2-of-3 vault in the interface",
+    "Create shared contact with creator attribution and memo",
+    "Prepare, review and request signatures for a 65 XLM payment in the interface",
+    "First signature through UI; second independent signature through companion API",
+    "Confirmed on Stellar, receipt link visible, contact shows one payment received",
+    "English and Spanish views",
+    "390px mobile layout with no horizontal overflow on overview, payments and contacts",
+    "WebMCP registers read-only summary and view navigation tools"
+  ],
+  "notTested": ["Freighter extension UI", "Hardware wallets", "Mainnet", "Stablecoin transfers"]
+}
