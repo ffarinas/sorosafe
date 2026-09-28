@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-09-28T23:16:10.435Z",
+  "checks": 11,
+  "network": "Stellar Mainnet",
+  "tests": [
+    "Testnet session rejected after switch",
+    "Fresh SEP-10 challenge and login bound to PUBLIC network",
+    "Testnet vault hidden from mainnet list and rejected by direct ID",
+    "Official USDC and USDT0 issuers exist on mainnet",
+    "Official logos served successfully"
+  ],
+  "assets": [
+    {
+      "code": "USDC",
+      "issuer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "logo": "/assets/usdc.svg"
+    },
+    {
+      "code": "USDT0",
+      "issuer": "GATISXX6BZ6NC7IKQBY37CJD4SOZL3CYZJWXEDG6JVIY4WBS6KXJHN6Q",
+      "logo": "/assets/usdt0.svg"
+    }
+  ],
+  "fundsMoved": false
+}

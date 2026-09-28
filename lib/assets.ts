@@ -1,4 +1,11 @@
 import type { Balance, Payment } from "./domain";
+import type { NetworkId } from "./network";
+export type CatalogAsset = AssetIdentity & {
+  issuerName: string;
+  source: string;
+  logo: string;
+};
+export const TRUST_LIMIT = "922337203685.4775807";
 
 export type AssetIdentity = { code: string; issuer: string };
 export const assetKey = (asset: AssetIdentity) =>
@@ -37,17 +44,33 @@ export function pendingAmount(asset: AssetIdentity, payments: Payment[]) {
 }
 
 // Product catalog, not account balances. Never match a token by ticker alone.
-export const mainnetCatalog = [
+export const mainnetCatalog: CatalogAsset[] = [
   {
     code: "USDC",
     issuer: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
     issuerName: "Circle",
+    logo: "/assets/usdc.svg",
     source: "https://developers.circle.com/stablecoins/usdc-contract-addresses",
   },
   {
     code: "USDT0",
     issuer: "GATISXX6BZ6NC7IKQBY37CJD4SOZL3CYZJWXEDG6JVIY4WBS6KXJHN6Q",
     issuerName: "USDT0",
+    logo: "/assets/usdt0.svg",
     source: "https://developers.stellar.org/launch/usdt0",
   },
 ] as const;
+
+export function assetCatalog(network: NetworkId): CatalogAsset[] {
+  return network === "mainnet"
+    ? mainnetCatalog
+    : [
+        {
+          ...mainnetCatalog[0],
+          issuer: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+        },
+      ];
+}
+export function officialAsset(asset: AssetIdentity, network: NetworkId) {
+  return assetCatalog(network).find((entry) => sameAsset(entry, asset));
+}

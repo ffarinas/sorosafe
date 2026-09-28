@@ -1,89 +1,81 @@
 # Junto
 
-Una wallet multifirma de Stellar para equipos. Una invitación abre la misma bóveda, los contactos son compartidos y cada pago explica quién cobra, cuánto y por qué.
+Wallet multifirma de Stellar para equipos. Una invitación abre la misma bóveda, los contactos son compartidos y cada pago explica quién cobra, cuánto y por qué.
 
-**MVP funcional, exclusivamente en Stellar Testnet.** El nombre es provisional. No es una wallet auditada para dinero real.
+**Mainnet es la red predeterminada.** La implementación usa multifirma nativa; no despliega un contrato Soroban. El recorrido con fondos de mainnet y la extensión Freighter del usuario aún requiere verificación. No se ha realizado una auditoría independiente.
 
 ## Lo que funciona
 
-- Crear una bóveda solo pide su nombre y el de la persona. Equipo y ajustes permite definir 2 a 20 integrantes y las aprobaciones antes de invitar o activar.
-- Invitación a la bóveda existente, sin crear otro workspace.
-- Acceso con Freighter mediante Stellar Web Authentication (SEP-10), con wallet temporal para pruebas. El ingreso no autoriza pagos.
-- Activación de una cuenta multifirma nativa. Stellar impone el umbral y la clave maestra pierde su autoridad.
+- Crear una bóveda pide nombre e identidad. En Equipo y ajustes se definen 2–20 integrantes y el umbral de aprobaciones, antes de invitar.
+- Acceso con Freighter mediante Stellar Web Authentication (SEP-10). Entrar no autoriza movimientos de fondos.
+- Una sola transacción crea la cuenta, aporta su reserva, configura firmantes y desactiva la clave maestra. El creador revisa el aporte y la comisión antes de firmar desde su wallet.
+- El aporte se calcula con las reservas y comisiones actuales de Stellar, incluye espacio para el equipo y las monedas del catálogo, y permanece en la bóveda.
 - Libreta compartida con autor, dirección, memo e historial de pagos confirmados desde Junto.
-- Preparación, revisión, firmas independientes, envío y recibo de pagos reales de testnet.
-- Datos persistentes en D1, verificación de membresía en servidor y textos ES/EN.
-- Interfaz adaptable a móvil: Resumen, Pagos, Contactos y Equipo y ajustes.
+- Pagos con firmas independientes, comprobación del contenido, envío al alcanzar el umbral y recibo en Stellar.
+- ES/EN, interfaz móvil y almacenamiento compartido en D1. Ningún saldo, contacto o integrante es simulado.
 
-## Monedas de la bóveda
+## XLM, USDC y USDT0
 
-El resumen incorpora las monedas reales de la cuenta: saldo, disponible, reserva de XLM, detalle de emisor y acciones para enviar y recibir. El enlace antiguo `/preview/monedas` abre esta misma interfaz autenticada. No hay equipos, contactos, balances ni aprobaciones simulados.
+La cuenta muestra los activos que realmente tiene habilitados y los saldos consultados en Horizon. USDC y USDT0 se habilitan desde el catálogo mediante una operación `changeTrust` que requiere el mismo umbral del equipo. Antes de firmar se muestran emisor, red, reserva adicional y comisión. Habilitar no compra tokens ni paga al emisor.
 
-Un envío iniciado desde una moneda conserva su código y emisor: el formulario los bloquea y la operación firmada debe coincidir exactamente. El envío general exige elegir la moneda. Si un activo desaparece o no se pueden verificar sus fondos, se bloquea la acción sin sustituirlo por XLM. El servidor verifica saldo disponible y reservas con importes exactos; la interfaz usa la misma respuesta.
+Emisores oficiales de mainnet:
 
-USDC y USDT0 están en un catálogo informativo para mainnet, sin saldos ni acciones de habilitación ficticias. El catálogo no convierte un activo de Testnet con el mismo nombre en una moneda oficial. Las habilitaciones de tokens todavía no tienen interfaz.
+- USDC / Circle: `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN`.
+- USDT0: `GATISXX6BZ6NC7IKQBY37CJD4SOZL3CYZJWXEDG6JVIY4WBS6KXJHN6Q`.
+
+Los logos originales están en `public/assets/`, con procedencia en `SOURCES.md`. Se eligen por **red, código y emisor**, no por ticker. Los activos desconocidos conservan un identificador genérico.
+
+Un envío iniciado desde una moneda fija su código y emisor. El envío general exige elegirla. Si el activo deja de estar disponible, se bloquea la acción sin sustituirlo por XLM. El servidor calcula saldos disponibles, reservas y comisiones con enteros de siete decimales. No hay total ficticio en dólares.
 
 ## Ejecutar localmente
 
-Requiere Node 22.13 o posterior y conexión a Stellar Testnet.
+Node 22.13 o posterior. En una base nueva:
 
 ```sh
 npm ci
 npm run db:local
+npm run db:local:upgrade
 node scripts/setup-local-auth.mjs
 npm run dev -- --host 127.0.0.1 --port 8789
 ```
 
-Abrir `http://localhost:8789`. Aplicar `db:local` solo en una base nueva; las migraciones no se deben repetir. La base local está en `.wrangler/state` y no se incluye en el repositorio.
+Abrir `http://localhost:8789`. En una base existente que ya tiene `0000`, ejecutar únicamente `db:local:upgrade` una vez. Las migraciones SQL manuales no se deben repetir. Sites incluye `drizzle/` en el build para migrar la base al publicar.
 
-Para probar con varias personas en este equipo, usar perfiles de navegador diferentes, abrir el mismo enlace de invitación y usar una wallet distinta por persona. El servidor local no es una URL compartible por Internet.
+Mainnet requiere Freighter en Mainnet y XLM disponibles en la wallet del creador. Una wallet distinta por integrante. Junto nunca pide semillas. No enviar fondos a una bóveda en preparación: el botón de activación financia y protege la cuenta en la misma transacción.
 
-**Freighter es la opción recomendada para conservar acceso.** Activar Testnet en la extensión. Junto nunca pide una semilla. La alternativa temporal genera una clave solo en memoria: recargar, cerrar la página o desconectarse la elimina. No usar esa alternativa para una bóveda que se quiera conservar.
+`JUNTO_NETWORK` admite `mainnet` (predeterminado) o `testnet`. Para pruebas automatizadas, añadir `JUNTO_NETWORK=testnet` en `.dev.vars` y reiniciar. Restaurar `mainnet` y reiniciar al terminar. Las bóvedas anteriores se conservan como Testnet; no se reinterpretan como cuentas de Mainnet. Las sesiones están vinculadas a la red.
 
-Una vez reunido el equipo, el creador revisa los firmantes y activa la bóveda. Friendbot aporta XLM de prueba. El destinatario de un pago debe ser una cuenta activa en Testnet.
-
-## Comprobar
+## Validación
 
 ```sh
 npm run typecheck
 npm run lint
 npm run build
-npm run test:integration
+# Servidor local configurado explícitamente en Testnet:
 npm run test:auth
+npm run test:integration
+npm run test:tokens
 ```
 
-La prueba de integración requiere el servidor en el puerto 8789. Genera cuentas nuevas y transacciones de testnet; no usa fondos ni wallets de personas. Conserva solo direcciones públicas y recibos en `docs/testnet-evidence.json`.
+Las suites comprueban la red antes de actuar. Crean wallets y transacciones reales en Testnet, sin usar fondos del usuario. Se conservan direcciones y recibos públicos, nunca claves.
 
-Prueba ejecutada: **90 comprobaciones de integración y 34 de autenticación aprobadas**, incluida la negativa de Stellar a aceptar una sola firma y la confirmación al alcanzar el umbral. Se verificaron identidad, acceso ajeno, contenido alterado, duplicación de firmas y de envíos, y actualización del historial del contacto. Además se completó el recorrido desde el navegador y se revisaron las vistas en ES/EN y móvil.
+- 34 comprobaciones de autenticación: dominio, red, firmas, caducidad, reuso y revocación.
+- 90 de integración: aislamiento, multifirma impuesta por Stellar, pagos nativos y emitidos, identidad de emisor, importes, firmas insuficientes y duplicados.
+- 38 de activación y monedas: creación atómica financiada, clave maestra desactivada, continuidad de activación, comprobación del contenido antes de firmar y habilitación real de USDC de Circle en Testnet con firmas independientes.
 
-## Cómo está organizado
+Evidencias en `docs/auth-evidence.json`, `docs/testnet-evidence.json` y `docs/token-workflows-evidence.json`. La integración con mainnet utiliza los emisores oficiales; estas pruebas no equivalen a haber ejecutado pagos de USDC o USDT0 en mainnet con Freighter.
 
-- `app/page.tsx`: interfaz y recorridos bilingües.
-- `app/api/junto/route.ts`: permisos, colaboración, configuración de borradores y coordinación de pagos.
-- `app/api/auth/route.ts` y `lib/auth.ts`: SEP-10, JWT y sesiones revocables.
-- `lib/stellar.ts`: construcción y verificación de transacciones de Stellar.
-- `lib/client-wallet.ts`: firma del lado del usuario y activación de testnet.
-- `db/schema.ts` y `drizzle/`: datos compartidos y migraciones.
-- `PLAN.md`: producto, decisiones, alcance y hackathon confirmado.
+## Arquitectura y límites
 
-React, Vinext/Vite, Cloudflare Workers/D1, Stellar SDK, Horizon, Friendbot y Freighter. La identidad se comprueba con SEP-10 mediante el SDK oficial de Stellar: desafío firmado por el servidor, validación del dominio/red en el cliente, firma individual, caducidad y uso único. Se publica `/.well-known/stellar.toml` y se emite un JWT EdDSA; el navegador usa una cookie HttpOnly y los clientes API pueden usar Bearer. Se admiten identidades individuales G; no cuentas muxed, memos ni client attribution. Las claves de las wallets nunca llegan al servidor. La clave de autenticación del servidor es independiente y no controla fondos.
+React, Vinext/Vite, Cloudflare Workers/D1, Stellar SDK, Horizon y Freighter. El servidor coordina solicitudes y firmas; Stellar impone el umbral de la cuenta. No se necesita Soroban para custodiar XLM o estos activos clásicos bajo multifirma.
 
-El servidor requiere `STELLAR_AUTH_SIGNING_SEED` como secreto y `STELLAR_AUTH_ORIGIN` como origen canónico (sin barra final). El script local crea una clave exclusivamente de desarrollo en `.dev.vars`, ignorado por Git. En Sites se configuran valores independientes como variables de ejecución; el secreto no se incluye en el build.
+SEP-10 usa un desafío firmado por el servidor, dominio/red verificados, firma individual, caducidad y uso único. El navegador utiliza una cookie HttpOnly revocable; clientes API pueden usar Bearer. `STELLAR_AUTH_SIGNING_SEED` y `STELLAR_AUTH_ORIGIN` se configuran por entorno y no se incluyen en el build. La clave de autenticación no controla fondos. La clave de arranque de una nueva bóveda existe solo en memoria al preparar la transacción; se conserva su firma, no su secreto, y pierde autoridad en la misma operación de creación.
 
-## Límites de esta versión
+- Una operación pendiente por bóveda; vence a las 24 horas. Sin cancelación anticipada, lotes ni gestión avanzada de secuencias.
+- Sin cambios de firmantes/umbral en la interfaz después de activar; sin recuperación ni compatibilidad con hardware validada.
+- Freighter integrado; correo, passkeys y otras wallets pendientes. SEP-10 es un estándar, no un servicio de registro alojado por Stellar.
+- Contactos compartidos e inmutables. Los nombres son elegidos por la persona, no identidades KYC. El historial cuenta pagos creados en Junto.
+- La activación preparada puede retomarse tras recargar, sin conservar una clave temporal del navegador.
+- Auditoría, recuperación, copias de seguridad y pruebas de dispositivos siguen pendientes.
 
-- El recorrido validado usa **XLM** y un activo de QA emitido en Testnet, con dos emisores del mismo código para comprobar que no se confunden. El código contempla pagos de activos emitidos ya habilitados en la cuenta, pero aún no incluye un flujo para habilitar USDC/USDT0, obtenerlos ni elegir su emisor. Su manejo está definido en `PLAN.md`; no se requiere hacerlos funcionar en Testnet para el hackathon. La integración y las pruebas con esos tokens quedan para una etapa posterior en mainnet.
-- Solo hay un pago pendiente a la vez por bóveda. Una firma vence a las 24 horas. Todavía no hay cancelación anticipada, lotes ni gestión de secuencias avanzada.
-- No hay acceso por correo ni passkeys. SEP-10 es un estándar de Stellar, no un servicio de identidad alojado por Stellar. Freighter requiere extensión.
-- No permite cambiar firmantes ni umbrales después de activar. Tampoco hay recuperación de claves, firma con hardware validada o acceso con passkeys.
-- Los contactos son compartidos e inmutables en esta versión. Su autor es una identidad de wallet con nombre elegido por el usuario, no una identidad verificada mediante KYC.
-- El contador del contacto incluye pagos confirmados creados en Junto; no indexa toda la actividad histórica externa de la cuenta.
-- Si se cierra la página durante la configuración, antes de confirmar la activación, puede ser necesario crear otra bóveda de prueba. No depositar fondos durante ese estado.
-- Freighter está integrado, pero falta probar el recorrido con la extensión instalada en el navegador del usuario. Las pruebas automáticas firman con claves efímeras de testnet.
-- El prototipo necesita auditoría independiente, recuperación, controles de abuso, copias de seguridad y pruebas de compatibilidad antes de considerar mainnet.
-
-El rendimiento de stablecoins se estudiará como una operación que el equipo aprueba, después de elegir un protocolo real. No se anuncia staking, rendimiento ni compatibilidad universal con hardware.
-
-## Antes de enviar al hackathon
-
-Probarlo con personas nuevas sin explicarles el recorrido; completar el ensayo con Freighter; explicar el manejo previsto de USDC y USDT0 sin exigir pruebas de stablecoins en Testnet; publicar el repositorio open source y grabar un video de máximo tres minutos. El cierre confirmado de Find Your Way es el **5 de octubre de 2026 a las 18:00 de Caracas**.
+Antes del hackathon: prueba con personas nuevas, recorrido completo con Freighter, repositorio público y video de hasta tres minutos. Find Your Way cierra el **5 de octubre de 2026 a las 18:00 de Caracas**. Contexto en `PLAN.md`.

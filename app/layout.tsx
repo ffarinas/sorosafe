@@ -6,7 +6,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Junto · Shared vaults on Stellar",
   description:
-    "Share a vault, keep contacts together, and approve payments as a team. Stellar Testnet.",
+    "Share a vault, keep contacts together, and approve payments as a team. Stellar.",
   other: {
     "codex-preview": "development",
   },

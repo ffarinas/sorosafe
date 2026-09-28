@@ -1,7 +1,15 @@
-import { StrKey } from "@stellar/stellar-sdk";
+import {
+  StrKey,
+  Keypair,
+  Operation,
+  TransactionBuilder,
+  Account,
+} from "@stellar/stellar-sdk";
 import { Buffer } from "node:buffer";
 import { all, db, digest, one, run, token } from "@/lib/store";
 import {
+  chain,
+  NETWORK,
   account,
   accountBalances,
   networkRules,
@@ -15,12 +23,31 @@ import {
   submit,
 } from "@/lib/stellar";
 import type { Contact, Payment, Person, Vault, State } from "@/lib/domain";
-import { canSpend, decimal, sameAsset, units } from "@/lib/assets";
+import {
+  canSpend,
+  decimal,
+  sameAsset,
+  units,
+  assetCatalog,
+  TRUST_LIMIT,
+} from "@/lib/assets";
 export const dynamic = "force-dynamic";
 const now = () => Math.floor(Date.now() / 1000);
 const vaultFields =
-  "v.id,v.name,v.owner,v.threshold,v.size,v.status,v.address,v.created";
+  "v.network,v.id,v.name,v.owner,v.threshold,v.size,v.status,v.address,v.created";
 type InternalVault = Vault & { setup: string | null };
+function activationDetails(encoded: string) {
+  const tx = decode(encoded);
+  const first = tx.operations[0];
+  if (first.type !== "createAccount") fail("INVALID_TRANSACTION");
+  return {
+    xdr: encoded,
+    address: first.destination,
+    funding: first.startingBalance,
+    fee: decimal(BigInt(tx.fee)),
+    expires: Number(tx.timeBounds?.maxTime),
+  };
+}
 function fail(code: string): never {
   throw new Error(code);
 }
@@ -75,7 +102,7 @@ async function user(req: Request) {
   if (!raw) return null;
   return one<Person>(
     "SELECT p.* FROM people p JOIN sessions s ON p.address=s.address WHERE s.hash=? AND s.expires>?",
-    await digest(raw),
+    await digest(`${NETWORK}:${raw}`),
     now(),
   );
 }
@@ -86,6 +113,7 @@ async function membership(id: string, address: string) {
     address,
   );
   if (!v) fail("NOT_MEMBER");
+  if (v.network !== chain.id) fail("NETWORK_MISMATCH");
   return v;
 }
 async function team(vault: string) {
@@ -194,6 +222,9 @@ function error(e: unknown) {
     "STALE_PAYMENT",
     "INSUFFICIENT_FUNDS",
     "ASSET_UNAVAILABLE",
+    "NETWORK_MISMATCH",
+    "ASSET_ENABLED",
+    "ACTIVATION_EXPIRED",
     "TRUSTLINE_REQUIRED",
     "SUBMISSION_UNCERTAIN",
     "INVITE_CLOSED",
@@ -234,13 +265,16 @@ export async function GET(req: Request) {
         status: string;
         count: number;
       }>(
-        "SELECT v.name,v.threshold,v.size,v.status,(SELECT count(*) FROM members m WHERE m.vault=v.id) as count FROM vaults v WHERE invite_hash=?",
+        "SELECT v.name,v.threshold,v.size,v.status,(SELECT count(*) FROM members m WHERE m.vault=v.id) as count FROM vaults v WHERE invite_hash=? AND network=?",
         await digest(url.searchParams.get("invite") || ""),
+        chain.id,
       );
       if (!inv) fail("INVITE_CLOSED");
       return json({ invite: inv });
     }
     const state: State = {
+      network: chain,
+      catalog: assetCatalog(chain.id),
       user: me,
       vaults: [],
       people: [],
@@ -250,8 +284,9 @@ export async function GET(req: Request) {
     };
     if (!me) return json(state);
     state.vaults = await all<Vault>(
-      `SELECT ${vaultFields} FROM vaults v JOIN members m ON v.id=m.vault WHERE m.address=? ORDER BY v.created DESC`,
+      `SELECT ${vaultFields} FROM vaults v JOIN members m ON v.id=m.vault WHERE m.address=? AND v.network=? ORDER BY v.created DESC`,
       me.address,
+      chain.id,
     );
     const id = url.searchParams.get("vault") || state.vaults[0]?.id;
     if (!id) return json(state);
@@ -279,6 +314,7 @@ export async function GET(req: Request) {
       }
     }
     state.vault = {
+      network: v.network,
       id: v.id,
       name: v.name,
       owner: v.owner,
@@ -330,6 +366,9 @@ export async function GET(req: Request) {
           networkRules(),
         ]);
         state.paymentFee = decimal(rules.fee);
+        state.baseReserve = decimal(rules.reserve);
+        for (const p of state.payments)
+          if (p.kind === "enable") p.reserve = decimal(rules.reserve);
         state.balances = accountBalances(a, rules, state.payments);
         if (
           !checkPolicy(
@@ -367,7 +406,10 @@ export async function POST(req: Request) {
           ?.match(/^Bearer ([A-Za-z0-9_.-]+)$/)?.[1] ||
         req.headers.get("cookie")?.match(/junto_session=([^;]+)/)?.[1];
       if (cookie)
-        await run("DELETE FROM sessions WHERE hash=?", await digest(cookie));
+        await run(
+          "DELETE FROM sessions WHERE hash=?",
+          await digest(`${NETWORK}:${cookie}`),
+        );
       return json({ ok: true }, 200, {
         "Set-Cookie":
           "junto_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
@@ -384,9 +426,9 @@ export async function POST(req: Request) {
       await db().batch([
         db()
           .prepare(
-            "INSERT INTO vaults(id,name,owner,threshold,size,created) VALUES(?,?,?,0,0,?)",
+            "INSERT INTO vaults(id,name,owner,threshold,size,created,network) VALUES(?,?,?,0,0,?,?)",
           )
-          .bind(id, name, me.address, now()),
+          .bind(id, name, me.address, now(), chain.id),
         db()
           .prepare("INSERT INTO members(vault,address) VALUES(?,?)")
           .bind(id, me.address),
@@ -399,7 +441,8 @@ export async function POST(req: Request) {
         "SELECT * FROM vaults WHERE invite_hash=?",
         invite,
       );
-      if (!v || v.status !== "draft") fail("INVITE_CLOSED");
+      if (!v || v.status !== "draft" || v.network !== chain.id)
+        fail("INVITE_CLOSED");
       await run(
         "INSERT OR IGNORE INTO members(vault,address) SELECT id,? FROM vaults WHERE id=? AND status='draft' AND invite_hash=? AND (SELECT count(*) FROM members WHERE vault=?)<size",
         me.address,
@@ -446,7 +489,94 @@ export async function POST(req: Request) {
       if (!saved.meta.changes) fail("CONFIGURATION_CHANGED");
       return json({ invite });
     }
+    if (action === "prepareVault") {
+      if (v.owner !== me.address) fail("NOT_OWNER");
+      if (v.status === "active") fail("ALREADY_ACTIVE");
+      if (v.size < 2 || v.threshold < 2) fail("CONFIGURATION_REQUIRED");
+      const people = await team(id);
+      if (people.length !== v.size) fail("TEAM_INCOMPLETE");
+      const rules = await networkRules();
+      if (v.setup) {
+        const details = activationDetails(v.setup);
+        const previous = await receipt(
+          Buffer.from(decode(v.setup).hash()).toString("hex"),
+        );
+        if (previous?.successful) fail("ALREADY_ACTIVE");
+        if (!previous && details.expires > now()) return json(details);
+        // Failed transactions consumed their sequence. Otherwise wait for the
+        // ledger to pass the old timeout before creating a different account.
+        if (
+          !previous &&
+          (!Number.isFinite(rules.closedAt) ||
+            rules.closedAt <= details.expires)
+        )
+          fail("ACTIVATION_EXPIRED");
+      }
+      const source = await account(me.address);
+      const key = Keypair.random();
+      const count = assetCatalog(chain.id).length;
+      const funding = decimal(
+        BigInt(2 + people.length + count) * rules.reserve +
+          BigInt(count + 1) * rules.fee,
+      );
+      const operationCount = people.length + 2;
+      const required = units(funding) + BigInt(operationCount) * rules.fee;
+      const balance = accountBalances(source, rules).find((b) => !b.issuer);
+      if (
+        !balance ||
+        units(balance.balance) -
+          units(balance.reserve) -
+          units(balance.liabilities) <
+          required
+      )
+        fail("INSUFFICIENT_FUNDS");
+      let builder = new TransactionBuilder(
+        new Account(source.id, source.sequence),
+        { fee: rules.fee.toString(), networkPassphrase: NETWORK },
+      ).addOperation(
+        Operation.createAccount({
+          destination: key.publicKey(),
+          startingBalance: funding,
+        }),
+      );
+      for (const member of people)
+        builder = builder.addOperation(
+          Operation.setOptions({
+            source: key.publicKey(),
+            signer: { ed25519PublicKey: member.address, weight: 1 },
+          }),
+        );
+      const tx = builder
+        .addOperation(
+          Operation.setOptions({
+            source: key.publicKey(),
+            masterWeight: 0,
+            lowThreshold: v.threshold,
+            medThreshold: v.threshold,
+            highThreshold: v.threshold,
+          }),
+        )
+        .setTimeout(600)
+        .build();
+      // Only the bootstrap signature is retained. The master key is disabled
+      // in the same atomic transaction; the owner's wallet must also sign.
+      tx.sign(key);
+      const encoded = tx.toXDR();
+      const saved = await run(
+        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status=? AND COALESCE(setup,'')=? AND size=? AND threshold=?",
+        key.publicKey(),
+        encoded,
+        id,
+        v.status,
+        v.setup || "",
+        v.size,
+        v.threshold,
+      );
+      if (!saved.meta.changes) fail("CONFIGURATION_CHANGED");
+      return json(activationDetails(encoded));
+    }
     if (action === "prepareActivation") {
+      if (chain.id !== "testnet") fail("INVALID_INPUT");
       if (v.owner !== me.address) fail("NOT_OWNER");
       if (v.status !== "draft") fail("ALREADY_ACTIVE");
       if (v.size < 2 || v.threshold < 2) fail("CONFIGURATION_REQUIRED");
@@ -482,10 +612,19 @@ export async function POST(req: Request) {
       if (v.status !== "activating" || !v.setup || !v.address)
         fail("INVALID_TRANSACTION");
       const signed = str(b, "signed", 40000);
-      signedBy(v.setup, signed, v.address);
       const setup = decode(v.setup);
+      let encoded = signed;
+      if (setup.operations[0].type === "createAccount") {
+        if (setup.source !== v.owner) fail("INVALID_TRANSACTION");
+        const ownerSignature = signedBy(v.setup, signed, v.owner);
+        signedBy(v.setup, v.setup, v.address);
+        encoded = combine(v.setup, [ownerSignature], 1);
+      } else {
+        if (chain.id !== "testnet") fail("INVALID_TRANSACTION");
+        signedBy(v.setup, signed, v.address);
+      }
       const found = await receipt(Buffer.from(setup.hash()).toString("hex"));
-      if (!found) await submit(signed);
+      if (!found) await submit(encoded);
       const a = await account(v.address),
         people = await team(id);
       if (
@@ -529,6 +668,69 @@ export async function POST(req: Request) {
         now(),
       );
       return json({ ok: true });
+    }
+    if (action === "enableAsset") {
+      const a = await ensurePolicy(v);
+      const existing = await one<Payment>(
+        "SELECT * FROM payments WHERE vault=? AND status in ('pending','submitting')",
+        id,
+      );
+      if (
+        existing &&
+        ["pending", "submitting"].includes(await settle(existing))
+      )
+        fail("PAYMENT_PENDING");
+      const asset = assetCatalog(chain.id).find(
+        (asset) => asset.code === b.code && asset.issuer === b.issuer,
+      );
+      if (!asset) fail("ASSET_UNAVAILABLE");
+      if (
+        a.balances.some(
+          (balance) =>
+            balance.asset_code === asset.code &&
+            balance.asset_issuer === asset.issuer,
+        )
+      )
+        fail("ASSET_ENABLED");
+      const rules = await networkRules();
+      const native = accountBalances(a, rules).find(
+        (balance) => !balance.issuer,
+      );
+      if (!native || units(native.available) < rules.reserve)
+        fail("INSUFFICIENT_FUNDS");
+      const { Asset } = await import("@stellar/stellar-sdk");
+      const expires = now() + 86400;
+      const tx = new TransactionBuilder(new Account(a.id, a.sequence), {
+        fee: rules.fee.toString(),
+        networkPassphrase: NETWORK,
+        timebounds: { minTime: 0, maxTime: expires },
+      })
+        .addOperation(
+          Operation.changeTrust({
+            asset: new Asset(asset.code, asset.issuer),
+            limit: TRUST_LIMIT,
+          }),
+        )
+        .build();
+      const paymentId = crypto.randomUUID();
+      await run(
+        "INSERT INTO payments(id,vault,contact,recipient,destination,memo,amount,code,issuer,note,proposer,xdr,hash,expires,status,created,kind) VALUES(?,?,?,?,?,?,'0',?,?,?,?,?,?,?,'pending',?,'enable')",
+        paymentId,
+        id,
+        "",
+        asset.code,
+        a.id,
+        "",
+        asset.code,
+        asset.issuer,
+        "",
+        me.address,
+        tx.toXDR(),
+        Buffer.from(tx.hash()).toString("hex"),
+        expires,
+        now(),
+      );
+      return json({ id: paymentId });
     }
     if (action === "payment") {
       const a = await ensurePolicy(v);

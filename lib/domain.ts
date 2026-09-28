@@ -1,5 +1,13 @@
 export type Person = { address: string; name: string; joined: number };
+export type Activation = {
+  xdr: string;
+  address: string;
+  funding: string;
+  fee: string;
+  expires: number;
+};
 export type Vault = {
+  network: "mainnet" | "testnet";
   id: string;
   name: string;
   owner: string;
@@ -21,6 +29,8 @@ export type Contact = {
   paidCount: number;
 };
 export type Payment = {
+  kind: "payment" | "enable";
+  reserve?: string;
   id: string;
   vault: string;
   contact: string;
@@ -52,6 +62,9 @@ export type Balance = {
   authorized: boolean;
 };
 export type State = {
+  network?: import("./network").NetworkConfig;
+  catalog?: import("./assets").CatalogAsset[];
+  baseReserve?: string;
   user: Person | null;
   vaults: Vault[];
   vault?: Vault;

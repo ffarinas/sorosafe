@@ -3,17 +3,21 @@ import {
   Asset,
   Keypair,
   Memo,
-  Networks,
   Operation,
   Transaction,
   TransactionBuilder,
   xdr,
 } from "@stellar/stellar-sdk";
 import { Buffer } from "node:buffer";
+import { env } from "cloudflare:workers";
+import { NETWORKS } from "./network";
 import { decimal, units, pendingAmount } from "./assets";
 import type { Balance, Payment } from "./domain";
-export const NETWORK = Networks.TESTNET;
-export const HORIZON = "https://horizon-testnet.stellar.org";
+if (env.JUNTO_NETWORK && !["mainnet", "testnet"].includes(env.JUNTO_NETWORK))
+  throw new Error("NETWORK_UNAVAILABLE");
+export const chain = NETWORKS[env.JUNTO_NETWORK || "mainnet"];
+export const NETWORK = chain.passphrase;
+export const HORIZON = chain.horizon;
 export type ChainAccount = {
   id: string;
   sequence: string;
@@ -45,6 +49,7 @@ export async function networkRules() {
       records: {
         base_reserve_in_stroops: number;
         base_fee_in_stroops: number;
+        closed_at: string;
       }[];
     };
   };
@@ -58,6 +63,7 @@ export async function networkRules() {
   )
     throw new Error("NETWORK_UNAVAILABLE");
   return {
+    closedAt: Math.floor(Date.parse(ledger.closed_at) / 1000),
     reserve: BigInt(ledger.base_reserve_in_stroops),
     fee: BigInt(ledger.base_fee_in_stroops),
   };
@@ -74,6 +80,13 @@ export function accountBalances(
   const pendingFees = payments
     .filter((p) => ["pending", "submitting"].includes(p.status))
     .reduce((sum, p) => sum + units(p.fee), BigInt(0));
+  const pendingReserve =
+    BigInt(
+      payments.filter(
+        (p) =>
+          p.kind === "enable" && ["pending", "submitting"].includes(p.status),
+      ).length,
+    ) * rules.reserve;
   return a.balances
     .filter(
       (b) =>
@@ -102,7 +115,9 @@ export function accountBalances(
             ? units(b.balance) -
                 liabilities -
                 allocated -
-                (native ? reserve + pendingFees + rules.fee : BigInt(0))
+                (native
+                  ? reserve + pendingReserve + pendingFees + rules.fee
+                  : BigInt(0))
             : BigInt(0),
         ),
       };

@@ -10,6 +10,11 @@ const base = "http://localhost:8789",
   domain = new URL(base).host;
 const client = Keypair.random(),
   attacker = Keypair.random();
+assert.equal(
+  (await (await fetch(base + "/api/junto")).json()).network.id,
+  "testnet",
+  "This suite only runs against Testnet.",
+);
 let checks = 0;
 const infoResponse = await fetch(base + "/.well-known/stellar.toml");
 assert.equal(infoResponse.status, 200);

@@ -30,7 +30,7 @@ Recuperado de la conversación «Locate Find Your Way hackathon» y contrastado 
 7. **Aprobar:** mostrar importe, dirección completa, activo, memo, coste y regla. Cada firma corresponde exactamente a esa transacción. Al alcanzar el umbral, se envía a Stellar.
 8. **Consultar:** saldo real, pagos pendientes y confirmados, recibo verificable, contactos y equipo.
 
-La primera implementación utiliza exclusivamente Stellar Testnet. Los fondos de prueba no son dinero real. No se importan semillas de usuarios ni se almacenan claves privadas de usuarios en el servidor.
+La aplicación utiliza Stellar Mainnet por defecto. Testnet queda como entorno explícito para pruebas automatizadas con transacciones reales. No se importan semillas de usuarios ni se almacenan claves privadas de usuarios en el servidor.
 
 ## Diseño
 
@@ -47,25 +47,20 @@ La primera implementación utiliza exclusivamente Stellar Testnet. Los fondos de
 - Multifirma nativa: firmantes y umbrales aplicados por la red, también a cambios de control.
 - Stellar SDK: creación, lectura, comprobación y combinación de firmas de transacciones.
 - Freighter: conexión y firma sin entregar claves a Junto. La capa de firma queda separada para añadir Wallets Kit y dispositivos después de probar cada combinación.
-- Horizon en testnet: estado de cuentas, activos, pagos y recibos.
-- Friendbot: fondos de prueba para activar cuentas de la demostración.
+- Horizon según la red configurada: estado de cuentas, activos, pagos y recibos.
+- Friendbot: solo en las pruebas automatizadas de Testnet. Mainnet se financia desde la wallet del creador mediante una creación atómica.
 - XLM y activos emitidos presentes en la cuenta. No usar un ticker como garantía del emisor; cada activo conserva código + emisor.
 - Soroban/Passkey Kit: no son necesarios para el primer recorrido de multifirma nativa. Se estudiarían al incorporar cuentas inteligentes, passkeys o un protocolo de rendimiento.
 
-## Monedas: alcance definido, validación posterior en mainnet
+## Monedas en Mainnet
 
-USDC y USDT0 quedan contemplados como monedas de uso diario de la bóveda. Para el hackathon basta con dejar definido su manejo; no se exige que funcionen en Testnet ni crear tokens de prueba. La demostración funcional continúa con XLM. Las pruebas con los tokens se harán en una etapa posterior en mainnet.
+XLM, USDC de Circle y USDT0. Los activos se identifican por red, código y emisor oficial. Logos originales de sus marcas, con fuentes documentadas. El catálogo permite solicitar la habilitación y el equipo la aprueba con su umbral habitual. La reserva adicional de XLM y la comisión se muestran antes de firmar.
 
-El resumen de la bóveda ya muestra monedas, equipo, contactos y pagos reales. `/preview/monedas` abre la misma interfaz autenticada; se eliminó la simulación. Los envíos desde un activo fijan su código y emisor. Las siguientes capacidades definen el alcance completo; la habilitación de stablecoins y su validación en mainnet siguen pendientes:
+El resumen muestra monedas, equipo, contactos y pagos reales. `/preview/monedas` abre la misma interfaz autenticada. Los envíos desde un activo fijan su código y emisor, sin cambiar a XLM. Solo se muestran balances consultados en Stellar; no se inventan saldos o cotizaciones.
 
-- Gestionar las monedas dentro de la bóveda, con un catálogo inicial de XLM, USDC y USDT0. Las monedas habilitadas y sus saldos serán compartidos por todo el equipo.
-- Identificar cada activo por red, código y emisor verificado. Mostrar nombres reconocibles y dejar los identificadores completos en los detalles.
-- Habilitar una moneda mediante una solicitud que cumpla la regla de aprobaciones de la bóveda. Explicar cualquier reserva y comisión antes de firmar.
-- Mostrar saldos por moneda y distinguir XLM disponible de XLM reservado para la cuenta. Un total convertido a dólares, si se incorpora, será una estimación con cotizaciones.
-- Al recibir, elegir la moneda y mostrar claramente Stellar como red; comprobar que la bóveda puede recibir ese activo.
-- Al pagar, elegir contacto, moneda e importe; comprobar la disponibilidad de saldo y que el destinatario pueda recibirlo antes de solicitar firmas.
+Las habilitaciones usan `changeTrust` nativo. La cuenta de la bóveda se crea con fondos aportados por su creador, firmantes, umbrales y clave maestra desactivada en una sola transacción. Soroban no es necesario para este modelo. Mainnet y Testnet tienen cuentas, invitaciones y sesiones separadas.
 
-La integración posterior se validará en mainnet con los emisores oficiales: habilitación, recepción, saldos y pago multifirma. El prototipo actual permanece en Testnet y no presenta esos recorridos como ya disponibles o probados.
+El flujo completo se verifica con cuentas reales de Testnet. La prueba con Freighter y tokens oficiales en Mainnet corresponde a la wallet del usuario y sigue pendiente; la aplicación no la presenta como completada.
 
 ## Colaboración y seguridad
 
@@ -78,7 +73,7 @@ La integración posterior se validará en mainnet con los emisores oficiales: ha
 - Rechazar firmas duplicadas, de personas ajenas, de otra red o de contenido modificado. Usar exactamente las firmas necesarias al enviar.
 - Controlar vencimiento, secuencia y doble envío. Nunca mostrar «Pagado» antes de una confirmación verificable de Stellar.
 - Una propuesta de pago activa por bóveda en esta primera versión, para explicar la cola y evitar conflictos de secuencia.
-- Cambios de firmantes, recuperación avanzada, firmas con hardware y auditoría independiente son trabajo posterior antes de aceptar dinero real. No confundir el MVP con una wallet de producción auditada.
+- Cambios de firmantes, recuperación avanzada, firmas con hardware y auditoría independiente siguen pendientes. No confundir el MVP con una wallet de producción auditada.
 
 ## Orden de ejecución
 
@@ -103,7 +98,7 @@ El ejemplo «Pedro quiere colocar 1.000 USDT» debe convertirse en una propuesta
 - Recargar no pierde contactos ni propuestas.
 - Un usuario de otra bóveda no puede leerlos ni modificarlos.
 - Todo el recorrido funciona en ES/EN y en pantalla estrecha.
-- El manejo previsto de USDC y USDT0 queda documentado. Su funcionamiento en Testnet no es un criterio de aceptación del hackathon.
+- USDC y USDT0 tienen emisores oficiales, logos y habilitación por umbral, con reserva y comisión visibles.
 
 ## Fuentes técnicas
 
@@ -112,6 +107,6 @@ https://developers.stellar.org/docs/build/guides/freighter
 
 ## Estado de ejecución · 28 de septiembre de 2026
 
-Los pasos 1 a 6 están implementados. El MVP ya realiza pagos reales de Stellar Testnet con firmas independientes; no es una simulación de aprobaciones. Pasaron 90 comprobaciones de integración y 34 de autenticación; un pago completo de 65 XLM se confirmó después del recorrido en navegador. La evidencia está en `docs/testnet-evidence.json`, `docs/auth-evidence.json` y `docs/browser-evidence.json`.
+La implementación usa Mainnet por defecto y conserva Testnet para las pruebas. Pasaron 90 comprobaciones de integración, 34 de autenticación y 38 de activación atómica/habilitación de tokens. Son transacciones reales con firmas independientes en Testnet, no aprobaciones simuladas.
 
-La siguiente iteración prioriza una prueba con personas nuevas y probar Freighter de extremo a extremo. El manejo de stablecoins queda definido; su integración y pruebas se reservan para una etapa posterior en mainnet. Después: acceso duradero más sencillo, recuperación y validación por modelo de hardware. El alcance probado, las instrucciones y las limitaciones están en `README.md`.
+Queda probar con personas nuevas y completar el recorrido con Freighter y fondos del usuario en Mainnet. Recuperación, auditoría y validación por modelo de hardware permanecen como trabajo posterior. Instrucciones y límites actuales en `README.md`.

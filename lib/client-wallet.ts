@@ -1,5 +1,7 @@
 import type { Keypair } from "@stellar/stellar-sdk";
-import type { Payment } from "./domain";
+import type { Payment, Activation, Person, Vault } from "./domain";
+import type { NetworkConfig } from "./network";
+import { units, TRUST_LIMIT } from "./assets";
 let temporaryKey: Keypair | undefined;
 const temporaryMarker = "junto-temporary-address";
 export function temporaryWalletStatus(
@@ -8,8 +10,9 @@ export function temporaryWalletStatus(
   if (temporaryKey?.publicKey() === address) return "active";
   return sessionStorage.getItem(temporaryMarker) === address ? "lost" : "none";
 }
-export async function connectWallet(temporary = false) {
+export async function connectWallet(temporary = false, network: NetworkConfig) {
   if (temporary) {
+    if (network.id !== "testnet") throw new Error("NETWORK_MISMATCH");
     const { Keypair } = await import("@stellar/stellar-sdk");
     temporaryKey = Keypair.random();
     sessionStorage.setItem(temporaryMarker, temporaryKey.publicKey());
@@ -24,11 +27,16 @@ export async function connectWallet(temporary = false) {
   sessionStorage.removeItem(temporaryMarker);
   return r.address;
 }
-export async function signXdr(xdr: string, address: string) {
-  const { TransactionBuilder, Networks, Transaction } =
+export async function signXdr(
+  xdr: string,
+  address: string,
+  chain: NetworkConfig,
+) {
+  const { TransactionBuilder, Transaction } =
     await import("@stellar/stellar-sdk");
   if (temporaryKey?.publicKey() === address) {
-    const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET);
+    if (chain.id !== "testnet") throw new Error("NETWORK_MISMATCH");
+    const tx = TransactionBuilder.fromXDR(xdr, chain.passphrase);
     if (!(tx instanceof Transaction)) throw new Error("INVALID_TRANSACTION");
     tx.sign(temporaryKey);
     return tx.toXDR();
@@ -37,18 +45,24 @@ export async function signXdr(xdr: string, address: string) {
     throw new Error("TEST_WALLET_GONE");
   const f = await import("@stellar/freighter-api");
   const network = await f.getNetworkDetails();
-  if (network.networkPassphrase !== Networks.TESTNET)
-    throw new Error("TESTNET_REQUIRED");
+  if (network.networkPassphrase !== chain.passphrase)
+    throw new Error(
+      chain.id === "mainnet" ? "MAINNET_REQUIRED" : "TESTNET_REQUIRED",
+    );
   const r = await f.signTransaction(xdr, {
     address,
-    networkPassphrase: Networks.TESTNET,
+    networkPassphrase: chain.passphrase,
   });
   if (r.error || !r.signedTxXdr || r.signerAddress !== address)
     throw new Error("WALLET_CANCELLED");
   return r.signedTxXdr;
 }
-export async function loginWithWallet(address: string, name: string) {
-  const { Networks, WebAuth, StrKey } = await import("@stellar/stellar-sdk");
+export async function loginWithWallet(
+  address: string,
+  name: string,
+  chain: NetworkConfig,
+) {
+  const { WebAuth, StrKey } = await import("@stellar/stellar-sdk");
   const [infoResponse, challengeResponse] = await Promise.all([
     fetch("/.well-known/stellar.toml", { cache: "no-store" }),
     fetch(`/api/auth?account=${encodeURIComponent(address)}`, {
@@ -69,14 +83,14 @@ export async function loginWithWallet(address: string, name: string) {
     !key ||
     !StrKey.isValidEd25519PublicKey(key) ||
     endpoint !== `${location.origin}/api/auth` ||
-    c.network_passphrase !== Networks.TESTNET
+    c.network_passphrase !== chain.passphrase
   )
     throw new Error("INVALID_LOGIN");
   try {
     const { tx, clientAccountID } = WebAuth.readChallengeTx(
       c.transaction,
       key,
-      Networks.TESTNET,
+      chain.passphrase,
       location.host,
       location.host,
     );
@@ -91,7 +105,7 @@ export async function loginWithWallet(address: string, name: string) {
   } catch {
     throw new Error("INVALID_LOGIN");
   }
-  const signed = await signXdr(c.transaction, address);
+  const signed = await signXdr(c.transaction, address, chain);
   const response = await fetch("/api/auth", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -103,10 +117,14 @@ export async function loginWithWallet(address: string, name: string) {
   }
   // The server sets an HttpOnly cookie; never persist the response JWT in JS.
 }
-export async function assertPayment(p: Payment, source: string) {
-  const { TransactionBuilder, Networks, Transaction } =
+export async function assertPayment(
+  p: Payment,
+  source: string,
+  chain: NetworkConfig,
+) {
+  const { TransactionBuilder, Transaction, Asset } =
     await import("@stellar/stellar-sdk");
-  const tx = TransactionBuilder.fromXDR(p.xdr, Networks.TESTNET);
+  const tx = TransactionBuilder.fromXDR(p.xdr, chain.passphrase);
   if (
     !(tx instanceof Transaction) ||
     tx.source !== source ||
@@ -124,38 +142,106 @@ export async function assertPayment(p: Payment, source: string) {
         ? tx.memo.value
         : new TextDecoder().decode(tx.memo.value as Uint8Array)
       : "";
+  const matches =
+    p.kind === "enable"
+      ? op.type === "changeTrust" &&
+        op.line instanceof Asset &&
+        op.line.getCode() === p.code &&
+        op.line.getIssuer() === p.issuer &&
+        op.limit === TRUST_LIMIT &&
+        p.destination === source &&
+        memo === ""
+      : op.type === "payment" &&
+        op.destination === p.destination &&
+        units(op.amount) === units(p.amount) &&
+        op.asset.getCode() === p.code &&
+        (op.asset.isNative() ? "" : op.asset.getIssuer()) === p.issuer;
   if (
     hash !== p.hash ||
-    op.type !== "payment" ||
+    !matches ||
     (op.source && op.source !== source) ||
-    (op.type === "payment" &&
-      (op.destination !== p.destination ||
-        Number(op.amount) !== Number(p.amount) ||
-        op.asset.getCode() !== p.code ||
-        (op.asset.isNative() ? "" : op.asset.getIssuer()) !== p.issuer)) ||
     memo !== p.memo ||
     !["none", "text"].includes(tx.memo.type) ||
+    BigInt(tx.fee) !== units(p.fee) ||
     Number(tx.timeBounds?.maxTime) !== p.expires
   )
     throw new Error("CHANGED_TRANSACTION");
 }
-export async function bootstrapVault(
-  prepare: (address: string) => Promise<{ xdr: string }>,
-  complete: (signed: string) => Promise<unknown>,
+export async function assertActivation(
+  quote: Activation,
+  vault: Vault,
+  people: Person[],
+  chain: NetworkConfig,
 ) {
-  const { Keypair, TransactionBuilder, Transaction, Networks } =
+  const { TransactionBuilder, Transaction, Keypair } =
     await import("@stellar/stellar-sdk");
-  const key = Keypair.random();
-  const r = await fetch(
-    `https://friendbot.stellar.org/?addr=${key.publicKey()}`,
-  );
-  if (!r.ok) throw new Error("NETWORK_UNAVAILABLE");
-  const { xdr } = await prepare(key.publicKey());
-  const tx = TransactionBuilder.fromXDR(xdr, Networks.TESTNET);
-  if (!(tx instanceof Transaction)) throw new Error("INVALID_TRANSACTION");
-  tx.sign(key);
-  await complete(tx.toXDR());
+  const tx = TransactionBuilder.fromXDR(quote.xdr, chain.passphrase);
+  if (
+    !(tx instanceof Transaction) ||
+    tx.source !== vault.owner ||
+    tx.operations.length !== people.length + 2 ||
+    tx.memo.type !== "none" ||
+    tx.signatures.length !== 1 ||
+    BigInt(tx.fee) !== units(quote.fee) ||
+    Number(tx.timeBounds?.maxTime) !== quote.expires ||
+    quote.expires <= Date.now() / 1000
+  )
+    throw new Error("CHANGED_TRANSACTION");
+  const create = tx.operations[0];
+  if (
+    create.type !== "createAccount" ||
+    create.source ||
+    create.destination !== quote.address ||
+    units(create.startingBalance) !== units(quote.funding)
+  )
+    throw new Error("CHANGED_TRANSACTION");
+  for (let index = 0; index < people.length; index++) {
+    const op = tx.operations[index + 1];
+    if (
+      op.type !== "setOptions" ||
+      op.source !== quote.address ||
+      !op.signer ||
+      !("ed25519PublicKey" in op.signer) ||
+      op.signer.ed25519PublicKey !== people[index].address ||
+      op.signer.weight !== 1 ||
+      Object.entries(op).some(
+        ([k, value]) =>
+          value !== undefined && !["type", "source", "signer"].includes(k),
+      )
+    )
+      throw new Error("CHANGED_TRANSACTION");
+  }
+  const policy = tx.operations[tx.operations.length - 1];
+  if (
+    policy.type !== "setOptions" ||
+    policy.source !== quote.address ||
+    policy.masterWeight !== 0 ||
+    policy.lowThreshold !== vault.threshold ||
+    policy.medThreshold !== vault.threshold ||
+    policy.highThreshold !== vault.threshold ||
+    Object.entries(policy).some(
+      ([k, value]) =>
+        value !== undefined &&
+        ![
+          "type",
+          "source",
+          "masterWeight",
+          "lowThreshold",
+          "medThreshold",
+          "highThreshold",
+        ].includes(k),
+    )
+  )
+    throw new Error("CHANGED_TRANSACTION");
+  if (
+    !Keypair.fromPublicKey(quote.address).verify(
+      tx.hash(),
+      tx.signatures[0].signature,
+    )
+  )
+    throw new Error("CHANGED_TRANSACTION");
 }
+
 export function disconnectWallet() {
   temporaryKey = undefined;
   sessionStorage.removeItem(temporaryMarker);

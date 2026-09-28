@@ -1,4 +1,20 @@
 export const errors: Record<string, [string, string]> = {
+  MAINNET_REQUIRED: [
+    "Cambia tu wallet a Stellar Mainnet para continuar.",
+    "Switch your wallet to Stellar Mainnet to continue.",
+  ],
+  NETWORK_MISMATCH: [
+    "Esta bóveda o sesión pertenece a otra red. Vuelve a entrar.",
+    "This vault or session belongs to another network. Sign in again.",
+  ],
+  ASSET_ENABLED: [
+    "Esta moneda ya está habilitada. Actualiza los saldos.",
+    "This currency is already enabled. Refresh balances.",
+  ],
+  ACTIVATION_EXPIRED: [
+    "El coste anterior venció. Actualiza en unos segundos para revisarlo otra vez.",
+    "The previous quote expired. Refresh in a few seconds to review it again.",
+  ],
   ASSET_UNAVAILABLE: [
     "Esta moneda ya no está disponible en la bóveda. Actualiza los saldos y vuelve a preparar el pago.",
     "This currency is no longer available in the vault. Refresh balances and prepare the payment again.",
@@ -40,8 +56,8 @@ export const errors: Record<string, [string, string]> = {
     "Enter an amount greater than zero, with up to 7 decimals.",
   ],
   ACCOUNT_MISSING: [
-    "La dirección todavía no está activada en Testnet.",
-    "This address is not activated on Testnet yet.",
+    "La dirección todavía no está activada en esta red de Stellar.",
+    "This address is not activated on this Stellar network yet.",
   ],
   NETWORK_UNAVAILABLE: [
     "No pudimos conectar con Stellar. Tus datos siguen guardados.",
@@ -76,8 +92,8 @@ export const errors: Record<string, [string, string]> = {
     "The account changed before submission. Prepare the payment again.",
   ],
   INSUFFICIENT_FUNDS: [
-    "La bóveda no tiene fondos suficientes para este pago y su reserva.",
-    "The vault has insufficient funds for this payment and its reserve.",
+    "La cuenta no tiene XLM o saldo suficiente para esta operación y su reserva.",
+    "The account has insufficient XLM or balance for this operation and its reserve.",
   ],
   TRUSTLINE_REQUIRED: [
     "El destinatario debe habilitar este activo antes de recibirlo.",
@@ -100,8 +116,8 @@ export const errors: Record<string, [string, string]> = {
     "Some people have not joined yet.",
   ],
   PAYMENT_PENDING: [
-    "Completen primero el pago pendiente para preparar el siguiente.",
-    "Complete the pending payment before preparing the next one.",
+    "Completen primero la operación pendiente para preparar la siguiente.",
+    "Complete the pending operation before preparing the next one.",
   ],
   CONTACT_EXISTS: [
     "Esta dirección y memo ya están en la libreta del equipo.",

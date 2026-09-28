@@ -7,18 +7,30 @@ import {
   Coins,
   Users,
 } from "lucide-react";
+import type { NetworkId } from "@/lib/network";
 import type { Balance, State } from "@/lib/domain";
 import { SHORT } from "@/lib/domain";
-import { assetKey, mainnetCatalog } from "@/lib/assets";
+import { assetKey, officialAsset } from "@/lib/assets";
 
 export function AssetMark({
   asset,
+  network = "mainnet",
 }: {
   asset: { code: string; issuer: string };
+  network?: NetworkId;
 }) {
+  const logo = !asset.issuer
+    ? "/assets/xlm.svg"
+    : officialAsset(asset, network)?.logo;
   return (
     <span className="asset-mark" aria-hidden="true">
-      {asset.issuer ? asset.code.slice(0, 2) : <Coins size={23} />}
+      {logo ? (
+        // Brand assets are local originals; keep the full mark and its aspect ratio.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logo} width={40} height={40} alt="" />
+      ) : (
+        asset.code.slice(0, 2)
+      )}
     </span>
   );
 }
@@ -62,7 +74,7 @@ export function VaultAssets({
           </p>
         </div>
         <button className="secondary" onClick={onCatalog}>
-          {t("Ver catálogo", "View catalog")}
+          {t("Añadir moneda", "Add currency")}
           <ChevronRight size={16} />
         </button>
       </div>
@@ -95,7 +107,7 @@ export function VaultAssets({
                   `View ${asset.code} details`,
                 )}
               >
-                <AssetMark asset={asset} />
+                <AssetMark asset={asset} network={data.network?.id} />
                 <span>
                   <strong>
                     {asset.code}
@@ -195,16 +207,17 @@ export function VaultAssets({
         </div>
       )}
       <div className="planned-assets">
-        <span>{t("Previstas para mainnet", "Planned for mainnet")}</span>
+        <span>{t("Monedas disponibles", "Available currencies")}</span>
         <div>
-          {mainnetCatalog.map((asset) => (
+          {data.catalog?.map((asset) => (
             <button key={assetKey(asset)} onClick={onCatalog}>
+              <AssetMark asset={asset} network={data.network?.id} />
               {asset.code}
               <ArrowUpRight size={14} />
             </button>
           ))}
         </div>
-        <small>{t("Integración pendiente", "Integration pending")}</small>
+        <small>{data.network?.label}</small>
       </div>
     </section>
   );

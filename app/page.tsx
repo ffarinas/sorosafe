@@ -48,16 +48,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Toaster, toast } from "sonner";
-import type { Balance, Payment, State } from "@/lib/domain";
-import { assetKey, findAsset, canSpend, mainnetCatalog } from "@/lib/assets";
+import type { Activation, Balance, Payment, State } from "@/lib/domain";
+import {
+  assetKey,
+  findAsset,
+  canSpend,
+  sameAsset,
+  type CatalogAsset,
+} from "@/lib/assets";
 import { VaultAssets, AssetMark } from "@/components/vault-assets";
+import { NETWORKS } from "@/lib/network";
 import { SHORT } from "@/lib/domain";
 import { errors } from "@/lib/messages";
 import { useVaultTools } from "@/lib/use-vault-tools";
 import {
   assertPayment,
   loginWithWallet,
-  bootstrapVault,
+  assertActivation,
   connectWallet,
   disconnectWallet,
   signXdr,
@@ -120,6 +127,11 @@ export default function Home() {
     [assetLocked, setAssetLocked] = useState(false),
     [note, setNote] = useState(""),
     [review, setReview] = useState(false);
+  const [activation, setActivation] = useState<Activation | null>(null);
+  const [enableCurrency, setEnableCurrency] = useState<CatalogAsset | null>(
+    null,
+  );
+  const chain = data.network || NETWORKS.mainnet;
   useVaultTools(data, setTab);
   const authPurpose = useRef("login");
   const seq = useRef(0);
@@ -209,7 +221,8 @@ export default function Home() {
   const choose = (id: string) => {
     setModal("");
     setAsset("");
-    setData(empty);
+    setActivation(null);
+    setData({ ...empty, network: data.network, catalog: data.catalog });
     setLoaded(false);
     setSelected(id);
     history.replaceState(null, "", "/?vault=" + id);
@@ -251,15 +264,20 @@ export default function Home() {
   };
   const connect = async (temp: boolean) => {
     await work(async () => {
-      const key = await connectWallet(temp);
+      const key = await connectWallet(temp, chain);
       await loginWithWallet(
         key,
         personName.trim() || me?.name || "Team member",
+        chain,
       );
       setModal("");
       if (joinToken) await join();
       else if (authPurpose.current === "create" && name.trim()) await create();
-      else await refresh(selected);
+      else {
+        setSelected("");
+        history.replaceState(null, "", "/");
+        await refresh();
+      }
     });
   };
   const pending = data.payments.filter((p) =>
@@ -288,7 +306,9 @@ export default function Home() {
     });
   const status = (p: Payment) =>
     p.status === "paid"
-      ? t("Pagado", "Paid")
+      ? p.kind === "enable"
+        ? t("Habilitada", "Enabled")
+        : t("Pagado", "Paid")
       : p.status === "submitting"
         ? t("Confirmando en Stellar", "Confirming on Stellar")
         : p.status === "expired"
@@ -341,12 +361,20 @@ export default function Home() {
     });
   const activate = () =>
     void work(async () => {
-      await bootstrapVault(
-        (address) => api("prepareActivation", { vault: v?.id, address }),
-        (signed) => api("activate", { vault: v?.id, signed }),
-      );
+      if (!v || !me) return;
+      if (!activation || activation.expires <= Date.now() / 1000) {
+        const quote = await api<Activation>("prepareVault", { vault: v.id });
+        await assertActivation(quote, v, data.people, chain);
+        setActivation(quote);
+        await refresh(v.id);
+        return;
+      }
+      await assertActivation(activation, v, data.people, chain);
+      const signed = await signXdr(activation.xdr, me.address, chain);
+      await api("activate", { vault: v.id, signed });
       setModal("");
-      await refresh(v?.id);
+      setActivation(null);
+      await refresh(v.id);
       toast.success(
         t(
           "La bóveda está activa en Stellar.",
@@ -357,8 +385,8 @@ export default function Home() {
   const approve = (p: Payment) =>
     void work(async () => {
       if (!me || !v?.address) return;
-      await assertPayment(p, v.address);
-      const signed = await signXdr(p.xdr, me.address);
+      await assertPayment(p, v.address, chain);
+      const signed = await signXdr(p.xdr, me.address, chain);
       await api("approve", { vault: v.id, payment: p.id, signed });
       await refresh(v.id);
       toast.success(
@@ -381,8 +409,16 @@ export default function Home() {
         {p.status === "paid" ? <Check size={19} /> : <ArrowUpRight size={20} />}
       </span>
       <span className="payment-text">
-        <strong>{p.recipient}</strong>
-        <span>{p.note}</span>
+        <strong>
+          {p.kind === "enable"
+            ? t(`Habilitar ${p.code}`, `Enable ${p.code}`)
+            : p.recipient}
+        </strong>
+        <span>
+          {p.kind === "enable"
+            ? t("Añadir moneda a la bóveda", "Add currency to the vault")
+            : p.note}
+        </span>
       </span>
       <span className="payment-status">
         <span className={`badge ${p.status === "paid" ? "green" : ""}`}>
@@ -391,7 +427,13 @@ export default function Home() {
         <small>{date(p.created)}</small>
       </span>
       <span className="payment-amount">
-        {money(p.amount)} <small>{p.code}</small>
+        {p.kind === "enable" ? (
+          <AssetMark asset={p} network={chain.id} />
+        ) : (
+          <>
+            {money(p.amount)} <small>{p.code}</small>
+          </>
+        )}
       </span>
       <ChevronRight size={17} />
     </button>
@@ -422,7 +464,7 @@ export default function Home() {
           <span className="brand-dot">.</span>
         </button>
         <div className="header-right">
-          <span className="network">Stellar Testnet</span>
+          <span className="network">{chain.label}</span>
           <button
             className="language"
             onClick={language}
@@ -633,8 +675,12 @@ export default function Home() {
                 <div className="small-note">
                   <LockKeyhole size={14} />
                   {t(
-                    "Solo fondos de prueba. Sin dinero real.",
-                    "Test funds only. No real money.",
+                    chain.id === "mainnet"
+                      ? "Tus fondos, protegidos por las firmas del equipo."
+                      : "Solo fondos de prueba. Sin dinero real.",
+                    chain.id === "mainnet"
+                      ? "Your funds, protected by your team’s signatures."
+                      : "Test funds only. No real money.",
                   )}
                 </div>
               </form>
@@ -754,8 +800,12 @@ export default function Home() {
                   <p className="balance-caption">
                     {v.status === "active"
                       ? t(
-                          "Fondos de prueba en Stellar",
-                          "Test funds on Stellar",
+                          chain.id === "mainnet"
+                            ? "Fondos en Stellar Mainnet"
+                            : "Fondos de prueba en Stellar",
+                          chain.id === "mainnet"
+                            ? "Funds on Stellar Mainnet"
+                            : "Test funds on Stellar",
                         )
                       : t(
                           "El saldo aparece al activar la bóveda",
@@ -822,7 +872,7 @@ export default function Home() {
                                 `${data.people.length} of ${v.size} people joined. Share the invitation to enter this same vault.`,
                               )}
                       </p>
-                      {v.owner === me?.address && v.status === "draft" ? (
+                      {v.owner === me?.address ? (
                         <button
                           className="text-button"
                           onClick={() =>
@@ -1203,7 +1253,7 @@ export default function Home() {
                     <Check size={18} />
                   </div>
                 ))}
-                {v.status === "draft" &&
+                {v.status !== "active" &&
                 v.owner === me?.address &&
                 data.people.length === v.size ? (
                   <button
@@ -1259,101 +1309,120 @@ export default function Home() {
             <X size={19} />
           </DialogClose>
           <DialogTitle className="dialog-title">
-            {modal === "asset"
-              ? chosenAsset?.code ||
-                t("Moneda no disponible", "Currency unavailable")
-              : modal === "catalog"
-                ? t("Catálogo de monedas", "Currency catalog")
-                : modal === "receive" && chosenAsset
-                  ? t(
-                      `Recibir ${chosenAsset.code}`,
-                      `Receive ${chosenAsset.code}`,
-                    )
-                  : modal === "connect"
-                    ? t("Entra en Junto", "Sign in to Junto")
-                    : modal === "configure"
-                      ? t("Configuración de la bóveda", "Vault settings")
-                      : modal === "contact"
-                        ? t("Nuevo contacto compartido", "New shared contact")
-                        : modal === "send"
-                          ? review
-                            ? t("Revisa tu pago", "Review your payment")
-                            : t("Prepara un pago", "Prepare a payment")
-                          : modal === "invite"
-                            ? t("Invita a esta bóveda", "Invite to this vault")
-                            : modal === "receive"
-                              ? t("Recibir fondos", "Receive funds")
-                              : modal === "activate"
-                                ? t(
-                                    "Todo listo para decidir juntos",
-                                    "Ready to decide together",
-                                  )
-                                : modal === "payment"
-                                  ? t("Detalle del pago", "Payment details")
-                                  : modal === "vaults"
-                                    ? t("Tus bóvedas", "Your vaults")
-                                    : t("Tu wallet", "Your wallet")}
-          </DialogTitle>
-          <DialogDescription className="dialog-description">
-            {modal === "catalog"
+            {modal === "enable"
               ? t(
-                  "USDC y USDT0 están previstas para la integración en mainnet.",
-                  "USDC and USDT0 are planned for the mainnet integration.",
+                  `Habilitar ${enableCurrency?.code || ""}`,
+                  `Enable ${enableCurrency?.code || ""}`,
                 )
               : modal === "asset"
-                ? t(
-                    "Saldo y disponibilidad consultados en Stellar Testnet.",
-                    "Balance and availability read from Stellar Testnet.",
-                  )
-                : modal === "connect"
-                  ? t(
-                      "Usa tu wallet de Stellar para crear tu cuenta o volver a entrar. Solo confirmarás tu identidad; no se enviará dinero.",
-                      "Use your Stellar wallet to create your account or sign back in. You’ll confirm your identity; no money will be sent.",
-                    )
-                  : modal === "configure"
+                ? chosenAsset?.code ||
+                  t("Moneda no disponible", "Currency unavailable")
+                : modal === "catalog"
+                  ? t("Catálogo de monedas", "Currency catalog")
+                  : modal === "receive" && chosenAsset
                     ? t(
-                        "Estas reglas se aplicarán al activar la bóveda. Puedes ajustarlas mientras preparas el equipo.",
-                        "These rules will apply when you activate the vault. You can edit them while setting up your team.",
+                        `Recibir ${chosenAsset.code}`,
+                        `Receive ${chosenAsset.code}`,
                       )
-                    : modal === "contact"
-                      ? t(
-                          "Todo el equipo verá este contacto y quién lo añadió.",
-                          "The whole team will see this contact and who added it.",
-                        )
-                      : modal === "send"
-                        ? t(
-                            "El dinero se envía cuando el equipo completa las aprobaciones.",
-                            "Money is sent when the team completes the approvals.",
-                          )
-                        : modal === "invite"
-                          ? t(
-                              "Quien abra el enlace entrará a esta misma bóveda.",
-                              "Anyone opening this link will join this same vault.",
-                            )
-                          : modal === "activate"
-                            ? t(
-                                "Revisa las personas y la regla. Así quedará protegida la bóveda en Stellar.",
-                                "Review the people and rule. This is how Stellar will protect your vault.",
-                              )
-                            : modal === "receive"
+                    : modal === "connect"
+                      ? t("Entra en Junto", "Sign in to Junto")
+                      : modal === "configure"
+                        ? t("Configuración de la bóveda", "Vault settings")
+                        : modal === "contact"
+                          ? t("Nuevo contacto compartido", "New shared contact")
+                          : modal === "send"
+                            ? review
+                              ? t("Revisa tu pago", "Review your payment")
+                              : t("Prepara un pago", "Prepare a payment")
+                            : modal === "invite"
                               ? t(
-                                  "Usa esta dirección únicamente en Stellar Testnet.",
-                                  "Use this address only on Stellar Testnet.",
+                                  "Invita a esta bóveda",
+                                  "Invite to this vault",
                                 )
-                              : modal === "payment"
-                                ? t(
-                                    "Revisa el destinatario, el importe y la dirección antes de firmar.",
-                                    "Check the recipient, amount, and address before signing.",
-                                  )
-                                : modal === "vaults"
+                              : modal === "receive"
+                                ? t("Recibir fondos", "Receive funds")
+                                : modal === "activate"
                                   ? t(
-                                      "Cada bóveda tiene su equipo y sus contactos.",
-                                      "Every vault has its own team and contacts.",
+                                      "Todo listo para decidir juntos",
+                                      "Ready to decide together",
                                     )
-                                  : t(
-                                      "La clave privada permanece en tu wallet.",
-                                      "The private key stays in your wallet.",
-                                    )}
+                                  : modal === "payment"
+                                    ? payment?.kind === "enable"
+                                      ? t("Habilitar moneda", "Enable currency")
+                                      : t("Detalle del pago", "Payment details")
+                                    : modal === "vaults"
+                                      ? t("Tus bóvedas", "Your vaults")
+                                      : t("Tu wallet", "Your wallet")}
+          </DialogTitle>
+          <DialogDescription className="dialog-description">
+            {modal === "enable"
+              ? t(
+                  "Tu equipo debe aprobar esta moneda antes de recibirla.",
+                  "Your team must approve this currency before receiving it.",
+                )
+              : modal === "catalog"
+                ? t(
+                    "Habilita una moneda con la aprobación de tu equipo.",
+                    "Enable a currency with your team’s approval.",
+                  )
+                : modal === "asset"
+                  ? t(
+                      `Saldo y disponibilidad consultados en ${chain.label}.`,
+                      `Balance and availability read from ${chain.label}.`,
+                    )
+                  : modal === "connect"
+                    ? t(
+                        "Usa tu wallet de Stellar para crear tu cuenta o volver a entrar. Solo confirmarás tu identidad; no se enviará dinero.",
+                        "Use your Stellar wallet to create your account or sign back in. You’ll confirm your identity; no money will be sent.",
+                      )
+                    : modal === "configure"
+                      ? t(
+                          "Estas reglas se aplicarán al activar la bóveda. Puedes ajustarlas mientras preparas el equipo.",
+                          "These rules will apply when you activate the vault. You can edit them while setting up your team.",
+                        )
+                      : modal === "contact"
+                        ? t(
+                            "Todo el equipo verá este contacto y quién lo añadió.",
+                            "The whole team will see this contact and who added it.",
+                          )
+                        : modal === "send"
+                          ? t(
+                              "El dinero se envía cuando el equipo completa las aprobaciones.",
+                              "Money is sent when the team completes the approvals.",
+                            )
+                          : modal === "invite"
+                            ? t(
+                                "Quien abra el enlace entrará a esta misma bóveda.",
+                                "Anyone opening this link will join this same vault.",
+                              )
+                            : modal === "activate"
+                              ? t(
+                                  "Revisa las personas y la regla. Así quedará protegida la bóveda en Stellar.",
+                                  "Review the people and rule. This is how Stellar will protect your vault.",
+                                )
+                              : modal === "receive"
+                                ? t(
+                                    `Usa esta dirección únicamente en ${chain.label}.`,
+                                    `Use this address only on ${chain.label}.`,
+                                  )
+                                : modal === "payment"
+                                  ? t(
+                                      payment?.kind === "enable"
+                                        ? "Revisa la moneda, el emisor y la reserva antes de firmar."
+                                        : "Revisa el destinatario, el importe y la dirección antes de firmar.",
+                                      payment?.kind === "enable"
+                                        ? "Check the currency, issuer and reserve before signing."
+                                        : "Check the recipient, amount, and address before signing.",
+                                    )
+                                  : modal === "vaults"
+                                    ? t(
+                                        "Cada bóveda tiene su equipo y sus contactos.",
+                                        "Every vault has its own team and contacts.",
+                                      )
+                                    : t(
+                                        "La clave privada permanece en tu wallet.",
+                                        "The private key stays in your wallet.",
+                                      )}
           </DialogDescription>
           {modal === "connect" ? (
             <div className="modal-body">
@@ -1395,71 +1464,175 @@ export default function Home() {
                   "No extra password needed. Freighter must be installed in this browser.",
                 )}
               </p>
-              <div className="test-wallet">
-                <strong>
-                  {t("¿Solo quieres probar?", "Just trying it out?")}
-                </strong>
-                <p>
-                  {t(
-                    "Crea una wallet temporal de Testnet. Su clave se pierde al recargar o cerrar esta página.",
-                    "Create a temporary Testnet wallet. Its key is lost when you reload or close this page.",
-                  )}
-                </p>
-                <button
-                  className="secondary wide"
-                  disabled={busy || (!personName && !me)}
-                  onClick={() => void connect(true)}
-                >
-                  {t("Usar wallet temporal", "Use a temporary wallet")}
-                  <ArrowUpRight size={17} />
-                </button>
-              </div>
+              {chain.id === "testnet" ? (
+                <div className="test-wallet">
+                  <strong>
+                    {t("¿Solo quieres probar?", "Just trying it out?")}
+                  </strong>
+                  <p>
+                    {t(
+                      "Crea una wallet temporal de Testnet. Su clave se pierde al recargar o cerrar esta página.",
+                      "Create a temporary Testnet wallet. Its key is lost when you reload or close this page.",
+                    )}
+                  </p>
+                  <button
+                    className="secondary wide"
+                    disabled={busy || (!personName && !me)}
+                    onClick={() => void connect(true)}
+                  >
+                    {t("Usar wallet temporal", "Use a temporary wallet")}
+                    <ArrowUpRight size={17} />
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
           {modal === "catalog" ? (
             <div className="modal-body">
-              {mainnetCatalog.map((currency) => (
-                <div className="catalog-currency" key={assetKey(currency)}>
-                  <div className="catalog-heading">
-                    <AssetMark asset={currency} />
-                    <div>
-                      <strong>{currency.code}</strong>
-                      <p>{currency.issuerName} · Stellar Mainnet</p>
+              {data.catalog?.map((currency) => {
+                const enabled = data.balances.some((balance) =>
+                  sameAsset(balance, currency),
+                );
+                const pendingEnable = data.payments.find(
+                  (p) =>
+                    p.kind === "enable" &&
+                    sameAsset(p, currency) &&
+                    ["pending", "submitting"].includes(p.status),
+                );
+                return (
+                  <div className="catalog-currency" key={assetKey(currency)}>
+                    <div className="catalog-heading">
+                      <AssetMark asset={currency} network={chain.id} />
+                      <div>
+                        <strong>{currency.code}</strong>
+                        <p>
+                          {currency.issuerName} · {chain.label}
+                        </p>
+                      </div>
+                      {enabled ? (
+                        <span className="badge green">
+                          {t("Habilitada", "Enabled")}
+                        </span>
+                      ) : null}
                     </div>
-                    <span className="badge">
-                      {t("Próximamente", "Coming soon")}
-                    </span>
+                    <details>
+                      <summary>
+                        {t("Identidad de la moneda", "Currency identity")}
+                      </summary>
+                      <p className="full-address">{currency.issuer}</p>
+                      <a
+                        className="text-button"
+                        href={currency.source}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {t("Información del activo", "Asset information")}
+                        <ExternalLink size={14} />
+                      </a>
+                    </details>
+                    {!enabled ? (
+                      <button
+                        className="secondary wide"
+                        disabled={
+                          busy ||
+                          data.chainError ||
+                          v?.status !== "active" ||
+                          (!pendingEnable && !sendReady)
+                        }
+                        onClick={() => {
+                          if (pendingEnable) {
+                            setPayId(pendingEnable.id);
+                            setModal("payment");
+                          } else {
+                            setEnableCurrency(currency);
+                            setModal("enable");
+                          }
+                        }}
+                      >
+                        {pendingEnable
+                          ? t("Ver aprobaciones", "View approvals")
+                          : t(
+                              `Habilitar ${currency.code}`,
+                              `Enable ${currency.code}`,
+                            )}
+                        <ArrowUpRight size={17} />
+                      </button>
+                    ) : null}
                   </div>
-                  <details>
-                    <summary>
-                      {t("Identidad de la moneda", "Currency identity")}
-                    </summary>
-                    <p className="full-address">{currency.issuer}</p>
-                    <a
-                      className="text-button"
-                      href={currency.source}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {t("Información del activo", "Asset information")}
-                      <ExternalLink size={14} />
-                    </a>
-                  </details>
-                </div>
-              ))}
+                );
+              })}
+              <p className="footnote">
+                {v?.status !== "active"
+                  ? t(
+                      "Activa la bóveda para habilitar estas monedas.",
+                      "Activate the vault to enable these currencies.",
+                    )
+                  : t(
+                      "Las monedas habilitadas aparecerán en tu bóveda con el saldo registrado en Stellar.",
+                      "Enabled currencies appear in your vault with their balance from Stellar.",
+                    )}
+              </p>
+            </div>
+          ) : null}
+          {modal === "enable" && enableCurrency && v ? (
+            <div className="modal-body">
+              <AssetMark asset={enableCurrency} network={chain.id} />
+              <dl className="details">
+                <dt>{t("Moneda", "Currency")}</dt>
+                <dd>
+                  {enableCurrency.code} · {enableCurrency.issuerName}
+                </dd>
+                <dt>{t("Red", "Network")}</dt>
+                <dd>{chain.label}</dd>
+                <dt>{t("Emisor", "Issuer")}</dt>
+                <dd className="full-address">{enableCurrency.issuer}</dd>
+                <dt>{t("Reserva adicional", "Additional reserve")}</dt>
+                <dd>{data.baseReserve ? money(data.baseReserve) : "—"} XLM</dd>
+                <dt>{t("Comisión prevista", "Expected fee")}</dt>
+                <dd>{data.paymentFee ? money(data.paymentFee) : "—"} XLM</dd>
+                <dt>{t("Aprobaciones", "Approvals")}</dt>
+                <dd>
+                  {v.threshold} / {v.size}
+                </dd>
+              </dl>
               <p className="footnote">
                 {t(
-                  "Estas monedas todavía no se pueden habilitar desde Junto. Aquí no se muestran como fondos de tu bóveda.",
-                  "These currencies cannot be enabled through Junto yet. They are not shown as vault funds here.",
+                  "La reserva permanece en tu bóveda. Habilitar una moneda permite recibirla; no la compra ni envía dinero al emisor.",
+                  "The reserve stays in your vault. Enabling a currency lets you receive it; it does not buy it or send money to its issuer.",
                 )}
               </p>
+              <button
+                className="primary wide"
+                disabled={
+                  busy || !sendReady || !data.baseReserve || !data.paymentFee
+                }
+                onClick={() =>
+                  void work(async () => {
+                    const result = await api("enableAsset", {
+                      vault: v.id,
+                      code: enableCurrency.code,
+                      issuer: enableCurrency.issuer,
+                    });
+                    await refresh(v.id);
+                    setPayId(result.id);
+                    setModal("payment");
+                  })
+                }
+              >
+                {t("Pedir aprobaciones", "Request approvals")}
+                {busy ? (
+                  <Loader2 className="spin" size={18} />
+                ) : (
+                  <Users size={18} />
+                )}
+              </button>
             </div>
           ) : null}
           {modal === "asset" ? (
             <div className="modal-body">
               {chosenAsset && !data.chainError ? (
                 <>
-                  <AssetMark asset={chosenAsset} />
+                  <AssetMark asset={chosenAsset} network={chain.id} />
                   <div className="review-amount">
                     {money(chosenAsset.balance)} <span>{chosenAsset.code}</span>
                   </div>
@@ -1498,7 +1671,7 @@ export default function Home() {
                       {data.paymentFee ? money(data.paymentFee) : "—"} XLM
                     </dd>
                     <dt>{t("Red", "Network")}</dt>
-                    <dd>Stellar Testnet</dd>
+                    <dd>{chain.label}</dd>
                     {chosenAsset.issuer ? (
                       <>
                         <dt>{t("Emisor", "Issuer")}</dt>
@@ -1648,10 +1821,30 @@ export default function Home() {
               ))}
               <p className="footnote">
                 {t(
-                  "Se creará una cuenta nueva con fondos de prueba. La regla también protege cambios de firmantes. Esta versión no permite editar el equipo después.",
-                  "A new account with test funds will be created. The rule also protects signer changes. This version does not support editing the team afterwards.",
+                  "Tu wallet aportará los XLM iniciales. La cuenta y su protección multifirma se crean juntas. Esta versión conserva el equipo y la regla después de activar.",
+                  "Your wallet provides the initial XLM. The account and its multisig protection are created together. This version keeps the team and rule after activation.",
                 )}
               </p>
+              {activation ? (
+                <dl className="details">
+                  <dt>{t("Aporte a la bóveda", "Vault funding")}</dt>
+                  <dd>{money(activation.funding)} XLM</dd>
+                  <dt>{t("Comisión de creación", "Creation fee")}</dt>
+                  <dd>{money(activation.fee)} XLM</dd>
+                  <dt>{t("Red", "Network")}</dt>
+                  <dd>{chain.label}</dd>
+                  <dt>{t("Desde tu wallet", "From your wallet")}</dt>
+                  <dd className="full-address">{me?.address}</dd>
+                </dl>
+              ) : null}
+              {activation ? (
+                <p className="footnote">
+                  {t(
+                    "El aporte permanece en la bóveda y cubre la reserva del equipo, las monedas del catálogo y sus primeras comisiones.",
+                    "The funding stays in the vault and covers the team reserve, catalog currencies and their initial fees.",
+                  )}
+                </p>
+              ) : null}
               <button
                 className="primary wide"
                 disabled={busy}
@@ -1664,7 +1857,9 @@ export default function Home() {
                   </>
                 ) : (
                   <>
-                    {t("Confirmar y activar", "Confirm and activate")}
+                    {activation
+                      ? t("Firmar y activar", "Sign and activate")
+                      : t("Revisar coste", "Review cost")}
                     <ArrowUpRight size={18} />
                   </>
                 )}
@@ -1888,7 +2083,7 @@ export default function Home() {
                       <p>
                         {t("Disponible", "Available")}:{" "}
                         {money(chosenAsset.available)} {chosenAsset.code} ·
-                        Stellar Testnet
+                        {chain.label}
                       </p>
                       {chosenAsset.issuer ? (
                         <details>
@@ -1937,7 +2132,7 @@ export default function Home() {
                     <dt>{t("Para", "To")}</dt>
                     <dd>{contact?.name}</dd>
                     <dt>{t("Red", "Network")}</dt>
-                    <dd>Stellar Testnet</dd>
+                    <dd>{chain.label}</dd>
                     <dt>{t("Dirección", "Address")}</dt>
                     <dd className="full-address">{contact?.address}</dd>
                     {issuer ? (
@@ -1999,11 +2194,24 @@ export default function Home() {
                 {status(payment)}
               </span>
               <div className="review-amount">
-                {money(payment.amount)} <span>{payment.code}</span>
+                {payment.kind === "enable" ? (
+                  <AssetMark asset={payment} network={chain.id} />
+                ) : (
+                  money(payment.amount)
+                )}{" "}
+                <span>{payment.code}</span>
               </div>
               <dl className="details">
-                <dt>{t("Para", "To")}</dt>
-                <dd>{payment.recipient}</dd>
+                <dt>
+                  {payment.kind === "enable"
+                    ? t("Bóveda", "Vault")
+                    : t("Para", "To")}
+                </dt>
+                <dd>
+                  {payment.kind === "enable" ? v.name : payment.recipient}
+                </dd>
+                <dt>{t("Red", "Network")}</dt>
+                <dd>{chain.label}</dd>
                 <dt>{t("Dirección", "Address")}</dt>
                 <dd className="full-address">{payment.destination}</dd>
                 {payment.issuer ? (
@@ -2012,10 +2220,21 @@ export default function Home() {
                     <dd className="full-address">{payment.issuer}</dd>
                   </>
                 ) : null}
-                <dt>Memo</dt>
-                <dd>{payment.memo || "—"}</dd>
-                <dt>{t("Motivo", "Purpose")}</dt>
-                <dd>{payment.note}</dd>
+                {payment.kind === "enable" ? (
+                  <>
+                    <dt>{t("Reserva adicional", "Additional reserve")}</dt>
+                    <dd>
+                      {payment.reserve ? money(payment.reserve) : "—"} XLM
+                    </dd>
+                  </>
+                ) : (
+                  <>
+                    <dt>Memo</dt>
+                    <dd>{payment.memo || "—"}</dd>
+                    <dt>{t("Motivo", "Purpose")}</dt>
+                    <dd>{payment.note}</dd>
+                  </>
+                )}
                 <dt>{t("Preparado por", "Prepared by")}</dt>
                 <dd>{payment.proposerName}</dd>
                 <dt>{t("Comisión prevista", "Expected fee")}</dt>
@@ -2076,7 +2295,7 @@ export default function Home() {
                   className="primary wide"
                   target="_blank"
                   rel="noreferrer"
-                  href={`https://stellar.expert/explorer/testnet/tx/${payment.hash}`}
+                  href={`${chain.explorer}/tx/${payment.hash}`}
                 >
                   {t("Ver recibo en Stellar", "View receipt on Stellar")}
                   <ExternalLink size={17} />
@@ -2085,8 +2304,8 @@ export default function Home() {
               {payment.status !== "paid" ? (
                 <p className="footnote">
                   {t(
-                    "Las firmas confirman exactamente este pago. Vence el",
-                    "Signatures confirm this exact payment. Expires",
+                    "Las firmas confirman exactamente esta operación. Vence el",
+                    "Signatures confirm this exact operation. Expires",
                   )}{" "}
                   {new Date(payment.expires * 1000).toLocaleString(
                     es ? "es-ES" : "en-US",
@@ -2104,8 +2323,10 @@ export default function Home() {
               <h3>{v.name}</h3>
               {chosenAsset ? (
                 <div className="receive-asset">
-                  <AssetMark asset={chosenAsset} />
-                  <strong>{chosenAsset.code} · Stellar Testnet</strong>
+                  <AssetMark asset={chosenAsset} network={chain.id} />
+                  <strong>
+                    {chosenAsset.code} · {chain.label}
+                  </strong>
                   {chosenAsset.issuer ? (
                     <details>
                       <summary>{t("Ver emisor", "View issuer")}</summary>
@@ -2132,8 +2353,8 @@ export default function Home() {
               </button>
               <p className="footnote">
                 {t(
-                  "Envía solo activos habilitados en esta cuenta. No envíes dinero real a Testnet.",
-                  "Send only assets enabled on this account. Do not send real money to Testnet.",
+                  `Recibe únicamente las monedas habilitadas, por ${chain.label}.`,
+                  `Receive only enabled currencies, using ${chain.label}.`,
                 )}
               </p>
             </div>

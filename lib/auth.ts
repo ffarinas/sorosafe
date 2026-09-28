@@ -152,7 +152,7 @@ export async function authenticate(
       .bind(address, name || "Team member", issued, name || null),
     db()
       .prepare("INSERT INTO sessions(hash,address,expires) VALUES(?,?,?)")
-      .bind(await digest(session), address, expires),
+      .bind(await digest(`${NETWORK}:${session}`), address, expires),
   ]);
   // Browser sessions remain HttpOnly. Native SEP-10 clients can use the JWT as
   // a Bearer token; the database hash provides expiry and immediate revocation.

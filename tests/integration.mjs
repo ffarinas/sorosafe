@@ -18,6 +18,11 @@ const people = Array.from({ length: 4 }, (_, i) => ({
 }));
 const vaultKey = Keypair.random(),
   recipient = Keypair.random();
+assert.equal(
+  (await (await fetch(base + "/api/junto")).json()).network.id,
+  "testnet",
+  "This suite only runs against Testnet.",
+);
 let checks = 0;
 async function request(p, action, body = {}) {
   const r = await fetch(base + "/api/junto", {

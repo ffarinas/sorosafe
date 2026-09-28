@@ -1,0 +1,17 @@
+{
+  "network": "Stellar Testnet",
+  "checkedAt": "2026-09-28T23:11:53.744Z",
+  "checks": 38,
+  "vault": "b68a2130-c29c-4bc4-8c70-78bb9b110e7b",
+  "address": "GAN5V6GQ5SA6PWU2NO42WKSAIU36EBRVDQWOI56FJMSOSHDSPW4GPUTW",
+  "activation": "1f78ce503e50d67bbda656ffc1841f00f09e6028385368a65a8bfc8dcf2026be",
+  "enableAsset": "21a975415b6ea8c63bc0d08f3cab2c8e23584b23f8b87f3a261f5352735c9b52",
+  "tests": [
+    "Atomic funded activation: master key disabled and 2-of-3 policy enforced",
+    "Prepared activation resumed unchanged",
+    "Forged funding, policy, network and missing wallet signatures rejected",
+    "Real Circle USDC trustline requires two independent signatures",
+    "Changed issuer and trustline limit rejected before signing",
+    "Duplicate enablement rejected; real zero balance appears after confirmation"
+  ]
+}
