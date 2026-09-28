@@ -1,0 +1,19 @@
+{
+  "date": "2026-09-28T20:43:14.737Z",
+  "checks": 34,
+  "standard": "SEP-10",
+  "scope": "Individual G-address wallets on Stellar Testnet",
+  "tests": [
+    "server-signed challenge",
+    "domain and network binding",
+    "user proof required",
+    "wrong signer rejected",
+    "missing server proof rejected",
+    "foreign origin rejected",
+    "concurrent replay rejected",
+    "EdDSA JWT signature and expiry",
+    "Bearer session and tampering",
+    "form-encoded exchange",
+    "logout revocation"
+  ]
+}

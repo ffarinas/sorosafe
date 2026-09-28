@@ -3,6 +3,7 @@ export type Vault = {
   id: string;
   name: string;
   owner: string;
+  // Both are 0 only for a newly created, unconfigured draft.
   threshold: number;
   size: number;
   status: "draft" | "activating" | "active";

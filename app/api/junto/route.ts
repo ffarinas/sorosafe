@@ -1,9 +1,4 @@
-import {
-  Account,
-  Operation,
-  StrKey,
-  TransactionBuilder,
-} from "@stellar/stellar-sdk";
+import { StrKey } from "@stellar/stellar-sdk";
 import { Buffer } from "node:buffer";
 import { all, db, digest, one, run, token } from "@/lib/store";
 import {
@@ -11,7 +6,6 @@ import {
   checkPolicy,
   combine,
   decode,
-  NETWORK,
   paymentXdr,
   receipt,
   setupXdr,
@@ -65,12 +59,16 @@ function json(
   });
 }
 async function user(req: Request) {
-  const raw = req.headers
-    .get("cookie")
-    ?.split(";")
-    .map((x) => x.trim())
-    .find((x) => x.startsWith("junto_session="))
-    ?.split("=")[1];
+  const raw =
+    req.headers
+      .get("authorization")
+      ?.match(/^Bearer ([A-Za-z0-9_.-]+)$/)?.[1] ||
+    req.headers
+      .get("cookie")
+      ?.split(";")
+      .map((x) => x.trim())
+      .find((x) => x.startsWith("junto_session="))
+      ?.split("=")[1];
   if (!raw) return null;
   return one<Person>(
     "SELECT p.* FROM people p JOIN sessions s ON p.address=s.address WHERE s.hash=? AND s.expires>?",
@@ -205,6 +203,8 @@ function error(e: unknown) {
     "INSUFFICIENT_SIGNATURES",
     "ALREADY_ACTIVE",
     "RATE_LIMITED",
+    "CONFIGURATION_REQUIRED",
+    "CONFIGURATION_CHANGED",
   ];
   const code = known.includes(msg) ? msg : "UNAVAILABLE";
   if (code === "UNAVAILABLE")
@@ -354,75 +354,14 @@ export async function POST(req: Request) {
     if (body.length > 60000) fail("INVALID_INPUT");
     const b = JSON.parse(body) as Record<string, unknown>;
     const action = str(b, "action", 40);
-    if (action === "challenge") {
-      const address = addr(str(b, "address", 56));
-      const count = await one<{ n: number }>(
-        "SELECT count(*) as n FROM challenges WHERE address=? AND expires>?",
-        address,
-        now(),
-      );
-      if ((count?.n || 0) > 5) fail("RATE_LIMITED");
-      const id = token(),
-        expires = now() + 300;
-      const xdr = new TransactionBuilder(new Account(address, "-1"), {
-        fee: "100",
-        networkPassphrase: NETWORK,
-        timebounds: { minTime: now() - 1, maxTime: expires },
-      })
-        .addOperation(
-          Operation.manageData({
-            name: `Junto login ${new URL(req.url).hostname}`.slice(0, 64),
-            value: Buffer.from(id, "hex"),
-          }),
-        )
-        .build()
-        .toXDR();
-      await run(
-        "INSERT INTO challenges(id,address,xdr,expires) VALUES(?,?,?,?)",
-        id,
-        address,
-        xdr,
-        expires,
-      );
-      return json({ id, xdr });
-    }
-    if (action === "login") {
-      const id = str(b, "id", 64),
-        name = str(b, "name", 60),
-        signed = str(b, "signed", 40000);
-      const c = await one<{ address: string; xdr: string; expires: number }>(
-        "SELECT * FROM challenges WHERE id=?",
-        id,
-      );
-      if (!c || c.expires < now()) fail("EXPIRED_LOGIN");
-      signedBy(c.xdr, signed, c.address);
-      const used = await run(
-        "DELETE FROM challenges WHERE id=? AND expires>?",
-        id,
-        now(),
-      );
-      if (!used.meta.changes) fail("EXPIRED_LOGIN");
-      const session = token();
-      await db().batch([
-        db()
-          .prepare(
-            "INSERT INTO people(address,name,joined) VALUES(?,?,?) ON CONFLICT(address) DO UPDATE SET name=excluded.name",
-          )
-          .bind(c.address, name, now()),
-        db()
-          .prepare("INSERT INTO sessions(hash,address,expires) VALUES(?,?,?)")
-          .bind(await digest(session), c.address, now() + 86400),
-      ]);
-      return json({ ok: true }, 200, {
-        "Set-Cookie": `junto_session=${session}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${req.url.startsWith("https:") ? "; Secure" : ""}`,
-      });
-    }
     const me = await user(req);
     if (!me) fail("SIGN_IN_REQUIRED");
     if (action === "logout") {
-      const cookie = req.headers
-        .get("cookie")
-        ?.match(/junto_session=([^;]+)/)?.[1];
+      const cookie =
+        req.headers
+          .get("authorization")
+          ?.match(/^Bearer ([A-Za-z0-9_.-]+)$/)?.[1] ||
+        req.headers.get("cookie")?.match(/junto_session=([^;]+)/)?.[1];
       if (cookie)
         await run("DELETE FROM sessions WHERE hash=?", await digest(cookie));
       return json({ ok: true }, 200, {
@@ -431,36 +370,24 @@ export async function POST(req: Request) {
       });
     }
     if (action === "create") {
-      const name = str(b, "name", 80),
-        threshold = integer(b, "threshold", 2, 20),
-        size = integer(b, "size", 2, 20);
-      if (threshold > size) fail("INVALID_RULE");
+      const name = str(b, "name", 80);
       const owned = await one<{ n: number }>(
         "SELECT count(*) as n FROM vaults WHERE owner=?",
         me.address,
       );
       if ((owned?.n || 0) >= 30) fail("RATE_LIMITED");
-      const id = crypto.randomUUID(),
-        invite = token();
+      const id = crypto.randomUUID();
       await db().batch([
         db()
           .prepare(
-            "INSERT INTO vaults(id,name,owner,threshold,size,invite_hash,created) VALUES(?,?,?,?,?,?,?)",
+            "INSERT INTO vaults(id,name,owner,threshold,size,created) VALUES(?,?,?,0,0,?)",
           )
-          .bind(
-            id,
-            name,
-            me.address,
-            threshold,
-            size,
-            await digest(invite),
-            now(),
-          ),
+          .bind(id, name, me.address, now()),
         db()
           .prepare("INSERT INTO members(vault,address) VALUES(?,?)")
           .bind(id, me.address),
       ]);
-      return json({ id, invite });
+      return json({ id });
     }
     if (action === "join") {
       const invite = await digest(str(b, "invite", 64));
@@ -470,9 +397,10 @@ export async function POST(req: Request) {
       );
       if (!v || v.status !== "draft") fail("INVITE_CLOSED");
       await run(
-        "INSERT OR IGNORE INTO members(vault,address) SELECT id,? FROM vaults WHERE id=? AND status='draft' AND (SELECT count(*) FROM members WHERE vault=?)<size",
+        "INSERT OR IGNORE INTO members(vault,address) SELECT id,? FROM vaults WHERE id=? AND status='draft' AND invite_hash=? AND (SELECT count(*) FROM members WHERE vault=?)<size",
         me.address,
         v.id,
+        invite,
         v.id,
       );
       await membership(v.id, me.address);
@@ -480,20 +408,44 @@ export async function POST(req: Request) {
     }
     const id = str(b, "vault", 60),
       v = await membership(id, me.address);
+    if (action === "configure") {
+      if (v.owner !== me.address) fail("NOT_OWNER");
+      if (v.status !== "draft") fail("ALREADY_ACTIVE");
+      const size = integer(b, "size", 2, 20),
+        threshold = integer(b, "threshold", 2, 20);
+      if (threshold > size) fail("INVALID_RULE");
+      // Check membership in the same statement: a concurrent join must not
+      // leave more signers than the chosen team size.
+      const saved = await run(
+        "UPDATE vaults SET size=?,threshold=?,invite_hash=NULL WHERE id=? AND status='draft' AND (SELECT count(*) FROM members WHERE vault=?)<=?",
+        size,
+        threshold,
+        id,
+        id,
+        size,
+      );
+      if (!saved.meta.changes) fail("CONFIGURATION_CHANGED");
+      return json({ ok: true });
+    }
     if (action === "invite") {
       if (v.owner !== me.address) fail("NOT_OWNER");
       if (v.status !== "draft") fail("INVITE_CLOSED");
+      if (v.size < 2 || v.threshold < 2) fail("CONFIGURATION_REQUIRED");
       const invite = token();
-      await run(
-        "UPDATE vaults SET invite_hash=? WHERE id=?",
+      const saved = await run(
+        "UPDATE vaults SET invite_hash=? WHERE id=? AND status='draft' AND size=? AND threshold=?",
         await digest(invite),
         id,
+        v.size,
+        v.threshold,
       );
+      if (!saved.meta.changes) fail("CONFIGURATION_CHANGED");
       return json({ invite });
     }
     if (action === "prepareActivation") {
       if (v.owner !== me.address) fail("NOT_OWNER");
       if (v.status !== "draft") fail("ALREADY_ACTIVE");
+      if (v.size < 2 || v.threshold < 2) fail("CONFIGURATION_REQUIRED");
       const people = await team(id);
       if (people.length !== v.size) fail("TEAM_INCOMPLETE");
       const address = addr(str(b, "address", 56));
@@ -511,12 +463,14 @@ export async function POST(req: Request) {
         v.threshold,
       );
       const result = await run(
-        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status='draft'",
+        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status='draft' AND size=? AND threshold=?",
         address,
         xdr,
         id,
+        v.size,
+        v.threshold,
       );
-      if (!result.meta.changes) fail("ALREADY_ACTIVE");
+      if (!result.meta.changes) fail("CONFIGURATION_CHANGED");
       return json({ xdr });
     }
     if (action === "activate") {

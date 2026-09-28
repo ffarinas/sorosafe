@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write app/page.tsx app/api/junto/route.ts app/globals.css lib/client-wallet.ts lib/domain.ts lib/messages.ts lib/stellar.ts lib/store.ts lib/use-vault-tools.ts db/schema.ts tests/*.mjs",
     "test:integration": "node tests/integration.mjs",
-    "db:local": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0000_worthless_ikaris.sql"
+    "db:local": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0000_worthless_ikaris.sql",
+    "test:auth": "node tests/auth.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

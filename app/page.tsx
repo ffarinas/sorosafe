@@ -30,6 +30,7 @@ import {
   Send,
   Landmark,
   LockKeyhole,
+  Settings2,
 } from "lucide-react";
 import {
   Dialog,
@@ -53,6 +54,7 @@ import { errors } from "@/lib/messages";
 import { useVaultTools } from "@/lib/use-vault-tools";
 import {
   assertPayment,
+  loginWithWallet,
   bootstrapVault,
   connectWallet,
   disconnectWallet,
@@ -121,6 +123,7 @@ export default function Home() {
   const t = (a: string, b: string) => (es ? a : b);
   const v = data.vault,
     me = data.user;
+  const configured = !!v && v.size >= 2 && v.threshold >= 2;
   const tempStatus = me ? temporaryWalletStatus(me.address) : "none",
     temporary = tempStatus === "active",
     lostTemporary = tempStatus === "lost";
@@ -225,10 +228,10 @@ export default function Home() {
     }
   };
   const create = async () => {
-    const r = await api("create", { name, threshold, size });
-    setInvite(`${location.origin}/?invite=${r.invite}`);
+    const r = await api("create", { name });
+    setInvite("");
     choose(r.id);
-    setModal("invite");
+    setModal("");
     setName("");
   };
   const join = async () => {
@@ -242,13 +245,10 @@ export default function Home() {
   const connect = async (temp: boolean) => {
     await work(async () => {
       const key = await connectWallet(temp);
-      const c = await api("challenge", { address: key });
-      const signed = await signXdr(c.xdr, key);
-      await api("login", {
-        id: c.id,
-        name: personName || me?.name || "Team member",
-        signed,
-      });
+      await loginWithWallet(
+        key,
+        personName.trim() || me?.name || "Team member",
+      );
       setModal("");
       if (joinToken) await join();
       else if (authPurpose.current === "create" && name.trim()) await create();
@@ -294,6 +294,27 @@ export default function Home() {
         : "XLM|",
     );
     setModal("send");
+  };
+  const configure = () => {
+    setSize(v?.size || 3);
+    setThreshold(v?.threshold || 2);
+    setTab("team");
+    setModal("configure");
+  };
+  const saveConfiguration = (e: FormEvent) => {
+    e.preventDefault();
+    void work(async () => {
+      await api("configure", { vault: v?.id, size, threshold });
+      setInvite("");
+      await refresh(v?.id);
+      setModal("");
+      toast.success(
+        t(
+          "Configuración guardada. Ya puedes invitar a tu equipo.",
+          "Settings saved. You can now invite your team.",
+        ),
+      );
+    });
   };
   const requestInvite = () =>
     void work(async () => {
@@ -465,13 +486,13 @@ export default function Home() {
                 <span>2</span>
                 {joinToken
                   ? t("Conecta tu wallet", "Connect your wallet")
-                  : t("Invita a tu equipo", "Invite your team")}
+                  : t("Prepara tu bóveda", "Set up your vault")}
               </p>
               <p>
                 <span>3</span>
                 {joinToken
                   ? t("Entra a la misma bóveda", "Join the same vault")
-                  : t("Decidan cómo aprobar", "Choose how to approve")}
+                  : t("Invita a tu equipo", "Invite your team")}
               </p>
             </div>
             <div className="stellar-mark">
@@ -494,7 +515,9 @@ export default function Home() {
                 <Users size={24} />
               </span>
               <span>
-                {joinToken ? t("BÓVEDA COMPARTIDA", "SHARED VAULT") : "01 / 03"}
+                {joinToken
+                  ? t("BÓVEDA COMPARTIDA", "SHARED VAULT")
+                  : t("TU NUEVA BÓVEDA", "YOUR NEW VAULT")}
               </span>
             </div>
             {joinToken ? (
@@ -582,39 +605,6 @@ export default function Home() {
                     />
                   </label>
                 ) : null}
-                <div className="form-pair">
-                  <label>
-                    {t("Personas, incluyéndote", "People, including you")}
-                    <input
-                      type="number"
-                      min={2}
-                      max={20}
-                      value={size}
-                      onChange={(e) => {
-                        const n = Number(e.target.value);
-                        setSize(n);
-                        if (threshold > n) setThreshold(n);
-                      }}
-                    />
-                  </label>
-                  <label>
-                    {t("Aprobaciones por pago", "Approvals per payment")}
-                    <input
-                      type="number"
-                      min={2}
-                      max={size}
-                      value={threshold}
-                      onChange={(e) => setThreshold(Number(e.target.value))}
-                    />
-                  </label>
-                </div>
-                <p className="rule-sentence">
-                  <ShieldCheck size={16} />
-                  {t(
-                    `${threshold} de ${size} personas deben estar de acuerdo.`,
-                    `${threshold} of ${size} people must agree.`,
-                  )}
-                </p>
                 <button className="primary wide" disabled={busy}>
                   {busy ? (
                     <Loader2 className="spin" size={19} />
@@ -648,10 +638,12 @@ export default function Home() {
               <h1>{v.name}</h1>
               <div className="vault-meta">
                 <ShieldCheck size={15} />
-                {t(
-                  `${v.threshold} de ${v.size} aprobaciones`,
-                  `${v.threshold} of ${v.size} approvals`,
-                )}
+                {configured
+                  ? t(
+                      `${v.threshold} de ${v.size} aprobaciones`,
+                      `${v.threshold} of ${v.size} approvals`,
+                    )
+                  : t("Pendiente de configurar", "Settings needed")}
                 <span>·</span>
                 {v.status === "active"
                   ? t("Bóveda activa", "Active vault")
@@ -675,7 +667,11 @@ export default function Home() {
                 <button
                   className="avatar add"
                   onClick={() => {
-                    if (v.status === "draft" && me?.address === v.owner)
+                    if (
+                      v.status === "draft" &&
+                      me?.address === v.owner &&
+                      configured
+                    )
                       requestInvite();
                     else setTab("team");
                   }}
@@ -708,7 +704,7 @@ export default function Home() {
                 ["overview", t("Resumen", "Overview")],
                 ["payments", t("Pagos", "Payments")],
                 ["contacts", t("Contactos", "Contacts")],
-                ["team", t("Equipo", "Team")],
+                ["team", t("Equipo y ajustes", "Team & settings")],
               ].map(([value, label]) => (
                 <TabsTrigger key={value} value={value}>
                   {label}
@@ -782,36 +778,53 @@ export default function Home() {
                         <Users size={22} />
                       </div>
                       <h2>
-                        {data.people.length === v.size
-                          ? t("Todo el equipo está aquí.", "Everyone is here.")
-                          : t(
-                              "Reúne a tu equipo.",
-                              "Bring your team together.",
-                            )}
+                        {!configured
+                          ? t(
+                              "Tu bóveda está creada.",
+                              "Your vault is created.",
+                            )
+                          : data.people.length === v.size
+                            ? t(
+                                "Todo el equipo está aquí.",
+                                "Everyone is here.",
+                              )
+                            : t(
+                                "Reúne a tu equipo.",
+                                "Bring your team together.",
+                              )}
                       </h2>
                       <p>
-                        {data.people.length === v.size
+                        {!configured
                           ? t(
-                              "Revisen las personas y la regla de aprobación antes de activar los fondos compartidos.",
-                              "Review the people and approval rule before activating your shared funds.",
+                              "En Equipo y ajustes puedes elegir quiénes participarán y cuántas aprobaciones necesitará cada pago.",
+                              "In Team & settings, choose your team size and how many approvals each payment will need.",
                             )
-                          : t(
-                              `${data.people.length} de ${v.size} personas se unieron. Comparte la invitación para entrar a esta misma bóveda.`,
-                              `${data.people.length} of ${v.size} people joined. Share the invitation to enter this same vault.`,
-                            )}
+                          : data.people.length === v.size
+                            ? t(
+                                "Revisen las personas y la regla de aprobación antes de activar los fondos compartidos.",
+                                "Review the people and approval rule before activating your shared funds.",
+                              )
+                            : t(
+                                `${data.people.length} de ${v.size} personas se unieron. Comparte la invitación para entrar a esta misma bóveda.`,
+                                `${data.people.length} of ${v.size} people joined. Share the invitation to enter this same vault.`,
+                              )}
                       </p>
                       {v.owner === me?.address && v.status === "draft" ? (
                         <button
                           className="text-button"
                           onClick={() =>
-                            data.people.length === v.size
-                              ? setModal("activate")
-                              : requestInvite()
+                            !configured
+                              ? configure()
+                              : data.people.length === v.size
+                                ? setModal("activate")
+                                : requestInvite()
                           }
                         >
-                          {data.people.length === v.size
-                            ? t("Revisar y activar", "Review and activate")
-                            : t("Invitar al equipo", "Invite your team")}
+                          {!configured
+                            ? t("Configurar bóveda", "Set up vault")
+                            : data.people.length === v.size
+                              ? t("Revisar y activar", "Review and activate")
+                              : t("Invitar al equipo", "Invite your team")}
                           <ArrowUpRight size={17} />
                         </button>
                       ) : (
@@ -1092,7 +1105,9 @@ export default function Home() {
                       )}
                     </p>
                   </div>
-                  {v.status === "draft" && v.owner === me?.address ? (
+                  {configured &&
+                  v.status === "draft" &&
+                  v.owner === me?.address ? (
                     <button className="primary" onClick={requestInvite}>
                       <Link2 size={17} />
                       {t("Invitar", "Invite")}
@@ -1103,23 +1118,40 @@ export default function Home() {
                   <ShieldCheck size={24} />
                   <div>
                     <strong>
-                      {t(
-                        `${v.threshold} de ${v.size} aprobaciones para mover fondos`,
-                        `${v.threshold} of ${v.size} approvals to move funds`,
-                      )}
+                      {configured
+                        ? t(
+                            `${v.threshold} de ${v.size} aprobaciones para mover fondos`,
+                            `${v.threshold} of ${v.size} approvals to move funds`,
+                          )
+                        : t(
+                            "Configura las reglas de tu bóveda",
+                            "Set your vault’s rules",
+                          )}
                     </strong>
                     <p>
-                      {t(
-                        "La misma regla protege los cambios de control de la cuenta.",
-                        "The same rule protects changes to account control.",
-                      )}
+                      {configured
+                        ? t(
+                            "La misma regla protege los cambios de control de la cuenta.",
+                            "The same rule protects changes to account control.",
+                          )
+                        : t(
+                            "Elige el tamaño del equipo y las aprobaciones antes de invitarlo.",
+                            "Choose your team size and approvals before inviting anyone.",
+                          )}
                     </p>
                   </div>
-                  <span className="badge">
-                    {v.status === "active"
-                      ? t("Activa en Stellar", "Active on Stellar")
-                      : t("Por activar", "Not active yet")}
-                  </span>
+                  {v.status === "draft" && v.owner === me?.address ? (
+                    <button className="secondary" onClick={configure}>
+                      <Settings2 size={17} />
+                      {t("Configuración", "Settings")}
+                    </button>
+                  ) : (
+                    <span className="badge">
+                      {v.status === "active"
+                        ? t("Activa en Stellar", "Active on Stellar")
+                        : t("Por activar", "Not active yet")}
+                    </span>
+                  )}
                 </div>
                 {data.people.map((p) => (
                   <div className="person-row" key={p.address}>
@@ -1204,73 +1236,80 @@ export default function Home() {
           </DialogClose>
           <DialogTitle className="dialog-title">
             {modal === "connect"
-              ? t("Tu firma es tuya.", "Your signature is yours.")
-              : modal === "contact"
-                ? t("Nuevo contacto compartido", "New shared contact")
-                : modal === "send"
-                  ? review
-                    ? t("Revisa tu pago", "Review your payment")
-                    : t("Prepara un pago", "Prepare a payment")
-                  : modal === "invite"
-                    ? t("Invita a esta bóveda", "Invite to this vault")
-                    : modal === "receive"
-                      ? t("Recibir fondos", "Receive funds")
-                      : modal === "activate"
-                        ? t(
-                            "Todo listo para decidir juntos",
-                            "Ready to decide together",
-                          )
-                        : modal === "payment"
-                          ? t("Detalle del pago", "Payment details")
-                          : modal === "vaults"
-                            ? t("Tus bóvedas", "Your vaults")
-                            : t("Tu wallet", "Your wallet")}
+              ? t("Entra en Junto", "Sign in to Junto")
+              : modal === "configure"
+                ? t("Configuración de la bóveda", "Vault settings")
+                : modal === "contact"
+                  ? t("Nuevo contacto compartido", "New shared contact")
+                  : modal === "send"
+                    ? review
+                      ? t("Revisa tu pago", "Review your payment")
+                      : t("Prepara un pago", "Prepare a payment")
+                    : modal === "invite"
+                      ? t("Invita a esta bóveda", "Invite to this vault")
+                      : modal === "receive"
+                        ? t("Recibir fondos", "Receive funds")
+                        : modal === "activate"
+                          ? t(
+                              "Todo listo para decidir juntos",
+                              "Ready to decide together",
+                            )
+                          : modal === "payment"
+                            ? t("Detalle del pago", "Payment details")
+                            : modal === "vaults"
+                              ? t("Tus bóvedas", "Your vaults")
+                              : t("Tu wallet", "Your wallet")}
           </DialogTitle>
           <DialogDescription className="dialog-description">
             {modal === "connect"
               ? t(
-                  "Confirma tu identidad con tu wallet. Esta firma no mueve fondos.",
-                  "Confirm your identity with your wallet. This signature moves no funds.",
+                  "Usa tu wallet de Stellar para crear tu cuenta o volver a entrar. Solo confirmarás tu identidad; no se enviará dinero.",
+                  "Use your Stellar wallet to create your account or sign back in. You’ll confirm your identity; no money will be sent.",
                 )
-              : modal === "contact"
+              : modal === "configure"
                 ? t(
-                    "Todo el equipo verá este contacto y quién lo añadió.",
-                    "The whole team will see this contact and who added it.",
+                    "Estas reglas se aplicarán al activar la bóveda. Puedes ajustarlas mientras preparas el equipo.",
+                    "These rules will apply when you activate the vault. You can edit them while setting up your team.",
                   )
-                : modal === "send"
+                : modal === "contact"
                   ? t(
-                      "El dinero se envía cuando el equipo completa las aprobaciones.",
-                      "Money is sent when the team completes the approvals.",
+                      "Todo el equipo verá este contacto y quién lo añadió.",
+                      "The whole team will see this contact and who added it.",
                     )
-                  : modal === "invite"
+                  : modal === "send"
                     ? t(
-                        "Quien abra el enlace entrará a esta misma bóveda.",
-                        "Anyone opening this link will join this same vault.",
+                        "El dinero se envía cuando el equipo completa las aprobaciones.",
+                        "Money is sent when the team completes the approvals.",
                       )
-                    : modal === "activate"
+                    : modal === "invite"
                       ? t(
-                          "Revisa las personas y la regla. Así quedará protegida la bóveda en Stellar.",
-                          "Review the people and rule. This is how Stellar will protect your vault.",
+                          "Quien abra el enlace entrará a esta misma bóveda.",
+                          "Anyone opening this link will join this same vault.",
                         )
-                      : modal === "receive"
+                      : modal === "activate"
                         ? t(
-                            "Usa esta dirección únicamente en Stellar Testnet.",
-                            "Use this address only on Stellar Testnet.",
+                            "Revisa las personas y la regla. Así quedará protegida la bóveda en Stellar.",
+                            "Review the people and rule. This is how Stellar will protect your vault.",
                           )
-                        : modal === "payment"
+                        : modal === "receive"
                           ? t(
-                              "Revisa el destinatario, el importe y la dirección antes de firmar.",
-                              "Check the recipient, amount, and address before signing.",
+                              "Usa esta dirección únicamente en Stellar Testnet.",
+                              "Use this address only on Stellar Testnet.",
                             )
-                          : modal === "vaults"
+                          : modal === "payment"
                             ? t(
-                                "Cada bóveda tiene su equipo y sus contactos.",
-                                "Every vault has its own team and contacts.",
+                                "Revisa el destinatario, el importe y la dirección antes de firmar.",
+                                "Check the recipient, amount, and address before signing.",
                               )
-                            : t(
-                                "La clave privada permanece en tu wallet.",
-                                "The private key stays in your wallet.",
-                              )}
+                            : modal === "vaults"
+                              ? t(
+                                  "Cada bóveda tiene su equipo y sus contactos.",
+                                  "Every vault has its own team and contacts.",
+                                )
+                              : t(
+                                  "La clave privada permanece en tu wallet.",
+                                  "The private key stays in your wallet.",
+                                )}
           </DialogDescription>
           {modal === "connect" ? (
             <div className="modal-body">
@@ -1290,7 +1329,7 @@ export default function Home() {
                 onClick={() => void connect(false)}
               >
                 <Wallet size={19} />
-                {t("Conectar Freighter", "Connect Freighter")}
+                {t("Continuar con Freighter", "Continue with Freighter")}
                 {busy ? (
                   <Loader2 className="spin" size={18} />
                 ) : (
@@ -1306,6 +1345,12 @@ export default function Home() {
                 {t("Conseguir Freighter", "Get Freighter")}
                 <ExternalLink size={14} />
               </a>
+              <p className="footnote">
+                {t(
+                  "No necesitas otra contraseña. Necesitas Freighter instalado en este navegador.",
+                  "No extra password needed. Freighter must be installed in this browser.",
+                )}
+              </p>
               <div className="test-wallet">
                 <strong>
                   {t("¿Solo quieres probar?", "Just trying it out?")}
@@ -1326,6 +1371,63 @@ export default function Home() {
                 </button>
               </div>
             </div>
+          ) : null}
+          {modal === "configure" && v ? (
+            <form className="modal-body" onSubmit={saveConfiguration}>
+              <div className="invite-name">
+                <Settings2 size={22} />
+                <strong>{v.name}</strong>
+              </div>
+              <div className="form-pair">
+                <label>
+                  {t("Personas, incluyéndote", "People, including you")}
+                  <input
+                    type="number"
+                    required
+                    min={Math.max(2, data.people.length)}
+                    max={20}
+                    value={size}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      setSize(n);
+                      if (threshold > n) setThreshold(n);
+                    }}
+                  />
+                </label>
+                <label>
+                  {t("Aprobaciones por pago", "Approvals per payment")}
+                  <input
+                    type="number"
+                    required
+                    min={2}
+                    max={size}
+                    value={threshold}
+                    onChange={(e) => setThreshold(Number(e.target.value))}
+                  />
+                </label>
+              </div>
+              <p className="rule-sentence">
+                <ShieldCheck size={18} />
+                {t(
+                  `${threshold} de ${size} personas deberán aprobar cada pago.`,
+                  `${threshold} of ${size} people will need to approve each payment.`,
+                )}
+              </p>
+              <p className="footnote">
+                {t(
+                  "Todos tendrán su propia firma. Al guardar, los enlaces anteriores dejarán de funcionar; podrás crear una nueva invitación con estas reglas.",
+                  "Everyone will have their own signature. Saving closes earlier invitation links; you can create a new invitation with these rules.",
+                )}
+              </p>
+              <button className="primary wide" disabled={busy}>
+                {busy ? (
+                  <Loader2 size={18} className="spin" />
+                ) : (
+                  t("Guardar configuración", "Save settings")
+                )}
+                <Check size={18} />
+              </button>
+            </form>
           ) : null}
           {modal === "invite" ? (
             <div className="modal-body">
@@ -1813,7 +1915,10 @@ export default function Home() {
                   <span>
                     <strong>{vault.name}</strong>
                     <small>
-                      {vault.threshold} / {vault.size} ·{" "}
+                      {vault.size
+                        ? `${vault.threshold} / ${vault.size}`
+                        : t("Por configurar", "Set up needed")}{" "}
+                      ·{" "}
                       {vault.status === "active"
                         ? t("Activa", "Active")
                         : t("Preparando", "Setting up")}

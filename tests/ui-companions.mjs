@@ -1,4 +1,9 @@
-import { Keypair, TransactionBuilder, Networks } from "@stellar/stellar-sdk";
+import {
+  Keypair,
+  TransactionBuilder,
+  Networks,
+  WebAuth,
+} from "@stellar/stellar-sdk";
 import { writeFile } from "node:fs/promises";
 const base = "http://localhost:8789";
 const invite = process.argv[2];
@@ -24,12 +29,28 @@ async function call(p, action, body = {}) {
   if (!r.ok) throw Error(JSON.stringify(d));
   return d;
 }
+const info = await (await fetch(base + "/.well-known/stellar.toml")).text();
+const signingKey = info.match(/^SIGNING_KEY="([A-Z2-7]+)"$/m)?.[1];
 let id;
 for (const p of partners) {
-  const c = await call(p, "challenge", { address: p.key.publicKey() });
-  const tx = TransactionBuilder.fromXDR(c.xdr, Networks.TESTNET);
+  const r = await fetch(base + "/api/auth?account=" + p.key.publicKey());
+  const c = await r.json();
+  if (!r.ok) throw Error(c.error);
+  const { tx } = WebAuth.readChallengeTx(
+    c.transaction,
+    signingKey,
+    Networks.TESTNET,
+    new URL(base).host,
+    new URL(base).host,
+  );
   tx.sign(p.key);
-  await call(p, "login", { id: c.id, name: p.name, signed: tx.toXDR() });
+  const login = await fetch(base + "/api/auth", {
+    method: "POST",
+    headers: { Origin: base, "Content-Type": "application/json" },
+    body: JSON.stringify({ transaction: tx.toXDR(), name: p.name }),
+  });
+  if (!login.ok) throw Error(JSON.stringify(await login.json()));
+  p.cookie = login.headers.get("set-cookie").split(";")[0];
   id = (await call(p, "join", { invite })).id;
 }
 const funded = await fetch(

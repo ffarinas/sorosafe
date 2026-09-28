@@ -1,10 +1,10 @@
 {
-  "date": "2026-09-28T18:53:13.433Z",
-  "checks": 49,
-  "vaultId": "e3b404da-9cbb-4ad9-9988-0995fafb1e7b",
-  "vaultAddress": "GAPWGGRBZJH3C44H7LCON6YWCIZXTTB7YSEQP4MBAMG3DFFMFMEXL6XZ",
-  "paymentHash": "293626e8a08d4a2e5a271c75847fa44c8efc9cab5e473c62a13465c5288dc40f",
-  "receipt": "https://stellar.expert/explorer/testnet/tx/293626e8a08d4a2e5a271c75847fa44c8efc9cab5e473c62a13465c5288dc40f",
+  "date": "2026-09-28T20:41:58.489Z",
+  "checks": 64,
+  "vaultId": "b45641e5-14bd-4a2b-aa8e-9e90096abf82",
+  "vaultAddress": "GAHZCBWZVXJQNHX3INKDSJKY7EDMZ632CQ4IIADEWR62DXJQCNWM4YGI",
+  "paymentHash": "b0d95376ad22649e7d0641f9848eeaf8e11fe0004ac5bf1c305e40812dd8ebeb",
+  "receipt": "https://stellar.expert/explorer/testnet/tx/b0d95376ad22649e7d0641f9848eeaf8e11fe0004ac5bf1c305e40812dd8ebeb",
   "network": "Stellar Testnet",
   "tests": [
     "login proof and replay",

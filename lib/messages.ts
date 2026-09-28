@@ -3,6 +3,22 @@ export const errors: Record<string, [string, string]> = {
     "La clave de esta wallet temporal se perdió al recargar. Desconecta para empezar otra prueba con una nueva wallet.",
     "This temporary wallet’s key was lost when the page reloaded. Disconnect to start a new test with a new wallet.",
   ],
+  CONFIGURATION_REQUIRED: [
+    "Configura tu bóveda en Equipo y ajustes antes de continuar.",
+    "Set up your vault in Team & settings before continuing.",
+  ],
+  CONFIGURATION_CHANGED: [
+    "El equipo o la configuración cambió. Actualiza y revisa las reglas; no puedes elegir menos personas de las que ya se unieron.",
+    "The team or settings changed. Refresh and review the rules; the team size cannot be smaller than the number who already joined.",
+  ],
+  AUTH_UNAVAILABLE: [
+    "El acceso no está disponible por el momento. Inténtalo de nuevo más tarde.",
+    "Sign-in is unavailable right now. Please try again later.",
+  ],
+  INVALID_LOGIN: [
+    "No pudimos verificar tu identidad. Vuelve a entrar con tu wallet.",
+    "We could not verify your identity. Please sign in with your wallet again.",
+  ],
   INVALID_INPUT: [
     "Revisa los campos e inténtalo de nuevo.",
     "Check the fields and try again.",

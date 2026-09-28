@@ -6,6 +6,7 @@ import {
   TransactionBuilder,
   Operation,
   Networks,
+  WebAuth,
 } from "@stellar/stellar-sdk";
 const base = "http://localhost:8789",
   horizon = "https://horizon-testnet.stellar.org";
@@ -60,26 +61,81 @@ async function fund(key) {
   );
   assert.ok(r.ok, await r.text());
 }
-console.log("Authenticating four independent test wallets");
+console.log("Authenticating four independent test wallets with SEP-10");
+const info = await (await fetch(base + "/.well-known/stellar.toml")).text();
+const signingKey = info.match(/^SIGNING_KEY="([A-Z2-7]+)"$/m)?.[1];
+assert.ok(signingKey);
 for (const p of people) {
-  const c = await ok(p, "challenge", { address: p.key.publicKey() });
-  await ok(p, "login", { id: c.id, name: p.name, signed: sign(c.xdr, p.key) });
-  await rejected(
-    p,
-    "login",
-    { id: c.id, name: p.name, signed: sign(c.xdr, p.key) },
-    "EXPIRED_LOGIN",
+  const challenge = await (
+    await fetch(base + "/api/auth?account=" + p.key.publicKey())
+  ).json();
+  const decoded = WebAuth.readChallengeTx(
+    challenge.transaction,
+    signingKey,
+    Networks.TESTNET,
+    new URL(base).host,
+    new URL(base).host,
   );
+  assert.equal(decoded.clientAccountID, p.key.publicKey());
+  const transaction = sign(challenge.transaction, p.key);
+  const login = await fetch(base + "/api/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: base },
+    body: JSON.stringify({ transaction, name: p.name }),
+  });
+  assert.equal(login.status, 200, JSON.stringify(await login.json()));
+  p.cookie = login.headers.get("set-cookie").split(";")[0];
+  const replay = await fetch(base + "/api/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: base },
+    body: JSON.stringify({ transaction }),
+  });
+  assert.equal((await replay.json()).error, "EXPIRED_LOGIN");
+  checks += 3;
 }
 const [a, b, c, outsider] = people;
 const created = await ok(a, "create", {
   name: "Meridian · Lisboa 2026 · QA",
-  size: 3,
-  threshold: 2,
 });
 const id = created.id;
+const draft = (await state(a, id)).data.vault;
+assert.equal(draft.size, 0);
+assert.equal(draft.threshold, 0);
+assert.equal(created.invite, undefined);
+checks += 3;
+await rejected(a, "invite", { vault: id }, "CONFIGURATION_REQUIRED");
+await rejected(
+  a,
+  "prepareActivation",
+  { vault: id, address: vaultKey.publicKey() },
+  "CONFIGURATION_REQUIRED",
+);
+await rejected(
+  a,
+  "configure",
+  { vault: id, size: 3, threshold: 4 },
+  "INVALID_RULE",
+);
+await ok(a, "configure", { vault: id, size: 3, threshold: 2 });
+const earlier = await ok(a, "invite", { vault: id });
+await ok(a, "configure", { vault: id, size: 3, threshold: 3 });
+await rejected(b, "join", { invite: earlier.invite }, "INVITE_CLOSED");
+await ok(a, "configure", { vault: id, size: 3, threshold: 2 });
+created.invite = (await ok(a, "invite", { vault: id })).invite;
 await ok(b, "join", { invite: created.invite });
+await rejected(
+  b,
+  "configure",
+  { vault: id, size: 4, threshold: 3 },
+  "NOT_OWNER",
+);
 await ok(c, "join", { invite: created.invite });
+await rejected(
+  a,
+  "configure",
+  { vault: id, size: 2, threshold: 2 },
+  "CONFIGURATION_CHANGED",
+);
 await rejected(outsider, "join", { invite: created.invite }, "NOT_MEMBER");
 const privateRead = await state(outsider, id);
 assert.equal(privateRead.status, 403);
@@ -103,6 +159,12 @@ await rejected(
   "NOT_OWNER",
 );
 await ok(a, "activate", { vault: id, signed: sign(setup.xdr, vaultKey) });
+await rejected(
+  a,
+  "configure",
+  { vault: id, size: 3, threshold: 3 },
+  "ALREADY_ACTIVE",
+);
 await rejected(outsider, "join", { invite: created.invite }, "INVITE_CLOSED");
 let current = (await state(a, id)).data;
 assert.equal(current.vault.status, "active");

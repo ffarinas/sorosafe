@@ -47,6 +47,62 @@ export async function signXdr(xdr: string, address: string) {
     throw new Error("WALLET_CANCELLED");
   return r.signedTxXdr;
 }
+export async function loginWithWallet(address: string, name: string) {
+  const { Networks, WebAuth, StrKey } = await import("@stellar/stellar-sdk");
+  const [infoResponse, challengeResponse] = await Promise.all([
+    fetch("/.well-known/stellar.toml", { cache: "no-store" }),
+    fetch(`/api/auth?account=${encodeURIComponent(address)}`, {
+      cache: "no-store",
+    }),
+  ]);
+  if (!infoResponse.ok) throw new Error("AUTH_UNAVAILABLE");
+  const info = await infoResponse.text();
+  const key = info.match(/^SIGNING_KEY="([A-Z2-7]+)"$/m)?.[1];
+  const endpoint = info.match(/^WEB_AUTH_ENDPOINT="([^"]+)"$/m)?.[1];
+  const c = (await challengeResponse.json()) as {
+    transaction: string;
+    network_passphrase: string;
+    error?: string;
+  };
+  if (!challengeResponse.ok) throw new Error(c.error || "INVALID_LOGIN");
+  if (
+    !key ||
+    !StrKey.isValidEd25519PublicKey(key) ||
+    endpoint !== `${location.origin}/api/auth` ||
+    c.network_passphrase !== Networks.TESTNET
+  )
+    throw new Error("INVALID_LOGIN");
+  try {
+    const { tx, clientAccountID } = WebAuth.readChallengeTx(
+      c.transaction,
+      key,
+      Networks.TESTNET,
+      location.host,
+      location.host,
+    );
+    if (
+      clientAccountID !== address ||
+      tx.signatures.length !== 1 ||
+      tx.operations.length !== 2 ||
+      tx.operations[1].type !== "manageData" ||
+      tx.operations[1].name !== "web_auth_domain"
+    )
+      throw new Error("INVALID_LOGIN");
+  } catch {
+    throw new Error("INVALID_LOGIN");
+  }
+  const signed = await signXdr(c.transaction, address);
+  const response = await fetch("/api/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transaction: signed, name }),
+  });
+  if (!response.ok) {
+    const result = (await response.json()) as { error?: string };
+    throw new Error(result.error || "INVALID_LOGIN");
+  }
+  // The server sets an HttpOnly cookie; never persist the response JWT in JS.
+}
 export async function assertPayment(p: Payment, source: string) {
   const { TransactionBuilder, Networks, Transaction } =
     await import("@stellar/stellar-sdk");

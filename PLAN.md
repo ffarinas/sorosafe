@@ -22,20 +22,21 @@ Recuperado de la conversación «Locate Find Your Way hackathon» y contrastado 
 ## Recorrido y alcance
 
 1. **Crear:** nombre de la bóveda, nombre de la persona y wallet. Sin un workspace previo.
-2. **Invitar:** enlace a esa bóveda. La persona ve a qué equipo entra y conecta su propia wallet. Unirse como firmante se confirma antes de activar la bóveda.
-3. **Activar:** revisar integrantes y regla configurable. Cada firmante tiene el mismo peso. La clave temporal de creación pierde toda autoridad al activar.
-4. **Compartir contactos:** nombre, dirección y memo cuando corresponda. Autor visible. El historial indica si esa dirección ya recibió pagos confirmados de la bóveda.
-5. **Pagar:** elegir contacto, importe, activo y motivo; revisar un resumen antes de solicitar firmas.
-6. **Aprobar:** mostrar importe, dirección completa, activo, memo, coste y regla. Cada firma corresponde exactamente a esa transacción. Al alcanzar el umbral, se envía a Stellar.
-7. **Consultar:** saldo real, pagos pendientes y confirmados, recibo verificable, contactos y equipo.
+2. **Configurar dentro de la bóveda:** en Equipo y ajustes, el creador define integrantes y aprobaciones. Una bóveda nueva queda sin regla ni enlace de invitación (size=0, threshold=0) hasta guardar esta configuración. Las reglas son editables solo en borrador; guardarlas invalida enlaces anteriores, sin eliminar integrantes.
+3. **Invitar:** enlace a esa bóveda. La persona ve a qué equipo entra y conecta su propia wallet. Unirse como firmante se confirma antes de activar la bóveda.
+4. **Activar:** revisar integrantes y regla configurable. Cada firmante tiene el mismo peso. La clave temporal de creación pierde toda autoridad al activar.
+5. **Compartir contactos:** nombre, dirección y memo cuando corresponda. Autor visible. El historial indica si esa dirección ya recibió pagos confirmados de la bóveda.
+6. **Pagar:** elegir contacto, importe, activo y motivo; revisar un resumen antes de solicitar firmas.
+7. **Aprobar:** mostrar importe, dirección completa, activo, memo, coste y regla. Cada firma corresponde exactamente a esa transacción. Al alcanzar el umbral, se envía a Stellar.
+8. **Consultar:** saldo real, pagos pendientes y confirmados, recibo verificable, contactos y equipo.
 
-La primera implementación utiliza exclusivamente Stellar Testnet. Los fondos de prueba no son dinero real. No se importan semillas de usuarios ni se almacenan claves privadas en el servidor.
+La primera implementación utiliza exclusivamente Stellar Testnet. Los fondos de prueba no son dinero real. No se importan semillas de usuarios ni se almacenan claves privadas de usuarios en el servidor.
 
 ## Diseño
 
 - Marca provisional: Junto.
 - Negro, blanco y grises neutros, sin amarillo. Títulos Lora y controles Inter, con espacios amplios, divisores finos, bloques de contraste y botones ovalados. La referencia es la página de Stellar Consensus Protocol; Junto mantiene su marca propia.
-- Cuatro vistas: resumen, pagos, contactos, equipo.
+- Cuatro vistas: resumen, pagos, contactos, equipo y ajustes.
 - En la portada de una bóveda solo saldo, acciones de enviar/recibir y tareas pendientes.
 - Español e inglés completos, incluidos estados, errores y confirmaciones.
 - Móvil y teclado tratados como recorridos principales.
@@ -54,7 +55,7 @@ La primera implementación utiliza exclusivamente Stellar Testnet. Los fondos de
 ## Colaboración y seguridad
 
 - Base compartida persistente para membresía, contactos y transacciones pendientes. El almacenamiento local no decide permisos ni representa el saldo.
-- Autenticación por prueba de firma de la wallet, caducidad y uso único del desafío. Entrar al panel no equivale a autorizar un pago.
+- Autenticación SEP-10 con Freighter: firma del servidor, validación de dominio/red, firma de la persona, caducidad y uso único del desafío. JWT y sesión HttpOnly revocable. No se presenta como un servicio oficial de registro por correo. Entrar al panel no equivale a autorizar un pago.
 - Toda lectura y escritura de una bóveda exige membresía comprobada en servidor.
 - La invitación no permite alterar una bóveda ya activa ni sustituir firmantes.
 - La activación comprueba en la red todos los firmantes, umbrales y ausencia de una clave maestra con autoridad.
