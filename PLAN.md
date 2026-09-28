@@ -34,7 +34,7 @@ La primera implementación utiliza exclusivamente Stellar Testnet. Los fondos de
 ## Diseño
 
 - Marca provisional: Junto.
-- Negro, blanco, gris neutral y un acento dorado. Tipografía sans serif sobria, espaciamiento amplio y jerarquía parecida a Uber, sin copiar marcas o fuentes propietarias.
+- Negro, blanco y grises neutros, sin amarillo. Títulos Lora y controles Inter, con espacios amplios, divisores finos, bloques de contraste y botones ovalados. La referencia es la página de Stellar Consensus Protocol; Junto mantiene su marca propia.
 - Cuatro vistas: resumen, pagos, contactos, equipo.
 - En la portada de una bóveda solo saldo, acciones de enviar/recibir y tareas pendientes.
 - Español e inglés completos, incluidos estados, errores y confirmaciones.

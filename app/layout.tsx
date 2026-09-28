@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import "@fontsource-variable/inter";
+import "@fontsource-variable/lora";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Junto · Shared vaults on Stellar",
-  description: "Share a vault, keep contacts together, and approve payments as a team. Stellar Testnet.",
+  description:
+    "Share a vault, keep contacts together, and approve payments as a team. Stellar Testnet.",
   other: {
     "codex-preview": "development",
   },

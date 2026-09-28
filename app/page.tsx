@@ -429,8 +429,8 @@ export default function Home() {
           <div className="intro">
             <p className="eyebrow">
               {joinToken
-                ? t("TE INVITARON", "YOU’RE INVITED")
-                : t("DINERO EN EQUIPO", "MONEY, TOGETHER")}
+                ? t("Te invitaron", "You’re invited")
+                : t("Dinero en equipo", "Money, together")}
             </p>
             <h1>
               {joinToken
@@ -642,7 +642,7 @@ export default function Home() {
                 className="vault-switch"
                 onClick={() => setModal("vaults")}
               >
-                {t("MIS BÓVEDAS", "MY VAULTS")}
+                {t("Mis bóvedas", "My vaults")}
                 <ChevronRight size={13} />
               </button>
               <h1>{v.name}</h1>
@@ -722,7 +722,7 @@ export default function Home() {
               <div className="overview-grid">
                 <section className="balance-panel">
                   <div className="section-label">
-                    {t("SALDO DE LA BÓVEDA", "VAULT BALANCE")}
+                    {t("Saldo de la bóveda", "Vault balance")}
                     <Wallet size={19} />
                   </div>
                   <div
@@ -774,7 +774,7 @@ export default function Home() {
                 </section>
                 <section className="next-panel">
                   <span className="eyebrow">
-                    {t("EL SIGUIENTE PASO", "UP NEXT")}
+                    {t("Tu siguiente paso", "Up next")}
                   </span>
                   {v.status !== "active" ? (
                     <>
