@@ -11,12 +11,17 @@ type Tool = {
 type ModelContext = {
   registerTool: (tool: Tool, options: { signal: AbortSignal }) => Promise<void>;
 };
-export function useVaultTools(data: State, selectTab: (tab: string) => void) {
+export function useVaultTools(
+  data: State,
+  selectTab: (tab: string) => void,
+  enabled = true,
+) {
   const current = useRef(data);
   useEffect(() => {
     current.current = data;
   }, [data]);
   useEffect(() => {
+    if (!enabled) return;
     const context = (document as Document & { modelContext?: ModelContext })
       .modelContext;
     if (!context) return;
@@ -85,5 +90,5 @@ export function useVaultTools(data: State, selectTab: (tab: string) => void) {
     };
     void register().catch(() => {});
     return () => controller.abort();
-  }, [selectTab]);
+  }, [selectTab, enabled]);
 }

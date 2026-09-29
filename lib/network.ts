@@ -5,6 +5,7 @@ export const NETWORKS = {
     label: "Stellar Mainnet",
     passphrase: "Public Global Stellar Network ; September 2015",
     horizon: "https://horizon.stellar.org",
+    rpc: "https://soroban-rpc.mainnet.stellar.gateway.fm",
     explorer: "https://stellar.expert/explorer/public",
   },
   testnet: {
@@ -12,6 +13,7 @@ export const NETWORKS = {
     label: "Stellar Testnet",
     passphrase: "Test SDF Network ; September 2015",
     horizon: "https://horizon-testnet.stellar.org",
+    rpc: "https://soroban-testnet.stellar.org",
     explorer: "https://stellar.expert/explorer/testnet",
   },
 } as const;

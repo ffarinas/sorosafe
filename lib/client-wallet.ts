@@ -172,7 +172,46 @@ export async function assertActivation(
   vault: Vault,
   people: Person[],
   chain: NetworkConfig,
+  expectedFactory?: string,
 ) {
+  if (vault.custody === "soroban") {
+    const { assertCall, createArgs, readContract, verifyCode } =
+      await import("./contracts");
+    if (
+      quote.kind !== "soroban" ||
+      !expectedFactory ||
+      quote.factory !== expectedFactory ||
+      !quote.salt ||
+      !/^[a-f0-9]{64}$/.test(quote.salt)
+    )
+      throw new Error("CHANGED_TRANSACTION");
+    const salt = Uint8Array.from(quote.salt.match(/../g)!, (b) =>
+      parseInt(b, 16),
+    );
+    assertCall(
+      quote.xdr,
+      chain,
+      vault.owner,
+      expectedFactory,
+      "create",
+      createArgs(vault.owner, salt, vault.name, {
+        signers: people.map((p) => p.address),
+        threshold: vault.threshold,
+      }),
+    );
+    await verifyCode(chain, expectedFactory, "factory");
+    const protocol = await readContract<import("./contracts").FactoryConfig>(
+      chain,
+      expectedFactory,
+      "config",
+    );
+    if (
+      protocol.protocol.fee_bps !== quote.feeBps ||
+      protocol.protocol.collector !== quote.collector
+    )
+      throw new Error("CHANGED_TRANSACTION");
+    return;
+  }
   const { TransactionBuilder, Transaction, Keypair } =
     await import("@stellar/stellar-sdk");
   const tx = TransactionBuilder.fromXDR(quote.xdr, chain.passphrase);

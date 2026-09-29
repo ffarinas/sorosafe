@@ -24,6 +24,7 @@ export const sessions = sqliteTable("sessions", {
   expires: integer("expires").notNull(),
 });
 export const vaults = sqliteTable("vaults", {
+  custody: text("custody").notNull().default("classic"),
   network: text("network").notNull().default("testnet"),
   id: text("id").primaryKey(),
   name: text("name").notNull(),

@@ -1,4 +1,5 @@
 "use client";
+import { ContractVault } from "@/components/contract-vault";
 import {
   useCallback,
   useEffect,
@@ -132,7 +133,11 @@ export default function Home() {
     null,
   );
   const chain = data.network || NETWORKS.mainnet;
-  useVaultTools(data, setTab);
+  useVaultTools(
+    data,
+    setTab,
+    data.vault?.custody !== "soroban" || data.vault.status !== "active",
+  );
   const authPurpose = useRef("login");
   const seq = useRef(0);
   const t = (a: string, b: string) => (es ? a : b);
@@ -364,12 +369,12 @@ export default function Home() {
       if (!v || !me) return;
       if (!activation || activation.expires <= Date.now() / 1000) {
         const quote = await api<Activation>("prepareVault", { vault: v.id });
-        await assertActivation(quote, v, data.people, chain);
+        await assertActivation(quote, v, data.people, chain, data.factory);
         setActivation(quote);
         await refresh(v.id);
         return;
       }
-      await assertActivation(activation, v, data.people, chain);
+      await assertActivation(activation, v, data.people, chain, data.factory);
       const signed = await signXdr(activation.xdr, me.address, chain);
       await api("activate", { vault: v.id, signed });
       setModal("");
@@ -447,6 +452,24 @@ export default function Home() {
     }
     void work(create);
   };
+  if (
+    v?.custody === "soroban" &&
+    v.status === "active" &&
+    v.address &&
+    !showCreate
+  )
+    return (
+      <ContractVault
+        address={v.address}
+        chain={chain}
+        factory={data.factory}
+        initialSigner={me?.address}
+        people={data.people}
+        contacts={data.contacts}
+        metadataId={v.id}
+        onBack={() => setShowCreate(true)}
+      />
+    );
   const setupVisible = (!v || showCreate || !!joinToken) && loaded;
   return (
     <div className="app">
@@ -1821,14 +1844,29 @@ export default function Home() {
               ))}
               <p className="footnote">
                 {t(
-                  "Tu wallet aportará los XLM iniciales. La cuenta y su protección multifirma se crean juntas. Esta versión conserva el equipo y la regla después de activar.",
-                  "Your wallet provides the initial XLM. The account and its multisig protection are created together. This version keeps the team and rule after activation.",
+                  v.custody === "soroban"
+                    ? "La bóveda y su protección se crean juntas en Stellar. Tu wallet pagará el coste de creación. Los cambios de equipo requerirán sus aprobaciones."
+                    : "Tu wallet aportará los XLM iniciales. La cuenta y su protección multifirma se crean juntas.",
+                  v.custody === "soroban"
+                    ? "The vault and its protection are created together on Stellar. Your wallet pays the creation cost. Team changes will require approvals."
+                    : "Your wallet provides the initial XLM. The account and its multisig protection are created together.",
                 )}
               </p>
               {activation ? (
                 <dl className="details">
-                  <dt>{t("Aporte a la bóveda", "Vault funding")}</dt>
-                  <dd>{money(activation.funding)} XLM</dd>
+                  {activation.kind === "soroban" ? (
+                    <>
+                      <dt>{t("Comisión por pago", "Fee per payment")}</dt>
+                      <dd>{(activation.feeBps || 0) / 100}%</dd>
+                      <dt>{t("Destino de la comisión", "Fee recipient")}</dt>
+                      <dd className="full-address">{activation.collector}</dd>
+                    </>
+                  ) : (
+                    <>
+                      <dt>{t("Aporte a la bóveda", "Vault funding")}</dt>
+                      <dd>{money(activation.funding)} XLM</dd>
+                    </>
+                  )}
                   <dt>{t("Comisión de creación", "Creation fee")}</dt>
                   <dd>{money(activation.fee)} XLM</dd>
                   <dt>{t("Red", "Network")}</dt>
@@ -1837,7 +1875,7 @@ export default function Home() {
                   <dd className="full-address">{me?.address}</dd>
                 </dl>
               ) : null}
-              {activation ? (
+              {activation && activation.kind !== "soroban" ? (
                 <p className="footnote">
                   {t(
                     "El aporte permanece en la bóveda y cubre la reserva del equipo, las monedas del catálogo y sus primeras comisiones.",

@@ -1,6 +1,7 @@
 declare namespace Cloudflare {
   interface Env {
     JUNTO_NETWORK?: "mainnet" | "testnet";
+    JUNTO_FACTORY?: string;
     DB?: D1Database;
     BUCKET?: R2Bucket;
     STELLAR_AUTH_SIGNING_SEED?: string;

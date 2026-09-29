@@ -1,0 +1,1 @@
+ALTER TABLE `vaults` ADD `custody` text DEFAULT 'classic' NOT NULL;

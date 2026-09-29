@@ -24,13 +24,13 @@ Recuperado de la conversación «Locate Find Your Way hackathon» y contrastado 
 1. **Crear:** nombre de la bóveda, nombre de la persona y wallet. Sin un workspace previo.
 2. **Configurar dentro de la bóveda:** en Equipo y ajustes, el creador define integrantes y aprobaciones. Una bóveda nueva queda sin regla ni enlace de invitación (size=0, threshold=0) hasta guardar esta configuración. Las reglas son editables solo en borrador; guardarlas invalida enlaces anteriores, sin eliminar integrantes.
 3. **Invitar:** enlace a esa bóveda. La persona ve a qué equipo entra y conecta su propia wallet. Unirse como firmante se confirma antes de activar la bóveda.
-4. **Activar:** revisar integrantes y regla configurable. Cada firmante tiene el mismo peso. La clave temporal de creación pierde toda autoridad al activar.
+4. **Activar:** revisar integrantes y regla configurable. Cada firmante tiene el mismo peso. El contrato queda protegido desde su constructor; no hay clave temporal de retiro.
 5. **Compartir contactos:** nombre, dirección y memo cuando corresponda. Autor visible. El historial indica si esa dirección ya recibió pagos confirmados de la bóveda.
 6. **Pagar:** elegir contacto, importe, activo y motivo; revisar un resumen antes de solicitar firmas.
-7. **Aprobar:** mostrar importe, dirección completa, activo, memo, coste y regla. Cada firma corresponde exactamente a esa transacción. Al alcanzar el umbral, se envía a Stellar.
+7. **Aprobar:** mostrar importe, dirección completa, activo, memo, coste y regla. Cada firma corresponde exactamente a esa transacción. Al alcanzar el umbral, cualquiera puede ejecutar la operación pagando su coste de red.
 8. **Consultar:** saldo real, pagos pendientes y confirmados, recibo verificable, contactos y equipo.
 
-La aplicación utiliza Stellar Mainnet por defecto. Testnet queda como entorno explícito para pruebas automatizadas con transacciones reales. No se importan semillas de usuarios ni se almacenan claves privadas de usuarios en el servidor.
+La aplicación utiliza Stellar Mainnet por defecto; su fábrica contractual aún está pendiente de despliegue. Testnet queda como entorno explícito para pruebas automatizadas con transacciones reales. No se importan semillas de usuarios ni se almacenan claves privadas de usuarios en el servidor.
 
 ## Diseño
 
@@ -42,25 +42,19 @@ La aplicación utiliza Stellar Mainnet por defecto. Testnet queda como entorno e
 - Móvil y teclado tratados como recorridos principales.
 - El video de Safe es una referencia de funciones y fricciones, no material promocional ni una prueba de que ninguna edición de Safe pueda compartir contactos. Safe Workspaces ya tiene funciones compartidas; la diferencia buscada es que lo compartido sea la opción evidente y predeterminada.
 
-## Base de Stellar
+## Base de Stellar — decisión actual
 
-- Multifirma nativa: firmantes y umbrales aplicados por la red, también a cambios de control.
-- Stellar SDK: creación, lectura, comprobación y combinación de firmas de transacciones.
-- Freighter: conexión y firma sin entregar claves a Junto. La capa de firma queda separada para añadir Wallets Kit y dispositivos después de probar cada combinación.
-- Horizon según la red configurada: estado de cuentas, activos, pagos y recibos.
-- Friendbot: solo en las pruebas automatizadas de Testnet. Mainnet se financia desde la wallet del creador mediante una creación atómica.
-- XLM y activos emitidos presentes en la cuenta. No usar un ticker como garantía del emisor; cada activo conserva código + emisor.
-- Soroban/Passkey Kit: no son necesarios para el primer recorrido de multifirma nativa. Se estudiarían al incorporar cuentas inteligentes, passkeys o un protocolo de rendimiento.
+La implementación actual usa una fábrica Soroban inmutable y una dirección de contrato por bóveda. El contrato custodia activos SAC, registra propuestas y aprobaciones, aplica el umbral y cobra la comisión junto con cada pago. Soroban autentica a los firmantes y las utilidades de OpenZeppelin calculan la comisión con enteros y precisión completa. Las cuentas nativas existentes conservan su acceso.
+
+El equipo puede cambiar los firmantes y el umbral mediante una operación aprobada por el quórum actual. La dirección de la bóveda permanece estable. No hay administrador con permiso de retiro, actualización de código ni ejecución arbitraria de aplicaciones.
+
+La identificación y operación de la bóveda funcionan sin D1 desde `/contract`. Las invitaciones, nombres y libreta compartida siguen en el backend; no controlan el dinero. Freighter es la wallet integrada. Passkeys, email y compatibilidad por dispositivo necesitan trabajo adicional.
 
 ## Monedas en Mainnet
 
-XLM, USDC de Circle y USDT0. Los activos se identifican por red, código y emisor oficial. Logos originales de sus marcas, con fuentes documentadas. El catálogo permite solicitar la habilitación y el equipo la aprueba con su umbral habitual. La reserva adicional de XLM y la comisión se muestran antes de firmar.
+El catálogo incluye XLM, USDC de Circle y USDT0 con emisores y logos oficiales. Los contratos trabajan con sus SAC; no usan changeTrust para la bóveda C…. El envío conserva el activo elegido y muestra importe, comisión del servicio y coste de red por separado. El depósito utiliza una transferencia SAC desde la wallet. Los exchanges que requieren memo no están admitidos en este recorrido.
 
-El resumen muestra monedas, equipo, contactos y pagos reales. `/preview/monedas` abre la misma interfaz autenticada. Los envíos desde un activo fijan su código y emisor, sin cambiar a XLM. Solo se muestran balances consultados en Stellar; no se inventan saldos o cotizaciones.
-
-Las habilitaciones usan `changeTrust` nativo. La cuenta de la bóveda se crea con fondos aportados por su creador, firmantes, umbrales y clave maestra desactivada en una sola transacción. Soroban no es necesario para este modelo. Mainnet y Testnet tienen cuentas, invitaciones y sesiones separadas.
-
-El flujo completo se verifica con cuentas reales de Testnet. La prueba con Freighter y tokens oficiales en Mainnet corresponde a la wallet del usuario y sigue pendiente; la aplicación no la presenta como completada.
+El contrato ha sido probado en Testnet. No se ha desplegado una fábrica de Mainnet ni se han movido tokens oficiales de Mainnet como parte de esta implementación. Faltan los parámetros comerciales y la firma del despliegue. Ver README.md y docs/CONTRACT-SECURITY.md para estado, límites y evidencia.
 
 ## Colaboración y seguridad
 

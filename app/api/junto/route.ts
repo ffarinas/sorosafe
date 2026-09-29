@@ -1,3 +1,13 @@
+import { env } from "cloudflare:workers";
+import {
+  createArgs,
+  prepareCall,
+  readContract,
+  submitContract,
+  verifiedConfig,
+  verifyCode,
+  type FactoryConfig,
+} from "@/lib/contracts";
 import {
   StrKey,
   Keypair,
@@ -34,7 +44,7 @@ import {
 export const dynamic = "force-dynamic";
 const now = () => Math.floor(Date.now() / 1000);
 const vaultFields =
-  "v.network,v.id,v.name,v.owner,v.threshold,v.size,v.status,v.address,v.created";
+  "v.custody,v.network,v.id,v.name,v.owner,v.threshold,v.size,v.status,v.address,v.created";
 type InternalVault = Vault & { setup: string | null };
 function activationDetails(encoded: string) {
   const tx = decode(encoded);
@@ -107,11 +117,19 @@ async function user(req: Request) {
   );
 }
 async function membership(id: string, address: string) {
-  const v = await one<InternalVault>(
-    "SELECT v.* FROM vaults v JOIN members m ON v.id=m.vault WHERE v.id=? AND m.address=?",
-    id,
-    address,
-  );
+  const v = await one<InternalVault>("SELECT * FROM vaults WHERE id=?", id);
+  if (v && v.network !== chain.id) fail("NETWORK_MISMATCH");
+  if (v?.custody === "soroban" && v.status === "active" && v.address) {
+    const c = await verifiedConfig(chain, v.address, env.JUNTO_FACTORY);
+    if (!c.rules.signers.includes(address)) fail("NOT_MEMBER");
+  } else if (
+    !(await one(
+      "SELECT 1 FROM members WHERE vault=? AND address=?",
+      id,
+      address,
+    ))
+  )
+    fail("NOT_MEMBER");
   if (!v) fail("NOT_MEMBER");
   if (v.network !== chain.id) fail("NETWORK_MISMATCH");
   return v;
@@ -204,6 +222,12 @@ async function broadcast(p: Payment, v: Vault) {
 function error(e: unknown) {
   const msg = e instanceof Error ? e.message : "UNKNOWN";
   const known = [
+    "CONTRACT_NOT_CONFIGURED",
+    "CONTRACT_REJECTED",
+    "CONTRACT_UNAVAILABLE",
+    "CONTRACT_MEMO_UNSUPPORTED",
+    "UNVERIFIED_CONTRACT",
+    "CONTRACT_FEE_LIMIT",
     "INVALID_INPUT",
     "INVALID_RULE",
     "INVALID_ADDRESS",
@@ -274,6 +298,7 @@ export async function GET(req: Request) {
     }
     const state: State = {
       network: chain,
+      factory: env.JUNTO_FACTORY,
       catalog: assetCatalog(chain.id),
       user: me,
       vaults: [],
@@ -293,7 +318,7 @@ export async function GET(req: Request) {
     const v = await membership(id, me.address);
     const people = await team(id);
     state.people = people;
-    if (v.status === "activating" && v.address) {
+    if (v.custody !== "soroban" && v.status === "activating" && v.address) {
       try {
         const a = await account(v.address);
         if (
@@ -314,6 +339,7 @@ export async function GET(req: Request) {
       }
     }
     state.vault = {
+      custody: v.custody,
       network: v.network,
       id: v.id,
       name: v.name,
@@ -324,6 +350,36 @@ export async function GET(req: Request) {
       address: v.address,
       created: v.created,
     };
+    if (v.custody === "soroban") {
+      if (v.address && v.status !== "draft") {
+        try {
+          const c = await verifiedConfig(chain, v.address, env.JUNTO_FACTORY);
+          state.vault.status = "active";
+          state.vault.size = c.rules.signers.length;
+          state.vault.threshold = c.rules.threshold;
+          state.people = c.rules.signers.map(
+            (address) =>
+              people.find((p) => p.address === address) || {
+                address,
+                name: address,
+                joined: 0,
+              },
+          );
+          if (v.status !== "active")
+            await run(
+              "UPDATE vaults SET status='active',setup=NULL,invite_hash=NULL WHERE id=?",
+              id,
+            );
+        } catch {
+          if (v.status === "active") state.chainError = true;
+        }
+      }
+      state.contacts = await all<Contact>(
+        "SELECT c.id,c.name,c.address,c.memo,c.created_by as createdBy,p.name as creatorName,c.created,NULL as paidCount FROM contacts c JOIN people p ON c.created_by=p.address WHERE c.vault=? ORDER BY c.name",
+        id,
+      );
+      return json(state);
+    }
     const pending = await all<Payment>(
       "SELECT * FROM payments WHERE vault=? AND status in ('pending','submitting')",
       id,
@@ -426,7 +482,7 @@ export async function POST(req: Request) {
       await db().batch([
         db()
           .prepare(
-            "INSERT INTO vaults(id,name,owner,threshold,size,created,network) VALUES(?,?,?,0,0,?,?)",
+            "INSERT INTO vaults(id,name,owner,threshold,size,created,network,custody) VALUES(?,?,?,0,0,?,?,'soroban')",
           )
           .bind(id, name, me.address, now(), chain.id),
         db()
@@ -489,6 +545,81 @@ export async function POST(req: Request) {
       if (!saved.meta.changes) fail("CONFIGURATION_CHANGED");
       return json({ invite });
     }
+    if (v.custody === "soroban" && action === "prepareVault") {
+      if (v.owner !== me.address) fail("NOT_OWNER");
+      if (v.status === "active") fail("ALREADY_ACTIVE");
+      if (!env.JUNTO_FACTORY || !StrKey.isValidContract(env.JUNTO_FACTORY))
+        fail("CONTRACT_NOT_CONFIGURED");
+      const people = await team(id);
+      if (people.length !== v.size) fail("TEAM_INCOMPLETE");
+      await verifyCode(chain, env.JUNTO_FACTORY, "factory");
+      const protocol = await readContract<FactoryConfig>(
+        chain,
+        env.JUNTO_FACTORY,
+        "config",
+      );
+      // Stable salt per draft. Retrying cannot create a second vault.
+      const salt = Buffer.from(await digest(`${chain.id}:${id}`), "hex");
+      const args = createArgs(me.address, salt, v.name, {
+        signers: people.map((p) => p.address),
+        threshold: v.threshold,
+      });
+      const quote = await prepareCall(
+        chain,
+        me.address,
+        env.JUNTO_FACTORY,
+        "create",
+        args,
+      );
+      if (
+        typeof quote.result !== "string" ||
+        !StrKey.isValidContract(quote.result)
+      )
+        fail("INVALID_TRANSACTION");
+      const saved = await run(
+        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status=? AND size=? AND threshold=?",
+        quote.result,
+        quote.xdr,
+        id,
+        v.status,
+        v.size,
+        v.threshold,
+      );
+      if (!saved.meta.changes) fail("CONFIGURATION_CHANGED");
+      return json({
+        ...quote,
+        address: quote.result,
+        funding: "0",
+        kind: "soroban",
+        factory: env.JUNTO_FACTORY,
+        salt: salt.toString("hex"),
+        feeBps: protocol.protocol.fee_bps,
+        collector: protocol.protocol.collector,
+      });
+    }
+    if (v.custody === "soroban" && action === "activate") {
+      if (v.owner !== me.address) fail("NOT_OWNER");
+      if (!v.setup || !v.address || v.status !== "activating")
+        fail("INVALID_TRANSACTION");
+      const signed = str(b, "signed", 40000);
+      signedBy(v.setup, signed, me.address);
+      await submitContract(chain, signed);
+      const c = await verifiedConfig(chain, v.address, env.JUNTO_FACTORY);
+      const people = await team(id);
+      if (
+        c.rules.threshold !== v.threshold ||
+        c.rules.signers.length !== people.length ||
+        !people.every((p) => c.rules.signers.includes(p.address))
+      )
+        fail("POLICY_CHANGED");
+      await run(
+        "UPDATE vaults SET status='active',setup=NULL,invite_hash=NULL WHERE id=?",
+        id,
+      );
+      return json({ ok: true });
+    }
+    if (v.custody === "soroban" && !["contact"].includes(action))
+      fail("INVALID_INPUT");
     if (action === "prepareVault") {
       if (v.owner !== me.address) fail("NOT_OWNER");
       if (v.status === "active") fail("ALREADY_ACTIVE");
@@ -643,6 +774,7 @@ export async function POST(req: Request) {
         address = addr(str(b, "address", 56)),
         memo = str(b, "memo", 80, true);
       if (Buffer.byteLength(memo) > 28) fail("MEMO_TOO_LONG");
+      if (v.custody === "soroban" && memo) fail("CONTRACT_MEMO_UNSUPPORTED");
       if (
         await one(
           "SELECT id FROM contacts WHERE vault=? AND address=? AND memo=?",

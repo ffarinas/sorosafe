@@ -1,4 +1,28 @@
 export const errors: Record<string, [string, string]> = {
+  CONTRACT_NOT_CONFIGURED: [
+    "La creación de bóvedas está pendiente de activar en esta red.",
+    "Vault creation is awaiting activation on this network.",
+  ],
+  CONTRACT_MEMO_UNSUPPORTED: [
+    "Esta versión no permite pagos a destinos que requieren memo.",
+    "This version cannot pay destinations that require a memo.",
+  ],
+  CONTRACT_UNAVAILABLE: [
+    "No pudimos leer la bóveda en Stellar. Actualiza para continuar.",
+    "We could not read the vault on Stellar. Refresh to continue.",
+  ],
+  CONTRACT_REJECTED: [
+    "Stellar rechazó la operación. Revisa el saldo, las aprobaciones y los permisos del destinatario.",
+    "Stellar rejected the operation. Check balances, approvals and recipient permissions.",
+  ],
+  CONTRACT_FEE_LIMIT: [
+    "El coste de red supera el límite de esta aplicación. Revisa la operación.",
+    "The network fee exceeds this application’s limit. Review the operation.",
+  ],
+  UNVERIFIED_CONTRACT: [
+    "No pudimos verificar el origen de esta bóveda.",
+    "We could not verify this vault’s origin.",
+  ],
   MAINNET_REQUIRED: [
     "Cambia tu wallet a Stellar Mainnet para continuar.",
     "Switch your wallet to Stellar Mainnet to continue.",

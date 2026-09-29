@@ -1954,3 +1954,223 @@ button.brand {
   width: 32px;
   height: 32px;
 }
+
+/* Contract vault: uses the same typography and restrained palette as onboarding. */
+.contract-main {
+  width: min(1248px, calc(100% - 48px));
+  margin: 28px auto 80px;
+}
+.contract-topline,
+.contract-heading,
+.contract-proposal-title,
+.contract-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.contract-topline {
+  margin-bottom: 36px;
+}
+.contract-heading {
+  margin-bottom: 48px;
+}
+.contract-heading h1 {
+  font-size: clamp(36px, 4vw, 56px);
+  margin-bottom: 20px;
+}
+.contract-heading .eyebrow {
+  margin-bottom: 14px;
+}
+.contract-address {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  color: var(--muted-foreground);
+  max-width: 100%;
+}
+.contract-address code,
+.contract-detail dd,
+.contract-contact code {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 13px;
+}
+.contract-rule {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px 36px;
+  background: var(--secondary);
+  flex-shrink: 0;
+}
+.contract-rule strong {
+  font-size: 26px;
+}
+.contract-rule span {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.contract-nav {
+  display: flex;
+  gap: 32px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 36px;
+  overflow: auto;
+}
+.contract-nav button {
+  padding: 16px 0;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.contract-nav button.active {
+  border-color: var(--foreground);
+  font-weight: 600;
+}
+.contract-assets {
+  border-top: 1px solid var(--border);
+}
+.contract-asset {
+  display: grid;
+  grid-template-columns: 40px minmax(80px, 1fr) minmax(130px, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--border);
+}
+.contract-asset small {
+  display: block;
+  color: var(--muted-foreground);
+}
+.contract-balance {
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.contract-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+.contract-proposal {
+  padding: 26px 0;
+  border-top: 1px solid var(--border);
+}
+.contract-proposal h3 {
+  font-size: 24px;
+  margin: 8px 0;
+}
+.contract-proposal small {
+  color: var(--muted-foreground);
+}
+.contract-detail {
+  display: contents;
+}
+.contract-detail dd {
+  text-align: right;
+}
+.contract-proposal .details {
+  max-width: 760px;
+}
+.contract-contact {
+  display: grid;
+  gap: 8px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border);
+}
+.contract-contact small {
+  color: var(--muted-foreground);
+}
+.contract-selected {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0;
+}
+.contract-selected span:last-child {
+  color: var(--muted-foreground);
+}
+.contract-close {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+}
+.contract-main .footnote {
+  max-width: 860px;
+}
+@media (max-width: 760px) {
+  .contract-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .contract-rule {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 14px 20px;
+  }
+  .contract-asset {
+    grid-template-columns: 40px 1fr auto;
+  }
+  .contract-asset .contract-actions {
+    grid-column: 2 / 4;
+  }
+  .contract-balance {
+    font-size: 17px;
+  }
+  .contract-proposal-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .contract-address {
+    width: 100%;
+  }
+  .contract-main {
+    width: calc(100% - 32px);
+  }
+}
+.app > .contract-main {
+  width: min(1248px, calc(100% - 48px));
+  margin: 28px auto 80px;
+}
+@media (max-width: 760px) {
+  .app > .contract-main {
+    width: calc(100% - 32px);
+  }
+}
+@media (max-width: 600px) {
+  .contract-main .contract-nav {
+    gap: 18px;
+    font-size: 14px;
+  }
+  .contract-main .contract-rule {
+    padding: 12px 16px;
+  }
+  .contract-app .topbar {
+    padding: 0 16px;
+  }
+  .contract-app .header-right {
+    gap: 8px;
+  }
+  .contract-app .network {
+    padding: 4px 7px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .contract-app .topbar .secondary {
+    padding: 9px 12px;
+    min-height: 40px;
+    font-size: 12px;
+  }
+  .contract-app .brand {
+    font-size: 24px;
+    gap: 5px;
+  }
+  .contract-app .brand-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 24px;
+  }
+  .contract-app .brand-dot {
+    margin-left: -5px;
+  }
+}

@@ -1,5 +1,10 @@
 export type Person = { address: string; name: string; joined: number };
 export type Activation = {
+  kind?: "soroban";
+  factory?: string;
+  salt?: string;
+  feeBps?: number;
+  collector?: string;
   xdr: string;
   address: string;
   funding: string;
@@ -7,6 +12,7 @@ export type Activation = {
   expires: number;
 };
 export type Vault = {
+  custody: "classic" | "soroban";
   network: "mainnet" | "testnet";
   id: string;
   name: string;
@@ -26,7 +32,7 @@ export type Contact = {
   createdBy: string;
   creatorName: string;
   created: number;
-  paidCount: number;
+  paidCount: number | null;
 };
 export type Payment = {
   kind: "payment" | "enable";
@@ -62,6 +68,7 @@ export type Balance = {
   authorized: boolean;
 };
 export type State = {
+  factory?: string;
   network?: import("./network").NetworkConfig;
   catalog?: import("./assets").CatalogAsset[];
   baseReserve?: string;
