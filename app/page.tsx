@@ -452,6 +452,48 @@ export default function Home() {
     }
     void work(create);
   };
+  const vaultPicker = (
+    <div className="modal-body">
+      {data.vaults.map((vault) => (
+        <button
+          key={vault.id}
+          className="vault-item"
+          onClick={() => {
+            choose(vault.id);
+            setModal("");
+          }}
+        >
+          <span className="icon-box">
+            <Landmark size={20} />
+          </span>
+          <span>
+            <strong>{vault.name}</strong>
+            <small>
+              {vault.size
+                ? `${vault.threshold} / ${vault.size}`
+                : t("Por configurar", "Set up needed")}{" "}
+              ·{" "}
+              {vault.status === "active"
+                ? t("Activa", "Active")
+                : t("Preparando", "Setting up")}
+            </small>
+          </span>
+          <ChevronRight size={18} />
+        </button>
+      ))}
+      <button
+        className="primary wide"
+        onClick={() => {
+          setShowCreate(true);
+          setModal("");
+          setName("");
+        }}
+      >
+        <Plus size={17} />
+        {t("Crear otra bóveda", "Create another vault")}
+      </button>
+    </div>
+  );
   if (
     v?.custody === "soroban" &&
     v.status === "active" &&
@@ -459,16 +501,42 @@ export default function Home() {
     !showCreate
   )
     return (
-      <ContractVault
-        address={v.address}
-        chain={chain}
-        factory={data.factory}
-        initialSigner={me?.address}
-        people={data.people}
-        contacts={data.contacts}
-        metadataId={v.id}
-        onBack={() => setShowCreate(true)}
-      />
+      <>
+        <ContractVault
+          address={v.address}
+          chain={chain}
+          factory={data.factory}
+          initialSigner={me?.address}
+          people={data.people}
+          contacts={data.contacts}
+          metadataId={v.id}
+          es={es}
+          onLanguage={language}
+          onBack={() => setModal("vaults")}
+        />
+        <Dialog
+          open={modal === "vaults"}
+          onOpenChange={(open) => {
+            if (!open) setModal("");
+          }}
+        >
+          <DialogContent className="junto-dialog" showCloseButton={false}>
+            <DialogClose className="dialog-x" aria-label={t("Cerrar", "Close")}>
+              <X size={19} />
+            </DialogClose>
+            <DialogTitle className="dialog-title">
+              {t("Tus bóvedas", "Your vaults")}
+            </DialogTitle>
+            <DialogDescription className="dialog-description">
+              {t(
+                "Cada bóveda tiene su equipo y sus contactos.",
+                "Every vault has its own team and contacts.",
+              )}
+            </DialogDescription>
+            {vaultPicker}
+          </DialogContent>
+        </Dialog>
+      </>
     );
   const setupVisible = (!v || showCreate || !!joinToken) && loaded;
   return (
@@ -2397,48 +2465,7 @@ export default function Home() {
               </p>
             </div>
           ) : null}
-          {modal === "vaults" ? (
-            <div className="modal-body">
-              {data.vaults.map((vault) => (
-                <button
-                  key={vault.id}
-                  className="vault-item"
-                  onClick={() => {
-                    choose(vault.id);
-                    setModal("");
-                  }}
-                >
-                  <span className="icon-box">
-                    <Landmark size={20} />
-                  </span>
-                  <span>
-                    <strong>{vault.name}</strong>
-                    <small>
-                      {vault.size
-                        ? `${vault.threshold} / ${vault.size}`
-                        : t("Por configurar", "Set up needed")}{" "}
-                      ·{" "}
-                      {vault.status === "active"
-                        ? t("Activa", "Active")
-                        : t("Preparando", "Setting up")}
-                    </small>
-                  </span>
-                  <ChevronRight size={18} />
-                </button>
-              ))}
-              <button
-                className="primary wide"
-                onClick={() => {
-                  setShowCreate(true);
-                  setModal("");
-                  setName("");
-                }}
-              >
-                <Plus size={17} />
-                {t("Crear otra bóveda", "Create another vault")}
-              </button>
-            </div>
-          ) : null}
+          {modal === "vaults" ? vaultPicker : null}
           {modal === "account" && me ? (
             <div className="modal-body">
               <span className="avatar large">{initials(me.name)}</span>

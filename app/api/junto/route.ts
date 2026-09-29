@@ -134,6 +134,18 @@ async function membership(id: string, address: string) {
   if (v.network !== chain.id) fail("NETWORK_MISMATCH");
   return v;
 }
+// The on-chain rules must be exactly the team and threshold agreed in the draft.
+function matchesTeam(
+  rules: { signers: string[]; threshold: number },
+  threshold: number,
+  people: Person[],
+) {
+  return (
+    rules.threshold === threshold &&
+    rules.signers.length === people.length &&
+    people.every((p) => rules.signers.includes(p.address))
+  );
+}
 async function team(vault: string) {
   return all<Person>(
     "SELECT p.* FROM people p JOIN members m ON p.address=m.address WHERE m.vault=? ORDER BY p.joined,p.address",
@@ -354,6 +366,12 @@ export async function GET(req: Request) {
       if (v.address && v.status !== "draft") {
         try {
           const c = await verifiedConfig(chain, v.address, env.JUNTO_FACTORY);
+          // A contract deployed outside the agreed draft never activates it.
+          if (
+            v.status !== "active" &&
+            !matchesTeam(c.rules, v.threshold, people)
+          )
+            throw new Error("POLICY_CHANGED");
           state.vault.status = "active";
           state.vault.size = c.rules.signers.length;
           state.vault.threshold = c.rules.threshold;
@@ -606,12 +624,7 @@ export async function POST(req: Request) {
       await submitContract(chain, signed);
       const c = await verifiedConfig(chain, v.address, env.JUNTO_FACTORY);
       const people = await team(id);
-      if (
-        c.rules.threshold !== v.threshold ||
-        c.rules.signers.length !== people.length ||
-        !people.every((p) => c.rules.signers.includes(p.address))
-      )
-        fail("POLICY_CHANGED");
+      if (!matchesTeam(c.rules, v.threshold, people)) fail("POLICY_CHANGED");
       await run(
         "UPDATE vaults SET status='active',setup=NULL,invite_hash=NULL WHERE id=?",
         id,

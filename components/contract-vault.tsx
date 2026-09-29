@@ -54,6 +54,8 @@ export function ContractVault({
   contacts = [],
   metadataId,
   onBack,
+  es: esProp,
+  onLanguage,
 }: {
   address: string;
   chain: NetworkConfig;
@@ -63,11 +65,15 @@ export function ContractVault({
   contacts?: Contact[];
   metadataId?: string;
   onBack?: () => void;
+  /** Language chosen by the parent app; the standalone view keeps its own. */
+  es?: boolean;
+  onLanguage?: () => void;
 }) {
   const router = useRouter();
   const [observedAt, setObservedAt] = useState(0);
-  const [es, setEs] = useState(true),
+  const [localEs, setLocalEs] = useState(true),
     [signer, setSigner] = useState(initialSigner);
+  const es = esProp ?? localEs;
   const [config, setConfig] = useState<ContractConfig>(),
     [balances, setBalances] = useState<Record<string, bigint>>({});
   const [proposals, setProposals] = useState<ContractProposal[]>([]),
@@ -269,7 +275,7 @@ export function ContractVault({
           <span className="network">{chain.label}</span>
           <button
             className="language"
-            onClick={() => setEs(!es)}
+            onClick={() => (onLanguage ? onLanguage() : setLocalEs(!localEs))}
             aria-label={t("Cambiar idioma", "Change language")}
           >
             <Globe2 size={16} />
