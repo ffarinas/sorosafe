@@ -50,6 +50,7 @@ npm run contracts:test
 npm run contracts:audit
 npm run contracts:client
 node tests/contracts-client.mjs
+npm run test:audit-regressions
 npm run test:soroban
 npm run typecheck
 npm run lint
@@ -57,6 +58,10 @@ npm run build
 ```
 
 `contracts:build` usa el lockfile y copia WASM y hashes a `public/contracts/` y `lib/contract-artifacts.json`. La app verifica los hashes de la fábrica y la bóveda antes de operar. `test:soroban` actúa exclusivamente en Testnet con wallets reales financiadas por Friendbot y claves efímeras que no se guardan.
+
+`test:audit-regressions` verifica los handlers reales, las migraciones SQLite y firmas SEP-10 en 21 casos aislados. Cubre activaciones con un equipo incorrecto, revocación de miembros, fallos de RPC y de escritura, cambios simultáneos del equipo y límites de login. Sustituye únicamente las respuestas externas de Stellar y el adaptador D1; no envía transacciones ni valida el contrato Rust. `test:auth` verifica además el servicio HTTP en Testnet; acepta `JUNTO_TEST_BASE` y `JUNTO_TEST_EVIDENCE` para usar un servidor y resultados aislados.
+
+El límite de desafíos es de 30 solicitudes por cliente cada cinco minutos, compartido entre cuentas. No se reinicia al consumir un desafío y no elimina los intentos pendientes de otras personas. Las migraciones `0003` y `0004` deben aplicarse antes de ejecutar esta versión. Si Stellar o la sincronización de miembros falla, el servidor rechaza el acceso a la libreta compartida hasta poder verificarlo.
 
 Evidencia actual: 14 pruebas Rust, 17 comprobaciones de flujo real en Testnet, 16 de integración del alta y 10 del cliente. [Recibos de Testnet](docs/soroban-testnet-evidence.json). Las suites antiguas `test:integration` y `test:tokens` documentan el recorrido nativo anterior; no describen el contrato nuevo y deben ejecutarse contra esa versión, no tratarse como validación Soroban.
 

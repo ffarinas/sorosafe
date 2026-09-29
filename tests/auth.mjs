@@ -6,7 +6,7 @@ import {
   TransactionBuilder,
   WebAuth,
 } from "@stellar/stellar-sdk";
-const base = "http://localhost:8789",
+const base = process.env.JUNTO_TEST_BASE || "http://localhost:8789",
   domain = new URL(base).host;
 const client = Keypair.random(),
   attacker = Keypair.random();
@@ -152,25 +152,34 @@ const revoked = await (
 ).json();
 assert.equal(revoked.user, null);
 checks++;
-const victim = Keypair.random().publicKey();
+const victim = Keypair.random();
+const outstanding = await (
+  await fetch(base + "/api/auth?account=" + victim.publicKey(), {
+    headers: { "cf-connecting-ip": "203.0.113.7" },
+  })
+).json();
 for (let n = 0; n < 6; n++) {
-  const filled = await fetch(base + "/api/auth?account=" + victim, {
+  const filled = await fetch(base + "/api/auth?account=" + victim.publicKey(), {
     headers: { "cf-connecting-ip": "203.0.113.8" },
   });
   assert.equal(filled.status, 200);
   checks++;
 }
-const replaced = await fetch(base + "/api/auth?account=" + victim, {
-  headers: { "cf-connecting-ip": "203.0.113.9" },
-});
-assert.equal(replaced.status, 200);
+const additional = await fetch(
+  base + "/api/auth?account=" + victim.publicKey(),
+  {
+    headers: { "cf-connecting-ip": "203.0.113.9" },
+  },
+);
+assert.equal(additional.status, 200);
+checks++;
+assert.equal((await login(sign(outstanding.transaction, victim))).status, 200);
 checks++;
 let limited = 200;
 for (let n = 0; n < 31; n++) {
-  const burst = await fetch(
-    base + "/api/auth?account=" + Keypair.random().publicKey(),
-    { headers: { "cf-connecting-ip": "203.0.113.10" } },
-  );
+  const burst = await fetch(base + "/api/auth?account=" + victim.publicKey(), {
+    headers: { "cf-connecting-ip": "203.0.113.10" },
+  });
   limited = burst.status;
   if (limited === 429) break;
 }
@@ -194,11 +203,12 @@ const evidence = {
     "form-encoded exchange",
     "logout revocation",
     "outstanding challenges do not lock the account",
+    "another caller cannot invalidate a pending login",
     "challenge rate limit follows the caller",
   ],
 };
 await writeFile(
-  "docs/auth-evidence.json",
+  process.env.JUNTO_TEST_EVIDENCE || "docs/auth-evidence.json",
   JSON.stringify(evidence, null, 2) + "\n",
 );
 console.log(JSON.stringify(evidence, null, 2));

@@ -104,8 +104,8 @@ export const errors: Record<string, [string, string]> = {
     "Invite your team and activate the vault before sending funds.",
   ],
   POLICY_CHANGED: [
-    "La regla de la cuenta cambió en Stellar. Detuvimos el pago para revisarla.",
-    "The account rule changed on Stellar. We paused the payment for review.",
+    "El equipo o las aprobaciones en Stellar no coinciden con lo acordado. Detuvimos la operación para revisarla.",
+    "The team or approvals on Stellar do not match what was agreed. We paused the operation for review.",
   ],
   PAYMENT_EXPIRED: [
     "Este pago venció. Crea uno nuevo para volver a pedir las firmas.",

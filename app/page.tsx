@@ -183,7 +183,9 @@ export default function Home() {
             network: previous.network,
             factory: previous.factory,
             catalog: previous.catalog,
-            vaults: previous.vaults.filter((vault) => vault.id !== id),
+            vaults: previous.vaults.filter(
+              (vault) => vault.id !== (id || previous.vault?.id),
+            ),
           }));
           setSelected("");
           history.replaceState(null, "", "/");

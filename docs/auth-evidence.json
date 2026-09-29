@@ -1,6 +1,6 @@
 {
-  "date": "2026-09-29T02:03:56.110Z",
-  "checks": 34,
+  "date": "2026-09-29T19:34:20.818Z",
+  "checks": 43,
   "standard": "SEP-10",
   "scope": "Individual G-address wallets on Stellar Testnet",
   "tests": [
@@ -14,6 +14,9 @@
     "EdDSA JWT signature and expiry",
     "Bearer session and tampering",
     "form-encoded exchange",
-    "logout revocation"
+    "logout revocation",
+    "outstanding challenges do not lock the account",
+    "another caller cannot invalidate a pending login",
+    "challenge rate limit follows the caller"
   ]
 }
