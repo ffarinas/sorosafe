@@ -1,0 +1,1 @@
+ALTER TABLE `challenges` ADD `client` text DEFAULT '' NOT NULL;

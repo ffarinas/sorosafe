@@ -6,6 +6,7 @@ import {
   submitContract,
   verifiedConfig,
   verifyCode,
+  type ContractConfig,
   type FactoryConfig,
 } from "@/lib/contracts";
 import {
@@ -45,7 +46,10 @@ export const dynamic = "force-dynamic";
 const now = () => Math.floor(Date.now() / 1000);
 const vaultFields =
   "v.custody,v.network,v.id,v.name,v.owner,v.threshold,v.size,v.status,v.address,v.created";
-type InternalVault = Vault & { setup: string | null };
+type InternalVault = Vault & {
+  setup: string | null;
+  contract?: ContractConfig;
+};
 function activationDetails(encoded: string) {
   const tx = decode(encoded);
   const first = tx.operations[0];
@@ -120,8 +124,18 @@ async function membership(id: string, address: string) {
   const v = await one<InternalVault>("SELECT * FROM vaults WHERE id=?", id);
   if (v && v.network !== chain.id) fail("NETWORK_MISMATCH");
   if (v?.custody === "soroban" && v.status === "active" && v.address) {
+    const recorded = await one(
+      "SELECT 1 FROM members WHERE vault=? AND address=?",
+      id,
+      address,
+    );
     const c = await verifiedConfig(chain, v.address, env.JUNTO_FACTORY);
-    if (!c.rules.signers.includes(address)) fail("NOT_MEMBER");
+    const onChain = c.rules.signers.includes(address);
+    // Recorded membership permits reconciliation after self-removal, never
+    // access. RPC, code verification and database failures all fail closed.
+    if (!onChain && !recorded) fail("NOT_MEMBER");
+    await reconcileTeam(v, c);
+    if (!onChain) fail("NOT_MEMBER");
   } else if (
     !(await one(
       "SELECT 1 FROM members WHERE vault=? AND address=?",
@@ -133,6 +147,60 @@ async function membership(id: string, address: string) {
   if (!v) fail("NOT_MEMBER");
   if (v.network !== chain.id) fail("NETWORK_MISMATCH");
   return v;
+}
+async function reconcileTeam(v: InternalVault, c: ContractConfig) {
+  const signers = c.rules.signers;
+  const existing = await all<{ address: string }>(
+    "SELECT address FROM members WHERE vault=?",
+    v.id,
+  );
+  const have = new Set(existing.map((row) => row.address));
+  const want = new Set(signers);
+  const same =
+    have.size === want.size &&
+    signers.every((signer) => have.has(signer)) &&
+    v.size === signers.length &&
+    v.threshold === c.rules.threshold;
+  if (same) {
+    v.contract = c;
+    return;
+  }
+  const issued = now();
+  const statements = [];
+  for (const signer of signers) {
+    if (have.has(signer)) continue;
+    statements.push(
+      db()
+        .prepare(
+          "INSERT INTO people(address,name,joined) VALUES(?,?,?) ON CONFLICT(address) DO NOTHING",
+        )
+        .bind(signer, signer, issued),
+    );
+    statements.push(
+      db()
+        .prepare("INSERT OR IGNORE INTO members(vault,address) VALUES(?,?)")
+        .bind(v.id, signer),
+    );
+  }
+  for (const signer of have) {
+    if (want.has(signer)) continue;
+    statements.push(
+      db()
+        .prepare("DELETE FROM members WHERE vault=? AND address=?")
+        .bind(v.id, signer),
+    );
+  }
+  statements.push(
+    db()
+      .prepare(
+        "UPDATE vaults SET size=?, threshold=? WHERE id=? AND status='active'",
+      )
+      .bind(signers.length, c.rules.threshold, v.id),
+  );
+  await db().batch(statements);
+  v.size = signers.length;
+  v.threshold = c.rules.threshold;
+  v.contract = c;
 }
 // The on-chain rules must be exactly the team and threshold agreed in the draft.
 function matchesTeam(
@@ -151,6 +219,14 @@ async function team(vault: string) {
     "SELECT p.* FROM people p JOIN members m ON p.address=m.address WHERE m.vault=? ORDER BY p.joined,p.address",
     vault,
   );
+}
+function teamSnapshot(id: string, people: Person[]) {
+  // Compare the exact membership set inside the activation write. A count
+  // alone misses a removed member being replaced while RPC preparation runs.
+  return {
+    sql: ` AND (SELECT count(*) FROM members WHERE vault=?)=? AND NOT EXISTS (SELECT 1 FROM members WHERE vault=? AND address NOT IN (${people.map(() => "?").join(",")}))`,
+    args: [id, people.length, id, ...people.map((p) => p.address)],
+  };
 }
 async function ensurePolicy(v: Vault) {
   if (!v.address || v.status !== "active") fail("VAULT_NOT_ACTIVE");
@@ -234,6 +310,7 @@ async function broadcast(p: Payment, v: Vault) {
 function error(e: unknown) {
   const msg = e instanceof Error ? e.message : "UNKNOWN";
   const known = [
+    "CANNOT_REMOVE",
     "CONTRACT_NOT_CONFIGURED",
     "CONTRACT_REJECTED",
     "CONTRACT_UNAVAILABLE",
@@ -320,14 +397,23 @@ export async function GET(req: Request) {
       balances: [],
     };
     if (!me) return json(state);
+    const requested = url.searchParams.get("vault") || "";
+    const id =
+      requested ||
+      (
+        await one<{ id: string }>(
+          `SELECT v.id FROM vaults v JOIN members m ON v.id=m.vault WHERE m.address=? AND v.network=? ORDER BY v.created DESC LIMIT 1`,
+          me.address,
+          chain.id,
+        )
+      )?.id;
+    if (!id) return json(state);
+    const v = await membership(id, me.address);
     state.vaults = await all<Vault>(
       `SELECT ${vaultFields} FROM vaults v JOIN members m ON v.id=m.vault WHERE m.address=? AND v.network=? ORDER BY v.created DESC`,
       me.address,
       chain.id,
     );
-    const id = url.searchParams.get("vault") || state.vaults[0]?.id;
-    if (!id) return json(state);
-    const v = await membership(id, me.address);
     const people = await team(id);
     state.people = people;
     if (v.custody !== "soroban" && v.status === "activating" && v.address) {
@@ -365,7 +451,9 @@ export async function GET(req: Request) {
     if (v.custody === "soroban") {
       if (v.address && v.status !== "draft") {
         try {
-          const c = await verifiedConfig(chain, v.address, env.JUNTO_FACTORY);
+          const c =
+            v.contract ??
+            (await verifiedConfig(chain, v.address, env.JUNTO_FACTORY));
           // A contract deployed outside the agreed draft never activates it.
           if (
             v.status !== "active" &&
@@ -388,7 +476,8 @@ export async function GET(req: Request) {
               "UPDATE vaults SET status='active',setup=NULL,invite_hash=NULL WHERE id=?",
               id,
             );
-        } catch {
+        } catch (e) {
+          if (e instanceof Error && e.message === "POLICY_CHANGED") throw e;
           if (v.status === "active") state.chainError = true;
         }
       }
@@ -527,6 +616,36 @@ export async function POST(req: Request) {
       await membership(v.id, me.address);
       return json({ id: v.id });
     }
+    if (action === "removeMember") {
+      const id = str(b, "vault", 60);
+      const v = await membership(id, me.address);
+      if (v.owner !== me.address) fail("NOT_OWNER");
+      if (v.status !== "draft") fail("ALREADY_ACTIVE");
+      const address = addr(str(b, "address", 56));
+      if (address === v.owner) fail("CANNOT_REMOVE");
+      if (
+        !(await one(
+          "SELECT 1 FROM members WHERE vault=? AND address=?",
+          id,
+          address,
+        ))
+      )
+        fail("NOT_MEMBER");
+      const [removed] = await db().batch([
+        db()
+          .prepare(
+            "DELETE FROM members WHERE vault=? AND address=? AND address!=? AND EXISTS (SELECT 1 FROM vaults WHERE id=? AND status='draft')",
+          )
+          .bind(id, address, v.owner, id),
+        db()
+          .prepare(
+            "UPDATE vaults SET invite_hash=NULL WHERE id=? AND status='draft'",
+          )
+          .bind(id),
+      ]);
+      if (!removed.meta.changes) fail("CONFIGURATION_CHANGED");
+      return json({ ok: true });
+    }
     const id = str(b, "vault", 60),
       v = await membership(id, me.address);
     if (action === "configure") {
@@ -594,14 +713,17 @@ export async function POST(req: Request) {
         !StrKey.isValidContract(quote.result)
       )
         fail("INVALID_TRANSACTION");
+      const snapshot = teamSnapshot(id, people);
       const saved = await run(
-        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status=? AND size=? AND threshold=?",
+        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status=? AND size=? AND threshold=?" +
+          snapshot.sql,
         quote.result,
         quote.xdr,
         id,
         v.status,
         v.size,
         v.threshold,
+        ...snapshot.args,
       );
       if (!saved.meta.changes) fail("CONFIGURATION_CHANGED");
       return json({
@@ -706,8 +828,10 @@ export async function POST(req: Request) {
       // in the same atomic transaction; the owner's wallet must also sign.
       tx.sign(key);
       const encoded = tx.toXDR();
+      const snapshot = teamSnapshot(id, people);
       const saved = await run(
-        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status=? AND COALESCE(setup,'')=? AND size=? AND threshold=?",
+        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status=? AND COALESCE(setup,'')=? AND size=? AND threshold=?" +
+          snapshot.sql,
         key.publicKey(),
         encoded,
         id,
@@ -715,6 +839,7 @@ export async function POST(req: Request) {
         v.setup || "",
         v.size,
         v.threshold,
+        ...snapshot.args,
       );
       if (!saved.meta.changes) fail("CONFIGURATION_CHANGED");
       return json(activationDetails(encoded));
@@ -740,13 +865,16 @@ export async function POST(req: Request) {
         people.map((p) => p.address),
         v.threshold,
       );
+      const snapshot = teamSnapshot(id, people);
       const result = await run(
-        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status='draft' AND size=? AND threshold=?",
+        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status='draft' AND size=? AND threshold=?" +
+          snapshot.sql,
         address,
         xdr,
         id,
         v.size,
         v.threshold,
+        ...snapshot.args,
       );
       if (!result.meta.changes) fail("CONFIGURATION_CHANGED");
       return json({ xdr });

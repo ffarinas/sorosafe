@@ -131,6 +131,25 @@ created.invite = (await ok(a, "invite", { vault: id })).invite;
 await ok(b, "join", { invite: created.invite });
 await rejected(
   b,
+  "removeMember",
+  { vault: id, address: a.key.publicKey() },
+  "NOT_OWNER",
+);
+await rejected(
+  a,
+  "removeMember",
+  { vault: id, address: a.key.publicKey() },
+  "CANNOT_REMOVE",
+);
+await ok(a, "removeMember", { vault: id, address: b.key.publicKey() });
+assert.equal((await state(a, id)).data.people.length, 1);
+assert.equal((await state(b, id)).status, 403);
+await rejected(b, "join", { invite: created.invite }, "INVITE_CLOSED");
+created.invite = (await ok(a, "invite", { vault: id })).invite;
+await ok(b, "join", { invite: created.invite });
+checks += 2;
+await rejected(
+  b,
   "configure",
   { vault: id, size: 4, threshold: 3 },
   "NOT_OWNER",

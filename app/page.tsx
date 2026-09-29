@@ -171,8 +171,24 @@ export default function Home() {
         setLoadError("");
       }
     } catch (e) {
-      if (n === seq.current)
-        setLoadError(e instanceof Error ? e.message : "UNAVAILABLE");
+      if (n === seq.current) {
+        const code = e instanceof Error ? e.message : "UNAVAILABLE";
+        setLoadError(code);
+        if (code === "NOT_MEMBER") {
+          // A successful on-chain rotation can remove the current user.
+          // Close that vault instead of keeping its cached private metadata.
+          setData((previous) => ({
+            ...empty,
+            user: previous.user,
+            network: previous.network,
+            factory: previous.factory,
+            catalog: previous.catalog,
+            vaults: previous.vaults.filter((vault) => vault.id !== id),
+          }));
+          setSelected("");
+          history.replaceState(null, "", "/");
+        }
+      }
     } finally {
       if (n === seq.current) setLoaded(true);
     }
@@ -364,6 +380,18 @@ export default function Home() {
       setInvite(`${location.origin}/?invite=${r.invite}`);
       setModal("invite");
     });
+  const removeMember = (address: string) =>
+    void work(async () => {
+      await api("removeMember", { vault: v?.id, address });
+      setInvite("");
+      await refresh(v?.id);
+      toast.success(
+        t(
+          "Persona quitada. El enlace anterior ya no sirve.",
+          "Person removed. The previous invite link no longer works.",
+        ),
+      );
+    });
   const activate = () =>
     void work(async () => {
       if (!v || !me) return;
@@ -513,6 +541,7 @@ export default function Home() {
           es={es}
           onLanguage={language}
           onBack={() => setModal("vaults")}
+          onMetadataChange={() => refresh(v.id)}
         />
         <Dialog
           open={modal === "vaults"}
@@ -1341,7 +1370,19 @@ export default function Home() {
                         ? t("Creador · Firmante", "Creator · Signer")
                         : t("Firmante", "Signer")}
                     </span>
-                    <Check size={18} />
+                    {v.status === "draft" &&
+                    v.owner === me?.address &&
+                    p.address !== v.owner ? (
+                      <button
+                        className="text-button"
+                        disabled={busy}
+                        onClick={() => removeMember(p.address)}
+                      >
+                        {t("Quitar", "Remove")}
+                      </button>
+                    ) : (
+                      <Check size={18} />
+                    )}
                   </div>
                 ))}
                 {v.status !== "active" &&

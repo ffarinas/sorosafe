@@ -17,6 +17,7 @@
     "test:integration": "node tests/integration.mjs",
     "db:local": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0000_worthless_ikaris.sql",
     "test:auth": "node tests/auth.mjs",
+    "test:audit-regressions": "node --test tests/audit-regressions.mjs",
     "test:tokens": "node tests/token-workflows.mjs",
     "db:local:upgrade": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0001_damp_the_twelve.sql",
     "contracts:build": "stellar contract build --manifest-path contracts/Cargo.toml --locked && node scripts/contract-artifacts.mjs",
@@ -25,6 +26,8 @@
     "contracts:client": "node scripts/contract-client-build.mjs",
     "test:soroban": "npm run contracts:client && node tests/soroban-network.mjs",
     "db:local:contracts": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0002_plain_mantis.sql",
+    "db:local:auth": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0003_auth_client.sql",
+    "db:local:auth-limits": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0004_auth_limits.sql",
     "test:contracts-client": "npm run contracts:client && node tests/contracts-client.mjs",
     "test:contracts-onboarding": "node tests/contracts-onboarding.mjs"
   },

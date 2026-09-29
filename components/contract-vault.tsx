@@ -44,6 +44,7 @@ type Intent = {
   fee: string;
   title: string;
   details: [string, string][];
+  sync?: boolean;
 };
 export function ContractVault({
   address,
@@ -56,6 +57,7 @@ export function ContractVault({
   onBack,
   es: esProp,
   onLanguage,
+  onMetadataChange,
 }: {
   address: string;
   chain: NetworkConfig;
@@ -68,6 +70,7 @@ export function ContractVault({
   /** Language chosen by the parent app; the standalone view keeps its own. */
   es?: boolean;
   onLanguage?: () => void;
+  onMetadataChange?: () => Promise<void>;
 }) {
   const router = useRouter();
   const [observedAt, setObservedAt] = useState(0);
@@ -90,8 +93,9 @@ export function ContractVault({
     [threshold, setThreshold] = useState(2);
   const [intent, setIntent] = useState<Intent>();
   const [paidCounts, setPaidCounts] = useState<Record<string, bigint>>({});
-  const [book, setBook] = useState(contacts),
-    [contactName, setContactName] = useState("");
+  // The parent refreshes shared metadata; do not freeze contacts at mount.
+  const book = contacts;
+  const [contactName, setContactName] = useState("");
   const requestId = useRef(0);
   const t = (a: string, b: string) => (es ? a : b);
   const person = (s: string) =>
@@ -187,10 +191,11 @@ export function ContractVault({
     args: xdr.ScVal[],
     title: string,
     details: [string, string][],
+    sync = false,
   ) => {
     if (!signer) throw new Error("SIGN_IN_REQUIRED");
     const quote = await prepareCall(chain, signer, target, method, args);
-    setIntent({ xdr: quote.xdr, fee: quote.fee, title, details });
+    setIntent({ xdr: quote.xdr, fee: quote.fee, title, details, sync });
   };
   const readContactCounts = async () => {
     const counts: Record<string, bigint> = {};
@@ -261,6 +266,7 @@ export function ContractVault({
           : [val.address(signer), val.u64(p.id)],
         title,
         detailsFor(p),
+        method === "execute" && p.action[0] === "ChangeRules",
       );
     });
   return (
@@ -813,9 +819,11 @@ export function ContractVault({
                     )
                       throw new Error("CHANGED_TRANSACTION");
                     await submitContract(chain, signed);
+                    const syncTeam = intent.sync;
                     setIntent(undefined);
                     setModal("");
                     await load();
+                    if (syncTeam) await onMetadataChange?.();
                     toast.success(
                       t(
                         "Operación confirmada en Stellar.",
@@ -854,10 +862,7 @@ export function ContractVault({
                       throw new Error(
                         ((await r.json()) as { error: string }).error,
                       );
-                    const state = await fetch(
-                      `/api/junto?vault=${encodeURIComponent(metadataId)}`,
-                    ).then((r) => r.json() as Promise<{ contacts: Contact[] }>);
-                    setBook(state.contacts);
+                    await onMetadataChange?.();
                     setModal("");
                     return;
                   }

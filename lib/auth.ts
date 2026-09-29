@@ -45,15 +45,29 @@ export function authError(e: unknown) {
           : 400,
   );
 }
+function clientId(req: Request) {
+  // Cloudflare overwrites this header. A caller-supplied X-Forwarded-For is not
+  // a client identity: it can be rotated or pointed at someone else.
+  return (req.headers.get("cf-connecting-ip") || "local").slice(0, 80);
+}
 export async function challenge(req: Request, address: string) {
   const { key, domain } = authConfig(req);
-  await run("DELETE FROM challenges WHERE expires<=?", now());
-  const count = await one<{ n: number }>(
-    "SELECT count(*) as n FROM challenges WHERE address=? AND expires>?",
-    address,
-    now(),
-  );
-  if ((count?.n || 0) >= 6) throw new Error("RATE_LIMITED");
+  const client = await digest(`${NETWORK}:${clientId(req)}`);
+  const issued = now();
+  // Count requests independently of pending challenges. An atomic UPSERT also
+  // enforces the limit when requests arrive together or logins consume rows.
+  const [, , budget] = await db().batch([
+    db().prepare("DELETE FROM challenges WHERE expires<=?").bind(issued),
+    db().prepare("DELETE FROM auth_limits WHERE expires<=?").bind(issued),
+    db()
+      .prepare(
+        "INSERT INTO auth_limits(client,requests,expires) VALUES(?,1,?) ON CONFLICT(client) DO UPDATE SET requests=auth_limits.requests+1 WHERE auth_limits.requests<30",
+      )
+      .bind(client, issued + 300),
+  ]);
+  if (!budget.meta.changes) throw new Error("RATE_LIMITED");
+  // Keep every unexpired challenge until it is used. Asking for another
+  // challenge, even for the same account, must never invalidate someone else's.
   const transaction = WebAuth.buildChallengeTx(
     key,
     address,
@@ -70,11 +84,12 @@ export async function challenge(req: Request, address: string) {
     domain,
   );
   await run(
-    "INSERT INTO challenges(id,address,xdr,expires) VALUES(?,?,?,?)",
+    "INSERT INTO challenges(id,address,xdr,expires,client) VALUES(?,?,?,?,?)",
     Buffer.from(tx.hash()).toString("hex"),
     address,
     transaction,
     Number(tx.timeBounds!.maxTime),
+    client,
   );
   return authResponse({ transaction, network_passphrase: NETWORK });
 }

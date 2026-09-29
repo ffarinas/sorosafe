@@ -135,6 +135,10 @@ export const errors: Record<string, [string, string]> = {
     "Esta acción corresponde a quien creó la bóveda.",
     "Only the vault creator can do this.",
   ],
+  CANNOT_REMOVE: [
+    "Quien creó la bóveda permanece en el equipo.",
+    "The person who created the vault stays on the team.",
+  ],
   TEAM_INCOMPLETE: [
     "Todavía faltan personas por unirse.",
     "Some people have not joined yet.",

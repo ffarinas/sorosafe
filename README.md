@@ -32,6 +32,8 @@ npm ci
 npm run db:local
 npm run db:local:upgrade
 npm run db:local:contracts
+npm run db:local:auth
+npm run db:local:auth-limits
 node scripts/setup-local-auth.mjs
 npm run dev -- --host 127.0.0.1 --port 8789
 ```

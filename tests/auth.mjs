@@ -152,6 +152,30 @@ const revoked = await (
 ).json();
 assert.equal(revoked.user, null);
 checks++;
+const victim = Keypair.random().publicKey();
+for (let n = 0; n < 6; n++) {
+  const filled = await fetch(base + "/api/auth?account=" + victim, {
+    headers: { "cf-connecting-ip": "203.0.113.8" },
+  });
+  assert.equal(filled.status, 200);
+  checks++;
+}
+const replaced = await fetch(base + "/api/auth?account=" + victim, {
+  headers: { "cf-connecting-ip": "203.0.113.9" },
+});
+assert.equal(replaced.status, 200);
+checks++;
+let limited = 200;
+for (let n = 0; n < 31; n++) {
+  const burst = await fetch(
+    base + "/api/auth?account=" + Keypair.random().publicKey(),
+    { headers: { "cf-connecting-ip": "203.0.113.10" } },
+  );
+  limited = burst.status;
+  if (limited === 429) break;
+}
+assert.equal(limited, 429);
+checks++;
 const evidence = {
   date: new Date().toISOString(),
   checks,
@@ -169,6 +193,8 @@ const evidence = {
     "Bearer session and tampering",
     "form-encoded exchange",
     "logout revocation",
+    "outstanding challenges do not lock the account",
+    "challenge rate limit follows the caller",
   ],
 };
 await writeFile(

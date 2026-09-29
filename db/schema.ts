@@ -17,12 +17,23 @@ export const challenges = sqliteTable("challenges", {
   address: text("address").notNull(),
   xdr: text("xdr").notNull(),
   expires: integer("expires").notNull(),
+  // Who requested the challenge. The account itself is never locked out.
+  client: text("client").notNull().default(""),
 });
 export const sessions = sqliteTable("sessions", {
   hash: text("hash").primaryKey(),
   address: text("address").notNull(),
   expires: integer("expires").notNull(),
 });
+export const authLimits = sqliteTable(
+  "auth_limits",
+  {
+    client: text("client").primaryKey(),
+    requests: integer("requests").notNull(),
+    expires: integer("expires").notNull(),
+  },
+  (t) => [index("auth_limits_expiry").on(t.expires)],
+);
 export const vaults = sqliteTable("vaults", {
   custody: text("custody").notNull().default("classic"),
   network: text("network").notNull().default("testnet"),
