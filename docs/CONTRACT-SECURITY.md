@@ -25,6 +25,7 @@ A nonzero-fee deployment checks that the collector can receive each asset. **Col
 - OpenZeppelin's v0.7.0 audit includes the fixed-point mathematics modules. This is evidence of component review, **not evidence that Junto or every change through v0.7.2 is audited or independently verified in production**.
 - `contracts/Cargo.lock` is committed. Release builds enable overflow checks, use one codegen unit and LTO, and contain no debugging symbols. Build with `stellar contract build --locked` (CLI 25.2.0 or compatible; Rust 1.94.1 used for these artifacts).
 - Published WASM hashes are in `lib/contract-artifacts.json`. Before enabling a vault, the client checks both vault and factory WASM bytes against those hashes and checks the factory registration. A self-reported factory address alone is insufficient.
+- `previous` lists earlier vault builds that remain accepted, because deployed vaults are immutable. The first previous build (`36f81322…`) does not count the proposer as an approval; the current build does. New vaults use whichever vault hash their factory was constructed with.
 - RustSec audit: zero known vulnerabilities in the resolved lockfile at validation time; informational `RUSTSEC-2024-0436` for the unmaintained `paste` dependency in the native test host. `cargo tree --target wasm32v1-none -i paste --edges normal,build` confirms it is absent from the deployed WASM dependency tree.
 
 ## Backend independence and application boundaries
@@ -37,7 +38,7 @@ Storage is persistent and extended to 30 days on successful transactions. Read s
 
 ## Evidence and limits
 
-- 14 Rust tests: quorum, duplicate signers/approvals, missing authorization, unauthorized members, revocation, cancellation, expiry, nonce, fee rounding/overflow, atomic rollback, signer rotation and factory provenance/namespacing.
+- 16 Rust tests (14 vault, 2 factory): proposer counted as first approval and able to withdraw it, quorum, duplicate signers/approvals, missing authorization, unauthorized members, revocation, cancellation, expiry, nonce, fee rounding/overflow, atomic rollback, signer rotation and factory provenance/namespacing.
 - 17 real-Testnet workflow checks in `docs/soroban-testnet-evidence.json`, using compiled WASM, Friendbot-funded ephemeral wallets and real Ed25519 transaction signatures. Negative preflight checks exercise the network's contract simulation; the invalid transaction-signature check is submitted to RPC. Positive operations were confirmed on-chain. Test secrets were never persisted.
 - 16 application onboarding checks: SEP-10 sessions, shared invitations, exact constructor validation, activation, shared contacts and rejection of memo-dependent destinations.
 - 10 client checks for exact asset, recipient, function, signer and constructor encoding.

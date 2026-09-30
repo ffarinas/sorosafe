@@ -95,10 +95,19 @@ impl Fixture {
             &2_000,
         )
     }
+    /// Adds approvals from other signers until the proposal reaches quorum.
     fn approve(&self, id: u64) {
         let c = self.client();
-        c.approve(&self.signers.get(0).unwrap(), &id);
-        c.approve(&self.signers.get(1).unwrap(), &id);
+        let threshold = c.config().rules.threshold;
+        for s in self.signers.iter() {
+            let p = c.proposal(&id);
+            if p.approvals.len() >= threshold {
+                break;
+            }
+            if !p.approvals.contains(&s) {
+                c.approve(&s, &id);
+            }
+        }
     }
 }
 #[test]
@@ -122,11 +131,36 @@ fn cannot_execute_with_one_approval_or_duplicate_it() {
     let f = Fixture::new();
     let c = f.client();
     let id = f.pay(100);
-    c.approve(&f.signers.get(0).unwrap(), &id);
+    // The proposer's approval is already recorded and cannot be repeated.
+    assert_eq!(c.proposal(&id).approvals.len(), 1);
     assert_eq!(
         c.try_approve(&f.signers.get(0).unwrap(), &id),
         Err(Ok(Error::AlreadyApproved.into()))
     );
+    assert_eq!(c.try_execute(&id), Err(Ok(Error::Quorum.into())));
+}
+#[test]
+fn proposer_counts_as_first_approval() {
+    let f = Fixture::new();
+    let c = f.client();
+    let id = f.pay(100);
+    assert_eq!(
+        c.proposal(&id).approvals,
+        vec![&f.e, f.signers.get(0).unwrap()]
+    );
+    // With a 2-of-3 rule, one more signer is enough.
+    c.approve(&f.signers.get(1).unwrap(), &id);
+    c.execute(&id);
+    assert_eq!(c.proposal(&id).status, 1);
+}
+#[test]
+fn proposer_can_withdraw_their_initial_approval() {
+    let f = Fixture::new();
+    let c = f.client();
+    let id = f.pay(100);
+    c.revoke(&f.signers.get(0).unwrap(), &id);
+    assert_eq!(c.proposal(&id).approvals.len(), 0);
+    c.approve(&f.signers.get(1).unwrap(), &id);
     assert_eq!(c.try_execute(&id), Err(Ok(Error::Quorum.into())));
 }
 #[test]
@@ -346,9 +380,10 @@ fn no_host_authorization_means_no_approval() {
     // Clear mocks: unlike the business-logic tests, this verifies require_auth
     // actually executes. Real Ed25519 verification is also exercised on Testnet.
     f.e.set_auths(&[]);
+    // Signer 1 has not approved yet; only missing auth can stop them here.
     assert!(f
         .client()
-        .try_approve(&f.signers.get(0).unwrap(), &id)
+        .try_approve(&f.signers.get(1).unwrap(), &id)
         .is_err());
-    assert_eq!(f.client().proposal(&id).approvals.len(), 0);
+    assert_eq!(f.client().proposal(&id).approvals.len(), 1);
 }

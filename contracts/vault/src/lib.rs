@@ -192,7 +192,9 @@ impl Vault {
             epoch: c.epoch,
             proposer: signer.clone(),
             action,
-            approvals: Vec::new(&e),
+            // Proposing already requires the signer's auth for these exact
+            // arguments, so it counts as their approval: no second transaction.
+            approvals: Vec::from_array(&e, [signer.clone()]),
             expires,
             created: now,
             status: 0,
@@ -207,6 +209,13 @@ impl Vault {
         ProposalChanged {
             id: p.id,
             proposal: p.clone(),
+        }
+        .publish(&e);
+        // Indexers that count ApprovalChanged see the proposer's approval too.
+        ApprovalChanged {
+            id: p.id,
+            signer,
+            approved: true,
         }
         .publish(&e);
         p.id

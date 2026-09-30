@@ -171,10 +171,11 @@ await assert.rejects(() =>
   ]),
 );
 ok("A forged signer is rejected by real host authorization", true);
-await call(keys[0], vault, "approve", [
-  val.address(keys[0].publicKey()),
-  val.u64(0n),
-]);
+ok(
+  "The proposer counts as the first approval",
+  (await readContract(chain, vault, "proposal", [val.u64(0n)])).approvals
+    .length === 1,
+);
 await assert.rejects(() => call(keys[0], vault, "execute", [val.u64(0n)]));
 ok("One approval cannot execute", true);
 await assert.rejects(() =>
@@ -256,10 +257,6 @@ await call(keys[0], vault, "propose", [
   val.u64(1n),
   rotation,
   val.u64(expires),
-]);
-await call(keys[0], vault, "approve", [
-  val.address(keys[0].publicKey()),
-  val.u64(1n),
 ]);
 await call(keys[1], vault, "approve", [
   val.address(keys[1].publicKey()),
