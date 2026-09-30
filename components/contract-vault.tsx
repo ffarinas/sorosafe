@@ -78,6 +78,26 @@ export function ContractVault({
   const [localEs, setLocalEs] = useState(true),
     [signer, setSigner] = useState(initialSigner);
   const es = esProp ?? localEs;
+  useEffect(() => {
+    // Standalone /contract: follow the language saved by the main app.
+    if (esProp !== undefined) return;
+    try {
+      const saved = localStorage.getItem("junto-language");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (saved) setLocalEs(saved === "es");
+    } catch {
+      /* Storage can be blocked; Spanish stays the default. */
+    }
+  }, [esProp]);
+  const toggleLanguage = () => {
+    if (onLanguage) return onLanguage();
+    try {
+      localStorage.setItem("junto-language", localEs ? "en" : "es");
+    } catch {
+      /* The toggle still works for this visit. */
+    }
+    setLocalEs(!localEs);
+  };
   const [config, setConfig] = useState<ContractConfig>(),
     [balances, setBalances] = useState<Record<string, bigint>>({});
   const [proposals, setProposals] = useState<ContractProposal[]>([]),
@@ -280,7 +300,16 @@ export function ContractVault({
     <div className="app contract-app">
       <Toaster position="bottom-right" richColors />
       <header className="topbar">
-        <Link className="brand" href="/">
+        <Link
+          className="brand"
+          href="/"
+          onClick={(e) => {
+            // Inside the app, "/" would reopen the latest vault, not this one.
+            if (!onBack) return;
+            e.preventDefault();
+            onBack();
+          }}
+        >
           <span className="brand-icon">j</span>junto
           <span className="brand-dot">.</span>
         </Link>
@@ -288,7 +317,7 @@ export function ContractVault({
           <span className="network">{chain.label}</span>
           <button
             className="language"
-            onClick={() => (onLanguage ? onLanguage() : setLocalEs(!localEs))}
+            onClick={toggleLanguage}
             aria-label={t("Cambiar idioma", "Change language")}
           >
             <Globe2 size={16} />
@@ -834,7 +863,10 @@ export function ContractVault({
                         )
                     )
                       throw new Error("CHANGED_TRANSACTION");
-                    const hash = await submitContract(chain, signed);
+                    const { txHash: hash } = await submitContract(
+                      chain,
+                      signed,
+                    );
                     const syncTeam = intent.sync;
                     setIntent(undefined);
                     setModal("");

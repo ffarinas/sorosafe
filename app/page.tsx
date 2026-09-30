@@ -161,13 +161,17 @@ export default function Home() {
   };
   const refresh = useCallback(async (id?: string) => {
     const n = ++seq.current;
-    try {
+    const fetchState = async (vault?: string) => {
       const r = await fetch(
-        `/api/junto${id ? "?vault=" + encodeURIComponent(id) : ""}`,
+        `/api/junto${vault ? "?vault=" + encodeURIComponent(vault) : ""}`,
         { cache: "no-store" },
       );
       const d = (await r.json()) as State & { error?: string };
       if (!r.ok) throw new Error(d.error);
+      return d;
+    };
+    try {
+      const d = await fetchState(id);
       if (n === seq.current) {
         setData(d);
         setLoadError("");
@@ -179,6 +183,16 @@ export default function Home() {
         if (code === "NOT_MEMBER") {
           // A successful on-chain rotation can remove the current user.
           // Close that vault instead of keeping its cached private metadata.
+          setSelected("");
+          history.replaceState(null, "", "/");
+          // Open the next vault this person still belongs to, if any, rather
+          // than dropping them on the create-vault form.
+          const next = await fetchState().catch(() => undefined);
+          if (n !== seq.current) return;
+          if (next?.vault) {
+            setData(next);
+            return;
+          }
           setData((previous) => ({
             ...empty,
             user: previous.user,
@@ -189,8 +203,6 @@ export default function Home() {
               (vault) => vault.id !== (id || previous.vault?.id),
             ),
           }));
-          setSelected("");
-          history.replaceState(null, "", "/");
         }
       }
     } finally {
@@ -412,6 +424,8 @@ export default function Home() {
   const activate = () =>
     void work(async () => {
       if (!v || !me) return;
+      // The current address is taken by a contract with other rules.
+      if (data.policyMismatch) throw new Error("POLICY_CHANGED");
       if (!activation || activation.expires <= Date.now() / 1000) {
         const quote = await api<Activation>("prepareVault", { vault: v.id });
         await assertActivation(quote, v, data.people, chain, data.factory);
@@ -1434,7 +1448,20 @@ export default function Home() {
                 ))}
                 {v.status !== "active" &&
                 v.owner === me?.address &&
-                data.people.length === v.size ? (
+                data.policyMismatch ? (
+                  <button
+                    className="primary"
+                    disabled={busy}
+                    onClick={discardActivation}
+                  >
+                    {t(
+                      "Descartar y volver a preparar",
+                      "Discard and prepare again",
+                    )}
+                  </button>
+                ) : v.status !== "active" &&
+                  v.owner === me?.address &&
+                  data.people.length === v.size ? (
                   <button
                     className="primary"
                     onClick={() => setModal("activate")}
