@@ -241,11 +241,43 @@ for (const [name, mutate] of [
   test(`activation rejects ${name} and reports the mismatch`, async () => {
     mutate();
     const response = await request();
-    assert.equal(response.status, 400);
-    assert.equal(response.data.error, "POLICY_CHANGED");
+    // The load still succeeds so the team keeps its vault list.
+    assert.equal(response.status, 200);
+    assert.equal(response.data.policyMismatch, true);
+    assert.equal(response.data.vault.status, "activating");
+    assert.equal(response.data.vaults.length, 1);
     assert.equal(stored().status, "activating");
     assert.equal(stored().setup, "prepared");
   });
+test("owner discards a mismatched activation and gets a new salt", async () => {
+  const first = (await request("prepareVault")).data.salt;
+  config.rules.signers[1] = addresses[3];
+  assert.equal(
+    (await request("discardActivation", {}, 1)).data.error,
+    "NOT_OWNER",
+  );
+  assert.equal((await request("discardActivation")).status, 200);
+  assert.equal(stored().status, "draft");
+  assert.equal(stored().address, null);
+  assert.equal(stored().attempt, 1);
+  const second = (await request("prepareVault")).data.salt;
+  assert.notEqual(second, first);
+  // Retrying the new attempt keeps its salt stable.
+  assert.equal((await request("prepareVault")).data.salt, second);
+});
+test("an activation matching the team cannot be discarded", async () => {
+  const response = await request("discardActivation");
+  assert.equal(response.data.error, "ALREADY_ACTIVE");
+  assert.equal(stored().status, "activating");
+});
+test("an unconfirmed deployment cannot be discarded", async () => {
+  config = Error("CONTRACT_UNAVAILABLE");
+  assert.equal(
+    (await request("discardActivation")).data.error,
+    "CONTRACT_UNAVAILABLE",
+  );
+  assert.equal(stored().status, "activating");
+});
 test("pending activation remains pending when RPC is unavailable", async () => {
   config = Error("CONTRACT_UNAVAILABLE");
   assert.equal((await request()).data.vault.status, "activating");

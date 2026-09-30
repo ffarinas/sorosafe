@@ -47,6 +47,9 @@ export const vaults = sqliteTable("vaults", {
   setup: text("setup"),
   inviteHash: text("invite_hash"),
   created: integer("created").notNull(),
+  // Discarded Soroban activations. Each one moves the deploy salt, because the
+  // previous address is already taken by a contract the team did not agree on.
+  attempt: integer("attempt").notNull().default(0),
 });
 export const members = sqliteTable(
   "members",

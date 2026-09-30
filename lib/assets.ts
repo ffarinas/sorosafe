@@ -22,6 +22,10 @@ export function units(amount: string) {
   const [whole, fraction = ""] = amount.split(".");
   return BigInt(whole) * scale + BigInt(fraction.padEnd(7, "0"));
 }
+// Spanish keyboards type a decimal comma. Only one separator is ever valid,
+// so "1,000,5" still fails in units() instead of becoming a different amount.
+export const normalizeAmount = (input: string) =>
+  input.trim().replace(/,/g, ".");
 export function decimal(amount: bigint) {
   const value = amount < BigInt(0) ? BigInt(0) : amount;
   return `${value / scale}.${(value % scale).toString().padStart(7, "0")}`;

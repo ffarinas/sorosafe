@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   Check,
   Copy,
+  ExternalLink,
   Globe2,
   Loader2,
   RefreshCw,
@@ -35,7 +36,7 @@ import {
   type ContractProposal,
 } from "@/lib/contracts";
 import { connectWallet, signXdr } from "@/lib/client-wallet";
-import { decimal, units } from "@/lib/assets";
+import { decimal, normalizeAmount, units } from "@/lib/assets";
 import { errors } from "@/lib/messages";
 import { SHORT, type Contact, type Person } from "@/lib/domain";
 import type { NetworkConfig } from "@/lib/network";
@@ -111,6 +112,12 @@ export function ContractVault({
       "No pudimos completar la operación. Actualiza y vuelve a intentarlo.",
       "We could not complete the operation. Refresh and try again.",
     );
+  // The contract rejects a proposal unless expected_id is the current next_id.
+  // State polls every 20 s, so read it again right before preparing.
+  const freshNextId = async () =>
+    (await readContract<ContractConfig>(chain, address, "config")).next_id;
+  const openExplorer = (hash: string) =>
+    window.open(`${chain.explorer}/tx/${hash}`, "_blank", "noopener");
   const load = useCallback(async () => {
     const request = ++requestId.current;
     try {
@@ -324,6 +331,15 @@ export function ContractVault({
               <code>{address}</code>
               <Copy size={15} />
             </button>
+            <a
+              className="text-button"
+              target="_blank"
+              rel="noreferrer"
+              href={`${chain.explorer}/contract/${address}`}
+            >
+              {t("Ver contrato en Stellar", "View contract on Stellar")}
+              <ExternalLink size={15} />
+            </a>
           </div>
           {config && (
             <div className="contract-rule">
@@ -818,7 +834,7 @@ export function ContractVault({
                         )
                     )
                       throw new Error("CHANGED_TRANSACTION");
-                    await submitContract(chain, signed);
+                    const hash = await submitContract(chain, signed);
                     const syncTeam = intent.sync;
                     setIntent(undefined);
                     setModal("");
@@ -829,6 +845,13 @@ export function ContractVault({
                         "Operación confirmada en Stellar.",
                         "Operation confirmed on Stellar.",
                       ),
+                      {
+                        duration: 10000,
+                        action: {
+                          label: t("Ver recibo", "View receipt"),
+                          onClick: () => openExplorer(hash),
+                        },
+                      },
                     );
                   })
                 }
@@ -877,7 +900,7 @@ export function ContractVault({
                       "propose",
                       [
                         val.address(signer),
-                        val.u64(config.next_id),
+                        val.u64(await freshNextId()),
                         actionVal(["ChangeRules", rules]),
                         val.u64(BigInt(Math.floor(Date.now() / 1000) + 86400)),
                       ],
@@ -896,7 +919,7 @@ export function ContractVault({
                     return;
                   }
                   if (!chosen) throw new Error("ASSET_UNAVAILABLE");
-                  const value = units(amount);
+                  const value = units(normalizeAmount(amount));
                   if (value <= BigInt(0)) throw new Error("INVALID_AMOUNT");
                   if (modal === "deposit")
                     await prepare(
@@ -932,7 +955,7 @@ export function ContractVault({
                       "propose",
                       [
                         val.address(signer),
-                        val.u64(config.next_id),
+                        val.u64(await freshNextId()),
                         actionVal(["Pay", chosen.contract, recipient, value]),
                         val.u64(BigInt(Math.floor(Date.now() / 1000) + 86400)),
                       ],
@@ -1064,7 +1087,9 @@ export function ContractVault({
                           inputMode="decimal"
                           pattern="[0-9]+(\.[0-9]{1,7})?"
                           value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
+                          onChange={(e) =>
+                            setAmount(normalizeAmount(e.target.value))
+                          }
                           placeholder="0.00"
                         />
                       </label>

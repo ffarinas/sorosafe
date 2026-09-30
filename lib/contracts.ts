@@ -222,7 +222,8 @@ export async function submitContract(chain: NetworkConfig, encoded: string) {
   if (sent.status === "ERROR") throw new Error("CONTRACT_REJECTED");
   for (let n = 0; n < 15; n++) {
     const result = await s.getTransaction(sent.hash);
-    if (result.status === rpc.Api.GetTransactionStatus.SUCCESS) return result;
+    if (result.status === rpc.Api.GetTransactionStatus.SUCCESS)
+      return sent.hash;
     if (result.status === rpc.Api.GetTransactionStatus.FAILED)
       throw new Error("CONTRACT_REJECTED");
     await new Promise((resolve) => setTimeout(resolve, 1500));

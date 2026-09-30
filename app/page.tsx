@@ -12,6 +12,7 @@ import {
   ArrowDownLeft,
   ArrowLeft,
   Plus,
+  ShieldAlert,
   ShieldCheck,
   Users,
   Check,
@@ -54,6 +55,7 @@ import {
   assetKey,
   findAsset,
   canSpend,
+  normalizeAmount,
   sameAsset,
   type CatalogAsset,
 } from "@/lib/assets";
@@ -391,6 +393,19 @@ export default function Home() {
         t(
           "Persona quitada. El enlace anterior ya no sirve.",
           "Person removed. The previous invite link no longer works.",
+        ),
+      );
+    });
+  const discardActivation = () =>
+    void work(async () => {
+      if (!v) return;
+      await api("discardActivation", { vault: v.id });
+      setActivation(null);
+      await refresh(v.id);
+      toast.success(
+        t(
+          "Activación descartada. Revisa el equipo y vuelve a activar.",
+          "Activation discarded. Review the team and activate again.",
         ),
       );
     });
@@ -957,7 +972,37 @@ export default function Home() {
                   <span className="eyebrow">
                     {t("Tu siguiente paso", "Up next")}
                   </span>
-                  {v.status !== "active" ? (
+                  {v.status !== "active" && data.policyMismatch ? (
+                    <>
+                      <div className="round-icon">
+                        <ShieldAlert size={22} />
+                      </div>
+                      <h2>
+                        {t(
+                          "La activación no coincide con lo acordado.",
+                          "This activation does not match what was agreed.",
+                        )}
+                      </h2>
+                      <p>
+                        {t(
+                          "El contrato en Stellar tiene otros firmantes o aprobaciones. No lo uses ni le envíes fondos.",
+                          "The contract on Stellar has other signers or approvals. Do not use it or send it funds.",
+                        )}
+                      </p>
+                      {v.owner === me?.address ? (
+                        <button
+                          className="text-button"
+                          disabled={busy}
+                          onClick={discardActivation}
+                        >
+                          {t(
+                            "Descartar y volver a preparar",
+                            "Discard and prepare again",
+                          )}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : v.status !== "active" ? (
                     <>
                       <div className="round-icon">
                         <Users size={22} />
@@ -2184,7 +2229,7 @@ export default function Home() {
                         pattern="[0-9]+(\.[0-9]{1,7})?"
                         value={amount}
                         onChange={(e) =>
-                          setAmount(e.target.value.replace(",", "."))
+                          setAmount(normalizeAmount(e.target.value))
                         }
                         placeholder="0.00"
                       />

@@ -28,6 +28,7 @@
     "db:local:contracts": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0002_plain_mantis.sql",
     "db:local:auth": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0003_auth_client.sql",
     "db:local:auth-limits": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0004_auth_limits.sql",
+    "db:local:attempts": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0005_vault_attempt.sql",
     "test:contracts-client": "npm run contracts:client && node tests/contracts-client.mjs",
     "test:contracts-onboarding": "node tests/contracts-onboarding.mjs"
   },

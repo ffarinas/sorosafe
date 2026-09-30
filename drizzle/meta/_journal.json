@@ -36,6 +36,13 @@
       "when": 1790709991192,
       "tag": "0004_auth_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1790736514486,
+      "tag": "0005_vault_attempt",
+      "breakpoints": true
     }
   ]
 }

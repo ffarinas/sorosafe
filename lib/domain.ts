@@ -81,6 +81,8 @@ export type State = {
   balances: Balance[];
   paymentFee?: string;
   chainError?: boolean;
+  /** The contract at the activating address has rules the team did not agree on. */
+  policyMismatch?: boolean;
   invite?: {
     name: string;
     threshold: number;

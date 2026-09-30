@@ -48,6 +48,7 @@ const vaultFields =
   "v.custody,v.network,v.id,v.name,v.owner,v.threshold,v.size,v.status,v.address,v.created";
 type InternalVault = Vault & {
   setup: string | null;
+  attempt: number;
   contract?: ContractConfig;
 };
 function activationDetails(encoded: string) {
@@ -477,8 +478,11 @@ export async function GET(req: Request) {
               id,
             );
         } catch (e) {
-          if (e instanceof Error && e.message === "POLICY_CHANGED") throw e;
-          if (v.status === "active") state.chainError = true;
+          // Keep the app usable: the team sees the vault list and the creator
+          // can discard this activation instead of every load failing.
+          if (e instanceof Error && e.message === "POLICY_CHANGED")
+            state.policyMismatch = true;
+          else if (v.status === "active") state.chainError = true;
         }
       }
       state.contacts = await all<Contact>(
@@ -695,8 +699,14 @@ export async function POST(req: Request) {
         env.JUNTO_FACTORY,
         "config",
       );
-      // Stable salt per draft. Retrying cannot create a second vault.
-      const salt = Buffer.from(await digest(`${chain.id}:${id}`), "hex");
+      // Stable salt per draft. Retrying cannot create a second vault. A
+      // discarded activation moves to the next salt; its address is taken.
+      const salt = Buffer.from(
+        await digest(
+          v.attempt ? `${chain.id}:${id}:${v.attempt}` : `${chain.id}:${id}`,
+        ),
+        "hex",
+      );
       const args = createArgs(me.address, salt, v.name, {
         signers: people.map((p) => p.address),
         threshold: v.threshold,
@@ -736,6 +746,22 @@ export async function POST(req: Request) {
         feeBps: protocol.protocol.fee_bps,
         collector: protocol.protocol.collector,
       });
+    }
+    if (v.custody === "soroban" && action === "discardActivation") {
+      if (v.owner !== me.address) fail("NOT_OWNER");
+      if (v.status !== "activating" || !v.address) fail("INVALID_TRANSACTION");
+      // Only a contract confirmed on Stellar with other rules can be dropped.
+      // A pending deployment with the agreed team must be allowed to finish.
+      const c = await verifiedConfig(chain, v.address, env.JUNTO_FACTORY);
+      if (matchesTeam(c.rules, v.threshold, await team(id)))
+        fail("ALREADY_ACTIVE");
+      const reset = await run(
+        "UPDATE vaults SET status='draft',address=NULL,setup=NULL,attempt=attempt+1 WHERE id=? AND status='activating' AND address=?",
+        id,
+        v.address,
+      );
+      if (!reset.meta.changes) fail("CONFIGURATION_CHANGED");
+      return json({ ok: true });
     }
     if (v.custody === "soroban" && action === "activate") {
       if (v.owner !== me.address) fail("NOT_OWNER");
