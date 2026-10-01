@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-01T17:01:13.517Z",
+  "network": "testnet",
+  "factory": "CDZZISSPQ4RQRLGPDLQVPLAV4WXDB4AUAOCPZT5O6WYOKGIDM57TQDZ2",
+  "vaultSha256": "41710f760a4eaecddbdd2bff6db7277b1cc53ae3f8852dcece147e084cd2a407",
+  "factorySha256": "50bfe489bb78150b5579aed8194e9c965a783d16fec9cf1aaba18508e4a6d4c0",
+  "collector": "GCSRALXZOC4RBBAXRESMWVN5LZ3PCEA5OZ7THGMY4IPUNJUE2VXUK2H2",
+  "feeBps": 25,
+  "assets": [
+    "XLM",
+    "USDC"
+  ],
+  "transactions": [
+    "c9c286cca3b3e476ef976c72995faae1ae0685e6fe4b331b2dd7f8733f3dd2e4",
+    "e6fe6aca9ef4545dd9fa5250afb1232f7dfb6eb456a70d0855dc7a148aaa01b4",
+    "6e8fa0eaeca7a2b48469f70a0d9fc58f9e2b89698724022529e124101a116479",
+    "95d900d8060d98039c685dea0099d9e543c2699f8cecfe467a95efd1014fd494"
+  ]
+}
