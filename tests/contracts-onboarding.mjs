@@ -126,6 +126,44 @@ const memo = await fetch(base + "/api/junto", {
 });
 assert.equal((await memo.json()).error, "CONTRACT_MEMO_UNSUPPORTED");
 checks++;
+// Solo start: the creator alone gets a working 1-of-1 vault in one signature,
+// exactly as the app does right after "Create vault".
+const solo = users[1];
+assert(
+  (
+    await fetch("https://friendbot.stellar.org?addr=" + solo.key.publicKey(), {
+      signal: AbortSignal.timeout(60000),
+    })
+  ).ok,
+);
+const soloName = "Bóveda individual";
+const soloVault = await call(solo, "create", { name: soloName });
+const soloQuote = await call(solo, "prepareVault", { vault: soloVault.id });
+await assertActivation(
+  soloQuote,
+  {
+    custody: "soroban",
+    owner: solo.key.publicKey(),
+    name: soloName,
+    threshold: 1,
+  },
+  [{ address: solo.key.publicKey() }],
+  state.network,
+  state.factory,
+);
+const soloTx = TransactionBuilder.fromXDR(
+  soloQuote.xdr,
+  state.network.passphrase,
+);
+soloTx.sign(solo.key);
+await call(solo, "activate", { vault: soloVault.id, signed: soloTx.toXDR() });
+const soloState = await fetch(base + "/api/junto?vault=" + soloVault.id, {
+  headers: { Authorization: "Bearer " + solo.token },
+}).then((r) => r.json());
+assert.equal(soloState.vault.status, "active");
+assert.equal(soloState.vault.size, 1);
+assert.equal(soloState.vault.threshold, 1);
+checks += 3;
 await writeFile(
   "docs/contracts-onboarding-evidence.json",
   JSON.stringify(

@@ -35,9 +35,11 @@ pub struct Rules {
     pub threshold: u32,
 }
 pub fn validate_rules(e: &Env, rules: &Rules) {
-    if rules.signers.len() < 2
+    // A vault may start with its creator alone (1 of 1) and add signers later
+    // through a ChangeRules proposal that keeps the same address.
+    if rules.signers.is_empty()
         || rules.signers.len() > 20
-        || rules.threshold < 2
+        || rules.threshold < 1
         || rules.threshold > rules.signers.len()
     {
         panic_with_error!(e, Error::InvalidRules);

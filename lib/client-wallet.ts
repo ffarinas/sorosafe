@@ -10,6 +10,14 @@ export function temporaryWalletStatus(
   if (temporaryKey?.publicKey() === address) return "active";
   return sessionStorage.getItem(temporaryMarker) === address ? "lost" : "none";
 }
+/** Testnet only: a new wallet gets free test XLM so it can pay network fees. */
+export async function ensureTestFunds(address: string, network: NetworkConfig) {
+  if (network.id !== "testnet") return;
+  const known = await fetch(`${network.horizon}/accounts/${address}`);
+  if (known.ok) return;
+  const funded = await fetch("https://friendbot.stellar.org?addr=" + address);
+  if (!funded.ok) throw new Error("ACCOUNT_MISSING");
+}
 export async function connectWallet(temporary = false, network: NetworkConfig) {
   if (temporary) {
     if (network.id !== "testnet") throw new Error("NETWORK_MISMATCH");

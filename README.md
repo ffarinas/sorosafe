@@ -8,7 +8,7 @@ Las bóvedas nuevas usan **contratos Soroban**. Las cuentas multifirma nativas a
 
 - Crear una bóveda pide nombre e identidad; la regla y el equipo se configuran dentro de ella, antes de invitar. Una invitación abre la misma bóveda.
 - Activar despliega un contrato C… desde una fábrica verificable. No existe una clave inicial con privilegios de retiro.
-- Entre 2 y 20 firmantes, con umbral configurable de 2 a N. Propuestas, aprobaciones, cancelaciones y cambios de equipo quedan en Stellar. Quien propone ya cuenta como la primera aprobación: no firma dos veces.
+- Quien crea la bóveda empieza como único firmante (1 de 1) y puede usarla al momento; después añade hasta 20 firmantes y fija el umbral de 1 a N, con la misma dirección. Propuestas, aprobaciones, cancelaciones y cambios de equipo quedan en Stellar. Quien propone ya cuenta como la primera aprobación: no firma dos veces.
 - Pago y comisión se ejecutan de forma atómica. La comisión es adicional al importe del destinatario y se cobra en la misma moneda. Los costes de red se pagan en XLM desde la wallet que envía cada transacción.
 - Cambiar los firmantes requiere el quórum actual y conserva la dirección de la bóveda. Las solicitudes anteriores quedan invalidadas.
 - La pantalla `/contract?network=mainnet&address=C…` puede leer y operar sin sesión ni base de datos de Junto. La libreta compartida y los nombres siguen siendo datos de colaboración en D1.
@@ -39,7 +39,7 @@ node scripts/setup-local-auth.mjs
 npm run dev -- --host 127.0.0.1 --port 8789
 ```
 
-Para la demo en Testnet: `npm run contracts:deploy-testnet` despliega una fábrica con XLM y USDC de prueba y comisión de 25 bps, con cuentas temporales de Friendbot, y guarda el resultado en `docs/testnet-demo-factory.json`. La fábrica actual es `CDZZISSPQ4RQRLGPDLQVPLAV4WXDB4AUAOCPZT5O6WYOKGIDM57TQDZ2`.
+Para la demo en Testnet: `npm run contracts:deploy-testnet` despliega una fábrica con XLM y USDC de prueba y comisión de 25 bps, con cuentas temporales de Friendbot, y guarda el resultado en `docs/testnet-demo-factory.json`. La fábrica actual es `CDQUOMGSDKWG57JV2FEETR2SCEXUBMYGQBLGDUVKS53TBF7OKCSHJWV3`.
 
 En `.dev.vars` (no versionado): `JUNTO_NETWORK=mainnet|testnet` y `JUNTO_FACTORY=C…` de la red correspondiente. No usar una fábrica de Testnet en Mainnet. Sin fábrica, se puede preparar el equipo, pero activar una bóveda contractual permanece bloqueado con un mensaje explícito. El despliegue de la app no firma transacciones ni despliega contratos por sí mismo.
 
@@ -66,7 +66,7 @@ npm run build
 
 El límite de desafíos es de 30 solicitudes por cliente cada cinco minutos, compartido entre cuentas. No se reinicia al consumir un desafío y no elimina los intentos pendientes de otras personas. Las migraciones `0003`, `0004` y `0005` deben aplicarse antes de ejecutar esta versión. Si Stellar o la sincronización de miembros falla, el servidor rechaza el acceso a la libreta compartida hasta poder verificarlo.
 
-Evidencia actual: 16 pruebas Rust, 18 comprobaciones de flujo real en Testnet, 16 de integración del alta y 10 del cliente. [Recibos de Testnet](docs/soroban-testnet-evidence.json). Las suites antiguas `test:integration` y `test:tokens` documentan el recorrido nativo anterior; no describen el contrato nuevo y deben ejecutarse contra esa versión, no tratarse como validación Soroban.
+Evidencia actual: 18 pruebas Rust, 20 comprobaciones de flujo real en Testnet, 16 de integración del alta y 10 del cliente. [Recibos de Testnet](docs/soroban-testnet-evidence.json). Las suites antiguas `test:integration` y `test:tokens` documentan el recorrido nativo anterior; no describen el contrato nuevo y deben ejecutarse contra esa versión, no tratarse como validación Soroban.
 
 ## Preparar Mainnet
 

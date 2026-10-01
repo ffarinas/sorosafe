@@ -744,7 +744,10 @@ export function ContractVault({
                           setModal("rules");
                         }}
                       >
-                        {t("Editar equipo", "Edit team")}
+                        {t(
+                          "Añadir personas o cambiar regla",
+                          "Add people or change rule",
+                        )}
                       </button>
                     )}
                   </div>
@@ -936,7 +939,12 @@ export function ContractVault({
                         actionVal(["ChangeRules", rules]),
                         val.u64(BigInt(Math.floor(Date.now() / 1000) + 86400)),
                       ],
-                      t("Solicitar cambio de equipo", "Request team change"),
+                      config.rules.threshold <= 1
+                        ? t("Aplicar cambio de equipo", "Apply team change")
+                        : t(
+                            "Solicitar cambio de equipo",
+                            "Request team change",
+                          ),
                       [
                         [
                           t("Firmantes nuevos", "New signers"),
@@ -947,6 +955,8 @@ export function ContractVault({
                           String(threshold),
                         ],
                       ],
+                      // With a 1-of-N rule the change applies immediately.
+                      config.rules.threshold <= 1,
                     );
                     return;
                   }
@@ -991,7 +1001,9 @@ export function ContractVault({
                         actionVal(["Pay", chosen.contract, recipient, value]),
                         val.u64(BigInt(Math.floor(Date.now() / 1000) + 86400)),
                       ],
-                      t("Solicitar aprobaciones", "Request approvals"),
+                      config.rules.threshold <= 1
+                        ? t("Enviar pago", "Send payment")
+                        : t("Solicitar aprobaciones", "Request approvals"),
                       [
                         [t("Destinatario", "Recipient"), recipient],
                         [
@@ -1020,8 +1032,8 @@ export function ContractVault({
                 <>
                   <label>
                     {t(
-                      "Una dirección de wallet por persona",
-                      "One wallet address per person",
+                      "Pega la dirección G… de cada persona, una por línea. Las actuales ya están incluidas.",
+                      "Paste each person's G… address, one per line. Current signers are already included.",
                     )}
                     <textarea
                       required
@@ -1034,7 +1046,7 @@ export function ContractVault({
                     {t("Aprobaciones necesarias", "Required approvals")}
                     <input
                       type="number"
-                      min={2}
+                      min={1}
                       max={20}
                       required
                       value={threshold}

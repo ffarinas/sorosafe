@@ -277,6 +277,56 @@ await assert.rejects(() =>
   ]),
 );
 ok("Removed signer loses authority", true);
+// A creator can start alone: 1 of 1, payments run in the proposing transaction.
+const solo = await call(
+  keys[3],
+  factory,
+  "create",
+  createArgs(keys[3].publicKey(), randomBytes(32), "Solo · prueba en red", {
+    signers: [keys[3].publicKey()],
+    threshold: 1,
+  }),
+);
+await call(keys[3], xlm, "transfer", [
+  val.address(keys[3].publicKey()),
+  val.address(solo),
+  val.i128(50_000_000n),
+]);
+const soloBefore = await readContract(chain, xlm, "balance", [
+  val.address(keys[2].publicKey()),
+]);
+await call(keys[3], solo, "propose", [
+  val.address(keys[3].publicKey()),
+  val.u64(0n),
+  actionVal(["Pay", xlm, keys[2].publicKey(), 10_000_000n]),
+  val.u64(expires),
+]);
+ok(
+  "A 1-of-1 vault pays in the proposing transaction",
+  (await readContract(chain, xlm, "balance", [
+    val.address(keys[2].publicKey()),
+  ])) ===
+    soloBefore + 10_000_000n,
+);
+await call(keys[3], solo, "propose", [
+  val.address(keys[3].publicKey()),
+  val.u64(1n),
+  actionVal([
+    "ChangeRules",
+    { signers: [keys[3].publicKey(), keys[2].publicKey()], threshold: 2 },
+  ]),
+  val.u64(expires),
+]);
+await call(keys[3], solo, "propose", [
+  val.address(keys[3].publicKey()),
+  val.u64(2n),
+  actionVal(["Pay", xlm, keys[2].publicKey(), 10_000_000n]),
+  val.u64(expires),
+]);
+ok(
+  "After adding a signer the creator alone can no longer pay",
+  (await readContract(chain, solo, "proposal", [val.u64(2n)])).status === 0,
+);
 const evidence = {
   network: chain.id,
   date: new Date().toISOString(),

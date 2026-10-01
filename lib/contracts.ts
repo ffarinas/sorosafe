@@ -61,12 +61,12 @@ export function structVal(fields: Record<string, xdr.ScVal>) {
 }
 export function rulesVal(rules: Rules) {
   if (
-    rules.signers.length < 2 ||
+    rules.signers.length < 1 ||
     rules.signers.length > 20 ||
     new Set(rules.signers).size !== rules.signers.length ||
     rules.signers.some((s) => !StrKey.isValidEd25519PublicKey(s)) ||
     !Number.isInteger(rules.threshold) ||
-    rules.threshold < 2 ||
+    rules.threshold < 1 ||
     rules.threshold > rules.signers.length
   )
     throw new Error("INVALID_RULE");

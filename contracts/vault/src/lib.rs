@@ -218,6 +218,11 @@ impl Vault {
             approved: true,
         }
         .publish(&e);
+        // With a 1-of-N rule the proposer alone is the quorum: run it now
+        // instead of asking for a second transaction.
+        if p.approvals.len() >= c.rules.threshold {
+            apply(e.clone(), c, p.clone());
+        }
         p.id
     }
     pub fn approve(e: Env, signer: Address, id: u64) {
@@ -268,43 +273,49 @@ impl Vault {
     /// Anybody may pay the network fee to execute an already approved action.
     /// State is consumed before token calls; failed transfers roll it all back.
     pub fn execute(e: Env, id: u64) {
-        let mut c = config(&e);
-        let mut p = proposal(&e, id);
+        let c = config(&e);
+        let p = proposal(&e, id);
         pending(&e, &c, &p);
         if p.approvals.len() < c.rules.threshold {
             panic_with_error!(&e, Error::Quorum);
         }
-        p.status = 1;
-        save_proposal(&e, &p);
-        match &p.action {
-            Action::Pay(asset, to, amount) => {
-                let client = token::Client::new(&e, asset);
-                let vault = e.current_contract_address();
-                client.transfer(&vault, to, amount);
-                if p.fee > 0 {
-                    client.transfer(&vault, &c.protocol.collector, &p.fee);
-                }
-                let key = Key::Paid(to.clone());
-                let count: u64 = e.storage().persistent().get(&key).unwrap_or(0);
-                let next = count
-                    .checked_add(1)
-                    .unwrap_or_else(|| panic_with_error!(&e, Error::Overflow));
-                e.storage().persistent().set(&key, &next);
-                e.storage()
-                    .persistent()
-                    .extend_ttl(&key, TTL_THRESHOLD, TTL);
-            }
-            Action::ChangeRules(rules) => {
-                c.rules = rules.clone();
-                c.epoch = c
-                    .epoch
-                    .checked_add(1)
-                    .unwrap_or_else(|| panic_with_error!(&e, Error::Overflow));
-                save_config(&e, &c);
-            }
-        }
-        ProposalChanged { id, proposal: p }.publish(&e);
+        apply(e, c, p);
     }
+}
+
+/// Executes an approved proposal. Callers check status, expiry, epoch and quorum.
+fn apply(e: Env, mut c: Config, mut p: Proposal) {
+    let id = p.id;
+    p.status = 1;
+    save_proposal(&e, &p);
+    match &p.action {
+        Action::Pay(asset, to, amount) => {
+            let client = token::Client::new(&e, asset);
+            let vault = e.current_contract_address();
+            client.transfer(&vault, to, amount);
+            if p.fee > 0 {
+                client.transfer(&vault, &c.protocol.collector, &p.fee);
+            }
+            let key = Key::Paid(to.clone());
+            let count: u64 = e.storage().persistent().get(&key).unwrap_or(0);
+            let next = count
+                .checked_add(1)
+                .unwrap_or_else(|| panic_with_error!(&e, Error::Overflow));
+            e.storage().persistent().set(&key, &next);
+            e.storage()
+                .persistent()
+                .extend_ttl(&key, TTL_THRESHOLD, TTL);
+        }
+        Action::ChangeRules(rules) => {
+            c.rules = rules.clone();
+            c.epoch = c
+                .epoch
+                .checked_add(1)
+                .unwrap_or_else(|| panic_with_error!(&e, Error::Overflow));
+            save_config(&e, &c);
+        }
+    }
+    ProposalChanged { id, proposal: p }.publish(&e);
 }
 
 #[cfg(test)]

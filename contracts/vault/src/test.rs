@@ -44,6 +44,11 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        Self::with_rule(3, 2)
+    }
+    /// The first `count` accounts sign with `threshold`; all four are kept in
+    /// `signers` so tests can add the others later.
+    fn with_rule(count: u32, threshold: u32) -> Self {
         let e = Env::default();
         e.ledger().with_mut(|l| {
             l.timestamp = 1_000;
@@ -63,8 +68,8 @@ impl Fixture {
                 Address::generate(&e),
                 String::from_str(&e, "Team"),
                 Rules {
-                    signers: signers.clone(),
-                    threshold: 2,
+                    signers: signers.slice(0..count),
+                    threshold,
                 },
                 Protocol {
                     collector: collector.clone(),
@@ -277,7 +282,7 @@ fn invalid_rules_are_rejected_including_duplicate_and_contract_signers() {
             threshold: 0,
         },
         Rules {
-            signers: f.signers.clone(),
+            signers: Vec::new(&f.e),
             threshold: 1,
         },
         Rules {
@@ -386,4 +391,35 @@ fn no_host_authorization_means_no_approval() {
         .try_approve(&f.signers.get(1).unwrap(), &id)
         .is_err());
     assert_eq!(f.client().proposal(&id).approvals.len(), 1);
+}
+#[test]
+fn solo_vault_executes_with_the_creator_alone() {
+    let f = Fixture::with_rule(1, 1);
+    let c = f.client();
+    // Proposing reaches the 1-of-1 quorum, so the payment runs immediately.
+    let id = f.pay(1_000);
+    assert_eq!(c.proposal(&id).status, 1);
+    let t = token::Client::new(&f.e, &f.asset);
+    assert_eq!(t.balance(&f.to), 1_000);
+    assert_eq!(c.try_execute(&id), Err(Ok(Error::Closed.into())));
+}
+#[test]
+fn solo_vault_adds_signers_and_then_needs_their_approval() {
+    let f = Fixture::with_rule(1, 1);
+    let c = f.client();
+    let owner = f.signers.get(0).unwrap();
+    let rules = Rules {
+        signers: f.signers.slice(0..2),
+        threshold: 2,
+    };
+    let change = c.propose(&owner, &0, &Action::ChangeRules(rules.clone()), &2_000);
+    assert_eq!(c.proposal(&change).status, 1);
+    assert_eq!(c.config().rules, rules);
+    // Now the creator alone is no longer enough.
+    let id = f.pay(100);
+    assert_eq!(c.proposal(&id).status, 0);
+    assert_eq!(c.try_execute(&id), Err(Ok(Error::Quorum.into())));
+    c.approve(&f.signers.get(1).unwrap(), &id);
+    c.execute(&id);
+    assert_eq!(c.proposal(&id).status, 1);
 }

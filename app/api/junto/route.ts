@@ -593,7 +593,8 @@ export async function POST(req: Request) {
       await db().batch([
         db()
           .prepare(
-            "INSERT INTO vaults(id,name,owner,threshold,size,created,network,custody) VALUES(?,?,?,0,0,?,?,'soroban')",
+            // The creator starts alone (1 of 1) and adds signers on-chain later.
+            "INSERT INTO vaults(id,name,owner,threshold,size,created,network,custody) VALUES(?,?,?,1,1,?,?,'soroban')",
           )
           .bind(id, name, me.address, now(), chain.id),
         db()

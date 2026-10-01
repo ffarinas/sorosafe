@@ -50,7 +50,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Toaster, toast } from "sonner";
-import type { Activation, Balance, Payment, State } from "@/lib/domain";
+import type {
+  Activation,
+  Balance,
+  Payment,
+  Person,
+  State,
+  Vault,
+} from "@/lib/domain";
 import {
   assetKey,
   findAsset,
@@ -68,6 +75,7 @@ import {
   assertPayment,
   loginWithWallet,
   assertActivation,
+  ensureTestFunds,
   connectWallet,
   disconnectWallet,
   signXdr,
@@ -145,7 +153,7 @@ export default function Home() {
   const t = (a: string, b: string) => (es ? a : b);
   const v = data.vault,
     me = data.user;
-  const configured = !!v && v.size >= 2 && v.threshold >= 2;
+  const configured = !!v && v.size >= 1 && v.threshold >= 1;
   const tempStatus = me ? temporaryWalletStatus(me.address) : "none",
     temporary = tempStatus === "active",
     lostTemporary = tempStatus === "lost";
@@ -284,12 +292,42 @@ export default function Home() {
       );
     }
   };
-  const create = async () => {
-    const r = await api("create", { name });
+  const create = async (owner = me?.address) => {
+    const vaultName = name.trim();
+    const r = await api("create", { name: vaultName });
     setInvite("");
-    choose(r.id);
     setModal("");
     setName("");
+    if (!owner) return choose(r.id);
+    try {
+      // Deploy the vault right away: the creator is its only signer (1 of 1)
+      // and adds people later from Team. One wallet signature, no waiting.
+      await ensureTestFunds(owner, chain);
+      const quote = await api<Activation>("prepareVault", { vault: r.id });
+      await assertActivation(
+        quote,
+        {
+          custody: "soroban",
+          owner,
+          name: vaultName,
+          threshold: 1,
+        } as Vault,
+        [{ address: owner } as Person],
+        chain,
+        data.factory,
+      );
+      const signed = await signXdr(quote.xdr, owner, chain);
+      await api("activate", { vault: r.id, signed });
+      toast.success(
+        t(
+          "Tu bóveda está lista en Stellar.",
+          "Your vault is ready on Stellar.",
+        ),
+      );
+    } finally {
+      // If the signature is rejected, the vault stays ready to activate.
+      choose(r.id);
+    }
   };
   const join = async () => {
     const r = await api("join", { invite: joinToken });
@@ -309,7 +347,8 @@ export default function Home() {
       );
       setModal("");
       if (joinToken) await join();
-      else if (authPurpose.current === "create" && name.trim()) await create();
+      else if (authPurpose.current === "create" && name.trim())
+        await create(key);
       else {
         setSelected("");
         history.replaceState(null, "", "/");

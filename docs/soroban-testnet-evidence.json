@@ -1,12 +1,12 @@
 {
   "network": "testnet",
-  "date": "2026-10-01T16:59:43.879Z",
-  "factory": "CBUEPSVCFUUL27ODJBA4NUOTAXRHTDRJ2WK2RZGMTR2YFGTJCL7SLJNP",
-  "vault": "CCUY33YV4F472IGHX55CE5BMBFZUWB4BGPDF5Z23PAOCBHJGKNCDQQSA",
+  "date": "2026-10-01T23:27:18.769Z",
+  "factory": "CAI3XQNVIMIZTVIHKLQFD552PBN7U5JECAYXZBT2ZZDU5I2FO5NMLWB4",
+  "vault": "CDTB4TQHJZEGE4PH6WZNZZ367BP6XNTGB5LIALGE4ZAZL3GIOD4ZN7ET",
   "protocolFeeBpsTestFixture": 25,
-  "collector": "GACSRJOFCH4S25QL3DRIKOYNAO2HNUTYM6MB2U2DMYL5MR7S7T7K4UGI",
-  "vaultHash": "41710f760a4eaecddbdd2bff6db7277b1cc53ae3f8852dcece147e084cd2a407",
-  "factoryHash": "50bfe489bb78150b5579aed8194e9c965a783d16fec9cf1aaba18508e4a6d4c0",
+  "collector": "GDC3Y7NC33PZT6KG4SK3GZFBSU2JXALP6EZJI6APQU2FFJ5OITGVOWR3",
+  "vaultHash": "e4f44dcf2c3f1c4accdde8b24d89a2a285ae6526e570a811dbecc280089b0081",
+  "factoryHash": "053fe96e0f5a2ea4dac4a93d5cfe65a7b63cfb12db472dd4ad69a962a4bcf9ff",
   "checks": [
     "Uploaded vault hash matches compiled WASM",
     "Factory creates a registered vault with the exact quorum",
@@ -25,19 +25,26 @@
     "Direct token withdrawal cannot bypass the vault",
     "Wrong Ed25519 transaction signer rejected by Stellar",
     "Original signer removed without changing the vault address",
-    "Removed signer loses authority"
+    "Removed signer loses authority",
+    "A 1-of-1 vault pays in the proposing transaction",
+    "After adding a signer the creator alone can no longer pay"
   ],
   "transactions": [
-    "bf629e360d35c0a37c29daba344290b518d35794cd7d22d518a335c74f166812",
-    "9a9710479da7307d77ee9562679ec0e4c2fdefe1a951ea718ddc7347e8e067ea",
-    "fd6055147e9575f9dbb9680543d6ba22a86b06d7c5be5a7dcb446a96292f531b",
-    "263ccb2c6c186de037fa67a82b45286125696169f14323521e14ebd8ef8902ac",
-    "b24dc4f5f1afadf6f9dd9a286aa2626761ff4ffb276a9d4910b62376e3343233",
-    "ec49aad7e097a67454c10f167bfcc31881f6f0ccce71fd236add0a28f514625d",
-    "88d762c4e77fbd09dd0eb0d2db05be0a4077218fe8adb71f95d5c2195662a207",
-    "52798b62dbc992680e5fa98f75a10676932a9176685215871780e59811c69781",
-    "e82059d779c2882e43b7f4bcb6bf9defd5ee6ae9fb230ff4068c9f805a81f957",
-    "3e5bed40109a764e07e12121d5fae20bca6dca803c0f829d209254dfe6724a12",
-    "43b5b57d5bec32cc75f8cc0780f7e038d33bf4ca45c16b0bb435cd4f8834eacc"
+    "90346f9ec42a321b0d28dbc924905bd723300b9250fa977dcd2d9e94bc80b698",
+    "6916b0991c4a19d2cd93ccc54e8eaf30009d2565e7603c17f505833889f5d1d3",
+    "3be43798cab097a91b6acf02de42f83883d90426da0d0d55ce8456cd3be4a1ad",
+    "8165fab69d1f8cb084e75ca05cfade6d5a58b2b90859e1f4c1571307db7643e3",
+    "be9b46aabb66425aadb835c71ae43144444bde3098171e90a43b269b3411692e",
+    "66a83870baf9408464969c197ad8533055317f2f5abc88d4ba21aaa2b3dccbaa",
+    "b674caf39876374e3c11002a0c32f1753034879b0b7e66957ffbba26039f497c",
+    "09540dc16c329e8555dae860810bcdff8ea6b51ac717b94cbd2a159b8292c72f",
+    "d8cc518c7ca5651647f953d315ba3fc546237245c1afaa34b2e9202dfcb3d2b3",
+    "3494a16635bba4fdb230e7591edc5f23da62abc550b25f5ddac97754dacffa4c",
+    "08ff98fda9169ab6813f559fda5ee2c602e4003281a4a324ba0a4bc4f1553d1c",
+    "2e292d239d0f0da2cc2b7688b3eb9ab995929e4194f79196e00dfc0d95d480a3",
+    "847920cc16ae26941700a757dcf3cfa7916eda1755a7a1e3ad6129ba721792a5",
+    "601a2a43841f32ece60b690d834a44906d9283beca74cdbd6c10db820c302c13",
+    "771f7d0bcc782381a1aa094cf0464b0f48a532537f7e13ceb5dbc699d175b8ef",
+    "ae81e69f76dab4c177d6cae9b84d6511231497360a9a8f5fab15a4ad9a49f485"
   ]
 }
