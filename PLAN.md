@@ -4,7 +4,7 @@
 
 Una bóveda es el lugar compartido para el dinero de un equipo. Al recibir una invitación, la persona entra a esa bóveda; nunca se le pide crear otro espacio de trabajo. Se mantienen el control colectivo y las firmas independientes, con palabras que las personas entiendan.
 
-Caso de uso inicial: un equipo gestiona sus gastos para Meridian 2026 en Lisboa. Una persona prepara un pago al alojamiento; las demás reconocen al proveedor y aprueban. El pago sale únicamente cuando la red valida las firmas necesarias.
+Caso de uso inicial: un equipo gestiona los gastos compartidos de un viaje o evento. Una persona prepara un pago al alojamiento; las demás reconocen al proveedor y aprueban. El pago sale únicamente cuando la red valida las firmas necesarias.
 
 ## Hackathon confirmado el 28 de septiembre de 2026
 

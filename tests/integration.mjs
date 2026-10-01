@@ -101,7 +101,7 @@ for (const p of people) {
 }
 const [a, b, c, outsider] = people;
 const created = await ok(a, "create", {
-  name: "Meridian · Lisboa 2026 · QA",
+  name: "Gastos del equipo 2026 · QA",
 });
 const id = created.id;
 const draft = (await state(a, id)).data.vault;
@@ -197,9 +197,9 @@ assert.equal(current.people.length, 3);
 checks += 2;
 await ok(a, "contact", {
   vault: id,
-  name: "Alojamiento Lisboa",
+  name: "Alojamiento del equipo",
   address: recipient.publicKey(),
-  memo: "Meridian",
+  memo: "Equipo",
 });
 current = (await state(b, id)).data;
 assert.equal(current.contacts.length, 1);
@@ -213,7 +213,7 @@ await rejected(
     vault: id,
     name: "Duplicate",
     address: recipient.publicKey(),
-    memo: "Meridian",
+    memo: "Equipo",
   },
   "CONTACT_EXISTS",
 );

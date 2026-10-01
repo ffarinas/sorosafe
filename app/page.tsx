@@ -795,7 +795,10 @@ export default function Home() {
                   <input
                     required
                     maxLength={80}
-                    placeholder="Meridian · Lisboa 2026"
+                    placeholder={t(
+                      "Gastos del equipo 2026",
+                      "Team expenses 2026",
+                    )}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
@@ -2115,7 +2118,10 @@ export default function Home() {
                 <input
                   required
                   maxLength={80}
-                  placeholder={t("Alojamiento Lisboa", "Lisbon accommodation")}
+                  placeholder={t(
+                    "Alojamiento del equipo",
+                    "Team accommodation",
+                  )}
                   value={contactName}
                   onChange={(e) => setContactName(e.target.value)}
                 />
