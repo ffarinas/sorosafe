@@ -2174,3 +2174,20 @@ button.brand {
     margin-left: -5px;
   }
 }
+
+.network-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 12px;
+  padding: 8px 16px;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 13px;
+  text-align: center;
+}
+.network-banner strong {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

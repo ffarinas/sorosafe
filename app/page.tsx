@@ -1,5 +1,6 @@
 "use client";
 import { ContractVault } from "@/components/contract-vault";
+import { NetworkBanner } from "@/components/network-banner";
 import {
   useCallback,
   useEffect,
@@ -641,6 +642,7 @@ export default function Home() {
   return (
     <div className="app">
       <Toaster position="bottom-right" richColors />
+      <NetworkBanner chain={chain} es={es} />
       <header className="topbar">
         <button
           className="brand"
@@ -1170,17 +1172,19 @@ export default function Home() {
                   )}
                 </section>
               </div>
-              <VaultAssets
-                data={data}
-                es={es}
-                onSend={newPayment}
-                onReceive={receive}
-                onDetails={(balance) => {
-                  setAsset(assetKey(balance));
-                  setModal("asset");
-                }}
-                onCatalog={() => setModal("catalog")}
-              />
+              {v.custody === "soroban" && v.status !== "active" ? null : (
+                <VaultAssets
+                  data={data}
+                  es={es}
+                  onSend={newPayment}
+                  onReceive={receive}
+                  onDetails={(balance) => {
+                    setAsset(assetKey(balance));
+                    setModal("asset");
+                  }}
+                  onCatalog={() => setModal("catalog")}
+                />
+              )}
               <section className="section">
                 <div className="section-heading">
                   <h2>{t("Actividad reciente", "Recent activity")}</h2>

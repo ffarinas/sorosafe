@@ -18,6 +18,7 @@ import {
 import { toast, Toaster } from "sonner";
 import { StrKey, TransactionBuilder, type xdr } from "@stellar/stellar-sdk";
 import { AssetMark } from "./vault-assets";
+import { NetworkBanner } from "./network-banner";
 import {
   Dialog,
   DialogContent,
@@ -299,6 +300,7 @@ export function ContractVault({
   return (
     <div className="app contract-app">
       <Toaster position="bottom-right" richColors />
+      <NetworkBanner chain={chain} es={es} />
       <header className="topbar">
         <Link
           className="brand"
