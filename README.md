@@ -64,7 +64,7 @@ npm run build
 
 El límite de desafíos es de 30 solicitudes por cliente cada cinco minutos, compartido entre cuentas. No se reinicia al consumir un desafío y no elimina los intentos pendientes de otras personas. Las migraciones `0003`, `0004` y `0005` deben aplicarse antes de ejecutar esta versión. Si Stellar o la sincronización de miembros falla, el servidor rechaza el acceso a la libreta compartida hasta poder verificarlo.
 
-Evidencia actual: 16 pruebas Rust, 17 comprobaciones de flujo real en Testnet (anteriores a la aprobación automática del proponente; `test:soroban` añade una más y debe volver a ejecutarse), 16 de integración del alta y 10 del cliente. [Recibos de Testnet](docs/soroban-testnet-evidence.json). Las suites antiguas `test:integration` y `test:tokens` documentan el recorrido nativo anterior; no describen el contrato nuevo y deben ejecutarse contra esa versión, no tratarse como validación Soroban.
+Evidencia actual: 16 pruebas Rust, 18 comprobaciones de flujo real en Testnet, 16 de integración del alta y 10 del cliente. [Recibos de Testnet](docs/soroban-testnet-evidence.json). Las suites antiguas `test:integration` y `test:tokens` documentan el recorrido nativo anterior; no describen el contrato nuevo y deben ejecutarse contra esa versión, no tratarse como validación Soroban.
 
 ## Preparar Mainnet
 

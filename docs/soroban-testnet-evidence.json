@@ -1,11 +1,11 @@
 {
   "network": "testnet",
-  "date": "2026-09-29T02:06:38.275Z",
-  "factory": "CCO6BD7K5X6YMK2PCLEQTRSH4QUMB2HVBN72SP3DWHGTRPFU4MRPTUVS",
-  "vault": "CASD72G6ASS7PUV6TMQS2L6PYBUTEKM444PVHBNEKD7LBAUL6XTV2ZMP",
+  "date": "2026-10-01T16:59:43.879Z",
+  "factory": "CBUEPSVCFUUL27ODJBA4NUOTAXRHTDRJ2WK2RZGMTR2YFGTJCL7SLJNP",
+  "vault": "CCUY33YV4F472IGHX55CE5BMBFZUWB4BGPDF5Z23PAOCBHJGKNCDQQSA",
   "protocolFeeBpsTestFixture": 25,
-  "collector": "GDHKLVTVSHQQM4TFCVJKSES2UTWJMSX5Y24DIGSMWGIAZVIILS5TCLG2",
-  "vaultHash": "36f81322c226ad96c91d5a45d3bf61c9c3150e470d78c17e8d7a4bf57ed32417",
+  "collector": "GACSRJOFCH4S25QL3DRIKOYNAO2HNUTYM6MB2U2DMYL5MR7S7T7K4UGI",
+  "vaultHash": "41710f760a4eaecddbdd2bff6db7277b1cc53ae3f8852dcece147e084cd2a407",
   "factoryHash": "50bfe489bb78150b5579aed8194e9c965a783d16fec9cf1aaba18508e4a6d4c0",
   "checks": [
     "Uploaded vault hash matches compiled WASM",
@@ -15,6 +15,7 @@
     "Vault holds a real SAC balance",
     "A nonmember cannot approve",
     "A forged signer is rejected by real host authorization",
+    "The proposer counts as the first approval",
     "One approval cannot execute",
     "Duplicate approval cannot increase the quorum",
     "Exact recipient amount arrived",
@@ -27,18 +28,16 @@
     "Removed signer loses authority"
   ],
   "transactions": [
-    "0e639488fdfadcf708ffbae4ef7218323482d113c4a9d3d5f34f525d37ac3825",
-    "cff98c9389cb6c9bc13608c5ea789aadaa62a62cbe123f7ecf2b07b85b501fd2",
-    "d3fa5aa2459bd4702e2c5b0d4059d27b2f3fde4e0412acd3fc2f0c13b8a5b7fa",
-    "fb787c6a3f137a275775bd3802f7559bc07b82521eeca1d740f43682471157eb",
-    "923dd7cb2ae577be3f7ab306d4e5d47ec71ba95898ce2a96095e212ad552d7f3",
-    "0e48206f56c7eca62fe762861281c77ddf287a37a5ef0165140a190747874ead",
-    "15d0b3b85451afbc2ffa631d47581c4611fec64dc838f2518647390de1f60e57",
-    "4c94e57aa0bff61ec4d586b14588b899272e78685ee28690fc3b3bfc8a065394",
-    "9ec131024fd393204db0905c65e94d918f7f6a8e5252a1af525bce44986a9071",
-    "c97424d0cb0af83e7bf4723a1919acfd5cc6e1dae2af86bdbacbe4dcaafafaed",
-    "926579fdedbcc7503d4f82b94ef648edcc62b48de6a58d454a29f20cbe6d01af",
-    "a65263e948d872554348ffe3a9d75b37f775996b2105ef2fd319b7c7195d39d1",
-    "40eef1b7cf380cebce3fb76ac66ae9606349758430f25346a184c6a6cf091bf0"
+    "bf629e360d35c0a37c29daba344290b518d35794cd7d22d518a335c74f166812",
+    "9a9710479da7307d77ee9562679ec0e4c2fdefe1a951ea718ddc7347e8e067ea",
+    "fd6055147e9575f9dbb9680543d6ba22a86b06d7c5be5a7dcb446a96292f531b",
+    "263ccb2c6c186de037fa67a82b45286125696169f14323521e14ebd8ef8902ac",
+    "b24dc4f5f1afadf6f9dd9a286aa2626761ff4ffb276a9d4910b62376e3343233",
+    "ec49aad7e097a67454c10f167bfcc31881f6f0ccce71fd236add0a28f514625d",
+    "88d762c4e77fbd09dd0eb0d2db05be0a4077218fe8adb71f95d5c2195662a207",
+    "52798b62dbc992680e5fa98f75a10676932a9176685215871780e59811c69781",
+    "e82059d779c2882e43b7f4bcb6bf9defd5ee6ae9fb230ff4068c9f805a81f957",
+    "3e5bed40109a764e07e12121d5fae20bca6dca803c0f829d209254dfe6724a12",
+    "43b5b57d5bec32cc75f8cc0780f7e038d33bf4ca45c16b0bb435cd4f8834eacc"
   ]
 }
