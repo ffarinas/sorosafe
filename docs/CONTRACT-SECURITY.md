@@ -25,7 +25,6 @@ A nonzero-fee deployment checks that the collector can receive each asset. **Col
 - OpenZeppelin's v0.7.0 audit includes the fixed-point mathematics modules. This is evidence of component review, **not evidence that Junto or every change through v0.7.2 is audited or independently verified in production**.
 - `contracts/Cargo.lock` is committed. Release builds enable overflow checks, use one codegen unit and LTO, and contain no debugging symbols. Build with `stellar contract build --locked` (CLI 25.2.0 or compatible; Rust 1.94.1 used for these artifacts).
 - Published WASM hashes are in `lib/contract-artifacts.json`. Before enabling a vault, the client checks both vault and factory WASM bytes against those hashes and checks the factory registration. A self-reported factory address alone is insufficient.
-- `previous` lists earlier vault builds that remain accepted, because deployed vaults are immutable. The first previous build (`36f81322…`) does not count the proposer as an approval; the current build does. New vaults use whichever vault hash their factory was constructed with.
 - RustSec audit: zero known vulnerabilities in the resolved lockfile at validation time; informational `RUSTSEC-2024-0436` for the unmaintained `paste` dependency in the native test host. `cargo tree --target wasm32v1-none -i paste --edges normal,build` confirms it is absent from the deployed WASM dependency tree.
 
 ## Backend independence and application boundaries

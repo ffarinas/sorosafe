@@ -240,9 +240,7 @@ export async function verifyCode(
   const hash = Array.from(new Uint8Array(digest), (b) =>
     b.toString(16).padStart(2, "0"),
   ).join("");
-  const record: { sha256: string; previous?: string[] } = artifacts[kind];
-  if (hash !== record.sha256 && !record.previous?.includes(hash))
-    throw new Error("UNVERIFIED_CONTRACT");
+  if (hash !== artifacts[kind].sha256) throw new Error("UNVERIFIED_CONTRACT");
 }
 export async function verifiedConfig(
   chain: NetworkConfig,
