@@ -112,6 +112,8 @@ const initials = (name: string) =>
     .map((s) => s[0])
     .join("")
     .toUpperCase();
+// Name the server gives an account that has not chosen one yet.
+const NEW_NAME = "Team member";
 export default function Home() {
   const [es, setEs] = useState(true),
     [data, setData] = useState<State>(empty),
@@ -151,11 +153,20 @@ export default function Home() {
     data.vault?.custody !== "soroban" || data.vault.status !== "active",
   );
   const authPurpose = useRef("login");
+  // New accounts are asked for a name once, after their first sign-in.
+  const askedName = useRef(false);
   const seq = useRef(0);
   const t = (a: string, b: string) => (es ? a : b);
   const v = data.vault,
     me = data.user;
   const configured = !!v && v.size >= 1 && v.threshold >= 1;
+  useEffect(() => {
+    if (!me || me.name !== NEW_NAME || askedName.current || modal || busy)
+      return;
+    askedName.current = true;
+    setPersonName("");
+    setModal("profile");
+  }, [me, modal, busy]);
   const tempStatus = me ? temporaryWalletStatus(me.address) : "none",
     temporary = tempStatus === "active",
     lostTemporary = tempStatus === "lost";
@@ -342,11 +353,8 @@ export default function Home() {
   const connect = async (temp: boolean) => {
     await work(async () => {
       const key = await connectWallet(temp, chain);
-      await loginWithWallet(
-        key,
-        personName.trim() || me?.name || "Team member",
-        chain,
-      );
+      // Returning accounts keep their name; new ones are asked afterwards.
+      await loginWithWallet(key, undefined, chain);
       setModal("");
       if (joinToken) await join();
       else if (authPurpose.current === "create" && name.trim())
@@ -552,6 +560,44 @@ export default function Home() {
     }
     void work(create);
   };
+  const profileForm = (
+    <form
+      className="modal-body"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void work(async () => {
+          await api("profile", { name: personName.trim() });
+          setModal("");
+          await refresh(selected);
+        });
+      }}
+    >
+      <label>
+        {t("Tu nombre", "Your name")}
+        <input
+          required
+          autoFocus
+          maxLength={60}
+          value={personName}
+          onChange={(e) => setPersonName(e.target.value)}
+          placeholder={t(
+            "Como te conoce tu equipo",
+            "What your team calls you",
+          )}
+        />
+      </label>
+      <button className="primary wide" disabled={busy}>
+        {t("Guardar", "Save")}
+      </button>
+      <button
+        type="button"
+        className="text-button"
+        onClick={() => setModal("")}
+      >
+        {t("Ahora no", "Not now")}
+      </button>
+    </form>
+  );
   const vaultPicker = (
     <div className="modal-body">
       {data.vaults.map((vault) => (
@@ -636,6 +682,25 @@ export default function Home() {
               )}
             </DialogDescription>
             {vaultPicker}
+          </DialogContent>
+        </Dialog>
+        <Dialog
+          open={modal === "profile" && !!me}
+          onOpenChange={(open) => {
+            if (!open && !busy) setModal("");
+          }}
+        >
+          <DialogContent className="junto-dialog" showCloseButton={false}>
+            <DialogTitle className="dialog-title">
+              {t("¿Cómo te llamamos?", "What should we call you?")}
+            </DialogTitle>
+            <DialogDescription className="dialog-description">
+              {t(
+                "Tu equipo verá este nombre junto a tus aprobaciones.",
+                "Your team will see this name next to your approvals.",
+              )}
+            </DialogDescription>
+            {profileForm}
           </DialogContent>
         </Dialog>
       </>
@@ -801,28 +866,9 @@ export default function Home() {
                       )
                     : t("Comprobando invitación…", "Checking invitation…")}
                 </p>
-                {!me ? (
-                  <label>
-                    {t("Tu nombre", "Your name")}
-                    <input
-                      value={personName}
-                      onChange={(e) => setPersonName(e.target.value)}
-                      maxLength={60}
-                      placeholder={t(
-                        "Como te conoce tu equipo",
-                        "What your team calls you",
-                      )}
-                    />
-                  </label>
-                ) : null}
                 <button
                   className="primary wide"
-                  disabled={
-                    busy ||
-                    !joinInfo ||
-                    joinInfo.status !== "draft" ||
-                    (!me && !personName.trim())
-                  }
+                  disabled={busy || !joinInfo || joinInfo.status !== "draft"}
                   onClick={() =>
                     me
                       ? void work(join)
@@ -861,21 +907,6 @@ export default function Home() {
                     onChange={(e) => setName(e.target.value)}
                   />
                 </label>
-                {!me ? (
-                  <label>
-                    {t("Tu nombre", "Your name")}
-                    <input
-                      required
-                      maxLength={60}
-                      value={personName}
-                      onChange={(e) => setPersonName(e.target.value)}
-                      placeholder={t(
-                        "Como te conoce tu equipo",
-                        "What your team calls you",
-                      )}
-                    />
-                  </label>
-                ) : null}
                 <button className="primary wide" disabled={busy}>
                   {busy ? (
                     <Loader2 className="spin" size={19} />
@@ -1632,9 +1663,14 @@ export default function Home() {
                                     ? payment?.kind === "enable"
                                       ? t("Habilitar moneda", "Enable currency")
                                       : t("Detalle del pago", "Payment details")
-                                    : modal === "vaults"
-                                      ? t("Tus bóvedas", "Your vaults")
-                                      : t("Tu wallet", "Your wallet")}
+                                    : modal === "profile"
+                                      ? t(
+                                          "¿Cómo te llamamos?",
+                                          "What should we call you?",
+                                        )
+                                      : modal === "vaults"
+                                        ? t("Tus bóvedas", "Your vaults")
+                                        : t("Tu wallet", "Your wallet")}
           </DialogTitle>
           <DialogDescription className="dialog-description">
             {modal === "enable"
@@ -1696,31 +1732,26 @@ export default function Home() {
                                         ? "Check the currency, issuer and reserve before signing."
                                         : "Check the recipient, amount, and address before signing.",
                                     )
-                                  : modal === "vaults"
+                                  : modal === "profile"
                                     ? t(
-                                        "Cada bóveda tiene su equipo y sus contactos.",
-                                        "Every vault has its own team and contacts.",
+                                        "Tu equipo verá este nombre junto a tus aprobaciones.",
+                                        "Your team will see this name next to your approvals.",
                                       )
-                                    : t(
-                                        "La clave privada permanece en tu wallet.",
-                                        "The private key stays in your wallet.",
-                                      )}
+                                    : modal === "vaults"
+                                      ? t(
+                                          "Cada bóveda tiene su equipo y sus contactos.",
+                                          "Every vault has its own team and contacts.",
+                                        )
+                                      : t(
+                                          "La clave privada permanece en tu wallet.",
+                                          "The private key stays in your wallet.",
+                                        )}
           </DialogDescription>
           {modal === "connect" ? (
             <div className="modal-body">
-              {!me ? (
-                <label>
-                  {t("Tu nombre", "Your name")}
-                  <input
-                    value={personName}
-                    onChange={(e) => setPersonName(e.target.value)}
-                    maxLength={60}
-                  />
-                </label>
-              ) : null}
               <button
                 className="primary wide"
-                disabled={busy || (!personName && !me)}
+                disabled={busy}
                 onClick={() => void connect(false)}
               >
                 <Wallet size={19} />
@@ -1759,7 +1790,7 @@ export default function Home() {
                   </p>
                   <button
                     className="secondary wide"
-                    disabled={busy || (!personName && !me)}
+                    disabled={busy}
                     onClick={() => void connect(true)}
                   >
                     {t("Usar wallet temporal", "Use a temporary wallet")}
@@ -2660,10 +2691,20 @@ export default function Home() {
             </div>
           ) : null}
           {modal === "vaults" ? vaultPicker : null}
+          {modal === "profile" && me ? profileForm : null}
           {modal === "account" && me ? (
             <div className="modal-body">
               <span className="avatar large">{initials(me.name)}</span>
               <h3>{me.name}</h3>
+              <button
+                className="text-button"
+                onClick={() => {
+                  setPersonName(me.name === NEW_NAME ? "" : me.name);
+                  setModal("profile");
+                }}
+              >
+                {t("Cambiar nombre", "Change name")}
+              </button>
               <div className="address-block">{me.address}</div>
               <button
                 className="secondary wide"

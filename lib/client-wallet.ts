@@ -67,7 +67,7 @@ export async function signXdr(
 }
 export async function loginWithWallet(
   address: string,
-  name: string,
+  name: string | undefined,
   chain: NetworkConfig,
 ) {
   const { WebAuth, StrKey } = await import("@stellar/stellar-sdk");
@@ -117,7 +117,10 @@ export async function loginWithWallet(
   const response = await fetch("/api/auth", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ transaction: signed, name }),
+    // Omitting the name keeps the one an existing account already has.
+    body: JSON.stringify(
+      name ? { transaction: signed, name } : { transaction: signed },
+    ),
   });
   if (!response.ok) {
     const result = (await response.json()) as { error?: string };

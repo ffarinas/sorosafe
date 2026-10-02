@@ -582,6 +582,14 @@ export async function POST(req: Request) {
           "junto_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
       });
     }
+    if (action === "profile") {
+      await run(
+        "UPDATE people SET name=? WHERE address=?",
+        str(b, "name", 60),
+        me.address,
+      );
+      return json({ ok: true });
+    }
     if (action === "create") {
       const name = str(b, "name", 80);
       const owned = await one<{ n: number }>(
