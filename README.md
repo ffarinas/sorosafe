@@ -1,87 +1,107 @@
 # SoroSafe
 
-Bóvedas multifirma de Stellar para equipos: una dirección compartida, contactos compartidos y pagos que se entienden antes de firmar.
+English · [Español](README.es.md)
 
-Las bóvedas nuevas usan **contratos Soroban**. Las cuentas multifirma nativas anteriores conservan su recorrido. Mainnet es la red predeterminada de la aplicación, pero **el contrato se ha desplegado y probado únicamente en Testnet**. La fábrica de Mainnet requiere configurar comisión, destinatario y firmar su despliegue. No se ha realizado una auditoría independiente.
+**Shared vaults on Stellar for teams, families and communities.** One address for the group's money, rules everybody can see, and payments people understand before they sign.
 
-## Funcionamiento
+**Live demo (Testnet): https://testnet.sorosafe.app** · Mainnet coming soon
 
-- Crear una bóveda pide nombre e identidad; la regla y el equipo se configuran dentro de ella, antes de invitar. Una invitación abre la misma bóveda.
-- Activar despliega un contrato C… desde una fábrica verificable. No existe una clave inicial con privilegios de retiro.
-- Quien crea la bóveda empieza como único firmante (1 de 1) y puede usarla al momento; después añade hasta 20 firmantes y fija el umbral de 1 a N, con la misma dirección. Propuestas, aprobaciones, cancelaciones y cambios de equipo quedan en Stellar. Quien propone ya cuenta como la primera aprobación: no firma dos veces.
-- Pago y comisión se ejecutan de forma atómica. La comisión es adicional al importe del destinatario y se cobra en la misma moneda. Los costes de red se pagan en XLM desde la wallet que envía cada transacción.
-- Cambiar los firmantes requiere el quórum actual y conserva la dirección de la bóveda. Las solicitudes anteriores quedan invalidadas.
-- La pantalla `/contract?network=mainnet&address=C…` puede leer y operar sin sesión ni base de datos de SoroSafe. La libreta compartida y los nombres siguen siendo datos de colaboración en D1.
-- Freighter integrado; no se piden semillas. Correo, passkeys y cobertura de hardware siguen pendientes de implementar/probar. Español e inglés.
+> SoroSafe runs on Stellar Testnet. Test funds have no real value. The contracts have not been independently audited.
 
-## Activos
+## The problem
 
-El catálogo de Mainnet conserva los emisores oficiales de XLM, USDC y USDT0 y sus logos originales. Se usan sus direcciones SAC determinísticas; un ticker por sí solo no identifica un token. Las bóvedas contractuales no necesitan trustlines propias. El destinatario y la cuenta de comisiones G… sí deben poder recibir la moneda.
+Groups that share money (a team travelling to an event, a family, a small DAO, a club) usually end up trusting one person's wallet or juggling spreadsheets. Existing multisig tools solve custody but feel built for engineers: you need everyone online before you can start, you sign twice to propose one payment, and nothing tells you who the recipient really is.
 
-Enviar desde un activo conserva su identidad. El cliente verifica función, contrato, destinatario e importe antes de pedir una firma. Los SAC oficiales de Mainnet se comprobaron sin mover fondos; las direcciones y decimales están en `docs/mainnet-sac-readonly-evidence.json`. Los balances vienen de Stellar; no hay saldos, integrantes o pagos ficticios. Añadir fondos usa una transferencia SAC desde la wallet. **No enviar un pago clásico a una dirección C… ni usar un exchange que exija memo.**
+## What SoroSafe does
 
-V1 restringe las transferencias a la lista de SAC definida al desplegar la fábrica. No tiene ejecución arbitraria, allowances, staking ni actualizaciones administrativas. Las implicaciones de esta restricción y del destinatario fijo de comisiones están en [el modelo de seguridad](docs/CONTRACT-SECURITY.md).
+- **Start alone, grow later.** Creating a vault takes a name and one wallet signature. You start as the only signer (1 of 1) and can use it right away. Add people and raise the rule (for example 2 of 3) whenever the group is ready; the vault keeps the same address.
+- **One signature per decision.** Proposing a payment already counts as your approval. When the rule is met, the payment executes in that same transaction; otherwise it waits for the others.
+- **Readable before signing.** Every request shows recipient, amount, service fee, total and asset contract. The app rebuilds each transaction locally and checks contract, function and arguments byte for byte before asking your wallet to sign.
+- **Shared contacts.** The team keeps one address book with who added each contact and how many confirmed payments it has received on-chain.
+- **Verifiable receipts.** Every confirmed operation links to the transaction and the vault contract on stellar.expert.
+- **Bilingual.** Spanish and English throughout, including errors and confirmations.
 
-## Desarrollo
+## How it uses Stellar
 
-Node 22.13+, Rust 1.94.1, target `wasm32v1-none` y Stellar CLI 25.2.0+.
+| Piece | What it does |
+| --- | --- |
+| **Vault contract (Soroban)** | Holds SAC tokens (XLM, USDC). Stores signers, threshold and proposals. `propose`, `approve`, `revoke`, `cancel`, `execute`. Signers are authenticated with `require_auth`, so each approval is bound to the exact contract, function and arguments. |
+| **Factory contract** | Deploys one vault per team from a fixed WASM hash with a deterministic, creator-namespaced salt, and registers it (`is_vault`) so the app can verify a vault's origin. No admin, no upgrade, no withdrawal key. |
+| **Team changes** | `ChangeRules` proposals need the current quorum. Executing one bumps an epoch that invalidates every older pending request. |
+| **Fees** | Optional service fee in the same token, computed with OpenZeppelin's audited fixed-point math (`mul_div_ceil`) and paid atomically with the payment. The demo factory uses 0.25 %. |
+| **SEP-10** | Wallet-based sign-in. The server never sees or stores user keys. |
+| **SAC** | Assets are identified by code + issuer and resolved to their deterministic Stellar Asset Contract addresses. A ticker alone never identifies a token. |
+
+Collaboration data (names, contacts, invitations) lives in Cloudflare D1. It never controls money: `/contract?network=testnet&address=C…` can read and operate any vault directly from Stellar without SoroSafe's backend.
+
+## Try it
+
+1. Install [Freighter](https://www.freighter.app/) and switch it to **Testnet**.
+2. Open https://testnet.sorosafe.app and create a vault. If your Testnet account is new, SoroSafe funds it with Friendbot test XLM.
+3. **Add funds**: move some test XLM from your wallet into the vault.
+4. **Send a payment**: as a 1-of-1 vault it executes immediately. Open the receipt.
+5. **Add a second signer** (another Freighter account) and set the rule to 2 of 2.
+6. **Send another payment**: now it waits. Switch Freighter to the second account, approve, and execute.
+
+## Deployed on Testnet
+
+- App: https://testnet.sorosafe.app (Cloudflare Workers + D1)
+- Factory: [`CDQUOMGSDKWG57JV2FEETR2SCEXUBMYGQBLGDUVKS53TBF7OKCSHJWV3`](https://stellar.expert/explorer/testnet/contract/CDQUOMGSDKWG57JV2FEETR2SCEXUBMYGQBLGDUVKS53TBF7OKCSHJWV3)
+- Vault WASM SHA-256 `e4f44dcf…0081`, factory WASM SHA-256 `053fe96e…f9ff` (see `lib/contract-artifacts.json`). The app checks both hashes on-chain before operating a vault.
+
+## Verification
+
+| Suite | Result |
+| --- | --- |
+| Rust contract tests (`npm run contracts:test`) | 18/18 |
+| Real Testnet flow with Friendbot wallets (`npm run test:soroban`) | 20/20, receipts in `docs/soroban-testnet-evidence.json` |
+| End-to-end sign-up and vault creation through the API (`tests/contracts-onboarding.mjs`) | 19/19, also run against the deployed app |
+| Backend regression tests (`npm run test:audit-regressions`) | 24/24 |
+| Client transaction encoding (`npm run test:contracts-client`) | 10/10 |
+
+## Architecture
+
+```
+contracts/            Rust, soroban-sdk 26
+  vault/              shared vault: proposals, approvals, quorum, atomic fee
+  factory/            deploys and registers vaults from a fixed WASM hash
+  types/              rules and protocol validation shared by both
+app/                  React UI and API routes (vinext on Cloudflare Workers)
+lib/                  Stellar RPC client, SEP-10 auth, transaction checks
+db/, drizzle/         D1 schema and migrations for collaboration data
+scripts/              contract build, Testnet factory and Cloudflare deploy
+tests/                integration and Testnet suites
+```
+
+## Run locally
+
+Node 22.13+, Rust 1.94.1 with target `wasm32v1-none`, Stellar CLI 25.2.0+.
 
 ```sh
 npm ci
-# Solo en una base nueva; no repetir migraciones aplicadas.
-npm run db:local
-npm run db:local:upgrade
-npm run db:local:contracts
-npm run db:local:auth
-npm run db:local:auth-limits
-npm run db:local:attempts
+npm run db:local && npm run db:local:upgrade && npm run db:local:contracts \
+  && npm run db:local:auth && npm run db:local:auth-limits && npm run db:local:attempts
 node scripts/setup-local-auth.mjs
+# .dev.vars: JUNTO_NETWORK=testnet and JUNTO_FACTORY=<factory C… address>
 npm run dev -- --host 127.0.0.1 --port 8789
 ```
 
-Publicada en https://testnet.sorosafe.app (Cloudflare Workers + D1). `npm run deploy:testnet` compila y despliega; `deploy/redirect` envía `sorosafe.app` a Testnet hasta el lanzamiento en Mainnet.
+Build and test the contracts with `npm run contracts:build && npm run contracts:test`. `npm run contracts:deploy-testnet` deploys a fresh demo factory with ephemeral Friendbot accounts; `npm run deploy:testnet` publishes the app to Cloudflare.
 
-Para la demo en Testnet: `npm run contracts:deploy-testnet` despliega una fábrica con XLM y USDC de prueba y comisión de 25 bps, con cuentas temporales de Friendbot, y guarda el resultado en `docs/testnet-demo-factory.json`. La fábrica actual es `CDQUOMGSDKWG57JV2FEETR2SCEXUBMYGQBLGDUVKS53TBF7OKCSHJWV3`.
+## Security and limits
 
-En `.dev.vars` (no versionado): `JUNTO_NETWORK=mainnet|testnet` y `JUNTO_FACTORY=C…` de la red correspondiente. No usar una fábrica de Testnet en Mainnet. Sin fábrica, se puede preparar el equipo, pero activar una bóveda contractual permanece bloqueado con un mensaje explícito. El despliegue de la app no firma transacciones ni despliega contratos por sí mismo.
+- Not independently audited. Read [the security model](docs/CONTRACT-SECURITY.md) for risks and open items.
+- V1 only moves the SAC tokens listed when the factory was deployed. No arbitrary calls, allowances or upgrades.
+- Signers are Stellar G accounts. Freighter is the integrated wallet; passkeys and more wallets are planned.
+- A classic payment or an exchange withdrawal that requires a memo must not be sent to a vault's C… address.
 
-La autenticación SEP-10 usa `STELLAR_AUTH_SIGNING_SEED` y `STELLAR_AUTH_ORIGIN`. Esa clave autentica desafíos; no custodia fondos. Las sesiones y bóvedas están separadas por red. Las migraciones publicadas se incluyen en el build de Sites.
+## Roadmap
 
-## Compilar y verificar
+- Mainnet launch with XLM, USDC and USDT0 (official SAC addresses already verified read-only).
+- More wallets through Stellar Wallets Kit, including mobile.
+- Pull-based fee collection and storage TTL renewal.
+- Independent audit.
 
-```sh
-npm run contracts:build
-npm run contracts:test
-npm run contracts:audit
-npm run contracts:client
-node tests/contracts-client.mjs
-npm run test:audit-regressions
-npm run test:soroban
-npm run typecheck
-npm run lint
-npm run build
-```
+## License
 
-`contracts:build` usa el lockfile y copia WASM y hashes a `public/contracts/` y `lib/contract-artifacts.json`. La app verifica los hashes de la fábrica y la bóveda antes de operar. `test:soroban` actúa exclusivamente en Testnet con wallets reales financiadas por Friendbot y claves efímeras que no se guardan.
-
-`test:audit-regressions` verifica los handlers reales, las migraciones SQLite y firmas SEP-10 en 24 casos aislados. Cubre activaciones con un equipo incorrecto (y su descarte por el creador), revocación de miembros, fallos de RPC y de escritura, cambios simultáneos del equipo y límites de login. Sustituye únicamente las respuestas externas de Stellar y el adaptador D1; no envía transacciones ni valida el contrato Rust. `test:auth` verifica además el servicio HTTP en Testnet; acepta `JUNTO_TEST_BASE` y `JUNTO_TEST_EVIDENCE` para usar un servidor y resultados aislados.
-
-El límite de desafíos es de 30 solicitudes por cliente cada cinco minutos, compartido entre cuentas. No se reinicia al consumir un desafío y no elimina los intentos pendientes de otras personas. Las migraciones `0003`, `0004` y `0005` deben aplicarse antes de ejecutar esta versión. Si Stellar o la sincronización de miembros falla, el servidor rechaza el acceso a la libreta compartida hasta poder verificarlo.
-
-Evidencia actual: 18 pruebas Rust, 20 comprobaciones de flujo real en Testnet, 16 de integración del alta y 10 del cliente. [Recibos de Testnet](docs/soroban-testnet-evidence.json). Las suites antiguas `test:integration` y `test:tokens` documentan el recorrido nativo anterior; no describen el contrato nuevo y deben ejecutarse contra esa versión, no tratarse como validación Soroban.
-
-## Preparar Mainnet
-
-La herramienta de operador genera **XDR sin firmar**, nunca transmite ni recibe claves:
-
-```sh
-npm run contracts:client
-node scripts/prepare-protocol.mjs --network mainnet --source G… --step upload-vault --out qa/upload-vault
-node scripts/prepare-protocol.mjs --network mainnet --source G… --step upload-factory --out qa/upload-factory
-# Después de confirmar cada carga en Stellar y verificar los SAC:
-node scripts/prepare-protocol.mjs --network mainnet --source G… --step factory --collector G… --fee-bps POR_DEFINIR --out qa/create-factory
-```
-
-Preparar y confirmar cada paso antes del siguiente, para usar la secuencia actual. Si un SAC oficial aún no está desplegado, `--step asset --asset USDC|USDT0|XLM` prepara su creación determinística. La cuenta de comisiones debe estar financiada y autorizada para recibir los activos. Revisar JSON y XDR, firmar en una wallet propia y verificar el contrato resultante antes de establecer `JUNTO_FACTORY`. `POR_DEFINIR` es deliberadamente inválido: no hay una comisión comercial asumida.
-
-La seguridad del conjunto no está garantizada por usar una biblioteca auditada. Ver [riesgos, dependencias y revisión pendiente](docs/CONTRACT-SECURITY.md). El cierre del hackathon y el contexto de producto se conservan en `PLAN.md`.
+[MIT](LICENSE)

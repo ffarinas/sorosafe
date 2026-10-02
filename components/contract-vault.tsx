@@ -36,7 +36,7 @@ import {
   type ContractConfig,
   type ContractProposal,
 } from "@/lib/contracts";
-import { connectWallet, signXdr } from "@/lib/client-wallet";
+import { connectWallet, ensureTestFunds, signXdr } from "@/lib/client-wallet";
 import { decimal, normalizeAmount, units } from "@/lib/assets";
 import { errors } from "@/lib/messages";
 import { SHORT, type Contact, type Person } from "@/lib/domain";
@@ -222,6 +222,8 @@ export function ContractVault({
     sync = false,
   ) => {
     if (!signer) throw new Error("SIGN_IN_REQUIRED");
+    // A second Testnet wallet may be brand new: give it test XLM for fees.
+    await ensureTestFunds(signer, chain);
     const quote = await prepareCall(chain, signer, target, method, args);
     setIntent({ xdr: quote.xdr, fee: quote.fee, title, details, sync });
   };
