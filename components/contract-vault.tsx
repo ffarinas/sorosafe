@@ -312,7 +312,7 @@ export function ContractVault({
             onBack();
           }}
         >
-          <span className="brand-icon">j</span>junto
+          <span className="brand-icon">s</span>sorosafe
           <span className="brand-dot">.</span>
         </Link>
         <div className="header-right">
@@ -716,8 +716,8 @@ export function ContractVault({
                             "No saved contacts yet.",
                           )
                         : t(
-                            "Puedes operar directamente con las direcciones de tus destinatarios. La libreta compartida está disponible al entrar en Junto.",
-                            "You can operate directly with recipient addresses. The shared address book is available when signed into Junto.",
+                            "Puedes operar directamente con las direcciones de tus destinatarios. La libreta compartida está disponible al entrar en SoroSafe.",
+                            "You can operate directly with recipient addresses. The shared address book is available when signed into SoroSafe.",
                           )}
                     </div>
                   )}

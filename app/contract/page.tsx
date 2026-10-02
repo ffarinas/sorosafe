@@ -17,7 +17,7 @@ export default function IndependentVault() {
       StrKey.isValidContract(address) &&
       (network === "mainnet" || network === "testnet")
     ) {
-      // URL is the canonical on-chain vault identity; no Junto session or DB lookup.
+      // URL is the canonical on-chain vault identity; no SoroSafe session or DB lookup.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setParams({ address, network });
     }
@@ -26,7 +26,7 @@ export default function IndependentVault() {
     return (
       <main className="contract-main">
         <Link href="/" className="brand">
-          junto.
+          sorosafe.
         </Link>
         <h1>Abrir bóveda / Open vault</h1>
         <form method="get">

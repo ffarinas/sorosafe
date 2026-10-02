@@ -1,12 +1,12 @@
-# Junto Soroban v1 — security model and validation
+# SoroSafe Soroban v1 — security model and validation
 
-Status: implemented and exercised on Stellar Testnet. **Not independently audited. No Junto factory has been deployed to Mainnet by this change.** The use of audited dependencies does not make this composition audited or invulnerable.
+Status: implemented and exercised on Stellar Testnet. **Not independently audited. No SoroSafe factory has been deployed to Mainnet by this change.** The use of audited dependencies does not make this composition audited or invulnerable.
 
 ## Custody and authorization
 
 Each vault is an immutable WASM contract with a permanent C-address. The factory has no administrator, withdrawal function, upgrade function, or mutable fee configuration. Creating a vault requires the creator's Stellar authorization, includes all constructor arguments, and namespaces the deployment salt by creator. The factory explicitly authorizes only the predicted vault constructor with the exact arguments. There is no post-deployment initialization window.
 
-The vault accepts 2–20 distinct G-account signers and a quorum of 2–N. Signers are authorized using Soroban `Address.require_auth`, which delegates signature verification and transaction replay prevention to Stellar. Junto does not implement a signature scheme. A compromised signer cannot spend below quorum. A quorum can change all signers and the threshold, including replacing the original creator, without changing the vault's address.
+The vault accepts 1–20 distinct G-account signers and a quorum of 1–N; a vault may start with its creator alone and add signers through a ChangeRules proposal. When the proposer's approval reaches the quorum, `propose` executes immediately. Signers are authorized using Soroban `Address.require_auth`, which delegates signature verification and transaction replay prevention to Stellar. Junto does not implement a signature scheme. A compromised signer cannot spend below quorum. A quorum can change all signers and the threshold, including replacing the original creator, without changing the vault's address.
 
 Proposals, approvals and a cumulative confirmed-payment count per recipient are stored on-chain, not in D1. Proposal IDs are monotonically increasing; creation requires the expected next ID. Each proposal binds its action, proposer, expiration (at most seven days) and rules epoch. An approval is counted once per signer. A signer can revoke their own approval. Only the proposer can cancel their pending proposal. Terminal and expired proposals cannot execute. Changing the rules increments the epoch and invalidates older pending proposals. Execution is permissionless once the current quorum has approved, so a different wallet can pay the network fee.
 

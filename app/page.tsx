@@ -650,9 +650,9 @@ export default function Home() {
             setShowCreate(false);
             setTab("overview");
           }}
-          aria-label="Junto"
+          aria-label="SoroSafe"
         >
-          <span className="brand-icon">j</span>junto
+          <span className="brand-icon">s</span>sorosafe
           <span className="brand-dot">.</span>
         </button>
         <div className="header-right">
@@ -1538,7 +1538,7 @@ export default function Home() {
         </main>
       ) : null}
       <footer>
-        junto{" "}
+        sorosafe{" "}
         <span>
           {t(
             "Hecho para decidir juntos. Construido sobre Stellar.",
@@ -1577,7 +1577,7 @@ export default function Home() {
                         `Receive ${chosenAsset.code}`,
                       )
                     : modal === "connect"
-                      ? t("Entra en Junto", "Sign in to Junto")
+                      ? t("Entra en SoroSafe", "Sign in to SoroSafe")
                       : modal === "configure"
                         ? t("Configuración de la bóveda", "Vault settings")
                         : modal === "contact"

@@ -1,4 +1,4 @@
-# Junto
+# SoroSafe
 
 Bóvedas multifirma de Stellar para equipos: una dirección compartida, contactos compartidos y pagos que se entienden antes de firmar.
 
@@ -11,7 +11,7 @@ Las bóvedas nuevas usan **contratos Soroban**. Las cuentas multifirma nativas a
 - Quien crea la bóveda empieza como único firmante (1 de 1) y puede usarla al momento; después añade hasta 20 firmantes y fija el umbral de 1 a N, con la misma dirección. Propuestas, aprobaciones, cancelaciones y cambios de equipo quedan en Stellar. Quien propone ya cuenta como la primera aprobación: no firma dos veces.
 - Pago y comisión se ejecutan de forma atómica. La comisión es adicional al importe del destinatario y se cobra en la misma moneda. Los costes de red se pagan en XLM desde la wallet que envía cada transacción.
 - Cambiar los firmantes requiere el quórum actual y conserva la dirección de la bóveda. Las solicitudes anteriores quedan invalidadas.
-- La pantalla `/contract?network=mainnet&address=C…` puede leer y operar sin sesión ni base de datos de Junto. La libreta compartida y los nombres siguen siendo datos de colaboración en D1.
+- La pantalla `/contract?network=mainnet&address=C…` puede leer y operar sin sesión ni base de datos de SoroSafe. La libreta compartida y los nombres siguen siendo datos de colaboración en D1.
 - Freighter integrado; no se piden semillas. Correo, passkeys y cobertura de hardware siguen pendientes de implementar/probar. Español e inglés.
 
 ## Activos

@@ -1,4 +1,4 @@
-# Junto — una wallet multifirma para humanos
+# SoroSafe — una wallet multifirma para humanos
 
 ## Producto
 
@@ -34,7 +34,7 @@ La aplicación utiliza Stellar Mainnet por defecto; su fábrica contractual aún
 
 ## Diseño
 
-- Marca provisional: Junto.
+- Marca: SoroSafe (sorosafe.app).
 - Negro, blanco y grises neutros, sin amarillo. Títulos Lora y controles Inter, con espacios amplios, divisores finos, bloques de contraste y botones ovalados. La referencia es la página de Stellar Consensus Protocol; Junto mantiene su marca propia.
 - Cuatro vistas: resumen, pagos, contactos, equipo y ajustes.
 - En la portada de una bóveda solo saldo, acciones de enviar/recibir y tareas pendientes.

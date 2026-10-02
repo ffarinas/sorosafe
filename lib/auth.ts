@@ -113,7 +113,7 @@ export async function authenticate(
   );
   if (!pending || pending.expires <= now() || pending.address !== address)
     throw new Error("EXPIRED_LOGIN");
-  // Each Junto member is an individual signing key. Delegated account signers
+  // Each SoroSafe member is an individual signing key. Delegated account signers
   // cannot log in as another key, which would not authorize vault payments.
   WebAuth.verifyChallengeTxSigners(
     transaction,
