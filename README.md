@@ -39,6 +39,8 @@ node scripts/setup-local-auth.mjs
 npm run dev -- --host 127.0.0.1 --port 8789
 ```
 
+Publicada en https://testnet.sorosafe.app (Cloudflare Workers + D1). `npm run deploy:testnet` compila y despliega; `deploy/redirect` envía `sorosafe.app` a Testnet hasta el lanzamiento en Mainnet.
+
 Para la demo en Testnet: `npm run contracts:deploy-testnet` despliega una fábrica con XLM y USDC de prueba y comisión de 25 bps, con cuentas temporales de Friendbot, y guarda el resultado en `docs/testnet-demo-factory.json`. La fábrica actual es `CDQUOMGSDKWG57JV2FEETR2SCEXUBMYGQBLGDUVKS53TBF7OKCSHJWV3`.
 
 En `.dev.vars` (no versionado): `JUNTO_NETWORK=mainnet|testnet` y `JUNTO_FACTORY=C…` de la red correspondiente. No usar una fábrica de Testnet en Mainnet. Sin fábrica, se puede preparar el equipo, pero activar una bóveda contractual permanece bloqueado con un mensaje explícito. El despliegue de la app no firma transacciones ni despliega contratos por sí mismo.
