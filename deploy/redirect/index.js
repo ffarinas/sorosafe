@@ -1,5 +1,5 @@
 // sorosafe.app points to the Testnet app until Mainnet launches.
-export default {
+const redirect = {
   fetch(request) {
     const url = new URL(request.url);
     return Response.redirect(
@@ -8,3 +8,4 @@ export default {
     );
   },
 };
+export default redirect;

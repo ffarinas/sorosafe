@@ -18,6 +18,7 @@
     "db:local": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0000_worthless_ikaris.sql",
     "test:auth": "node tests/auth.mjs",
     "test:audit-regressions": "node --test tests/audit-regressions.mjs",
+    "test:product-tour": "node --test tests/product-tour.mjs",
     "test:tokens": "node tests/token-workflows.mjs",
     "db:local:upgrade": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0001_damp_the_twelve.sql",
     "contracts:build": "stellar contract build --manifest-path contracts/Cargo.toml --locked && node scripts/contract-artifacts.mjs",

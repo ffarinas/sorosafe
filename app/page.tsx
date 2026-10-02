@@ -1,6 +1,7 @@
 "use client";
 import { ContractVault } from "@/components/contract-vault";
 import { NetworkBanner } from "@/components/network-banner";
+import { IntroTour, SetupTour } from "@/components/product-tour/tour-guide";
 import {
   useCallback,
   useEffect,
@@ -613,6 +614,7 @@ export default function Home() {
           onLanguage={language}
           onBack={() => setModal("vaults")}
           onMetadataChange={() => refresh(v.id)}
+          tourBlocked={!!modal}
         />
         <Dialog
           open={modal === "vaults"}
@@ -656,7 +658,9 @@ export default function Home() {
           <span className="brand-dot">.</span>
         </button>
         <div className="header-right">
-          <span className="network">{chain.label}</span>
+          <span className="network" data-product-tour="app-network">
+            {chain.label}
+          </span>
           <button
             className="language"
             onClick={language}
@@ -666,13 +670,18 @@ export default function Home() {
             {es ? "ES" : "EN"}
           </button>
           {me ? (
-            <button className="identity" onClick={() => setModal("account")}>
+            <button
+              className="identity"
+              data-product-tour="app-identity"
+              onClick={() => setModal("account")}
+            >
               <span className="avatar small">{initials(me.name)}</span>
               <span>{me.name}</span>
             </button>
           ) : (
             <button
               className="secondary login-button"
+              data-product-tour="app-identity"
               onClick={() => {
                 authPurpose.current = "login";
                 setModal("connect");
@@ -699,33 +708,35 @@ export default function Home() {
       ) : setupVisible ? (
         <main className="onboarding">
           <div className="intro">
-            <p className="eyebrow">
-              {joinToken
-                ? t("Te invitaron", "You’re invited")
-                : t("Dinero en equipo", "Money, together")}
-            </p>
-            <h1>
-              {joinToken
-                ? t(
-                    "Tu equipo.\nLa misma bóveda.",
-                    "Your team.\nThe same vault.",
-                  )
-                : t(
-                    "Una bóveda.\nTodo tu equipo.",
-                    "One vault.\nYour whole team.",
-                  )}
-            </h1>
-            <p className="intro-copy">
-              {joinToken
-                ? t(
-                    "Entra a la bóveda que ya creó tu equipo. Los contactos y los pagos estarán ahí para todos.",
-                    "Join the vault your team already created. Contacts and payments will be there for everyone.",
-                  )
-                : t(
-                    "Un lugar para compartir fondos, organizar pagos y decidir juntos.",
-                    "A place to share funds, organize payments, and decide together.",
-                  )}
-            </p>
+            <div data-product-tour="intro-story">
+              <p className="eyebrow">
+                {joinToken
+                  ? t("Te invitaron", "You’re invited")
+                  : t("Dinero en equipo", "Money, together")}
+              </p>
+              <h1>
+                {joinToken
+                  ? t(
+                      "Tu equipo.\nLa misma bóveda.",
+                      "Your team.\nThe same vault.",
+                    )
+                  : t(
+                      "Una bóveda.\nTodo tu equipo.",
+                      "One vault.\nYour whole team.",
+                    )}
+              </h1>
+              <p className="intro-copy">
+                {joinToken
+                  ? t(
+                      "Entra a la bóveda que ya creó tu equipo. Los contactos y los pagos estarán ahí para todos.",
+                      "Join the vault your team already created. Contacts and payments will be there for everyone.",
+                    )
+                  : t(
+                      "Un lugar para compartir fondos, organizar pagos y decidir juntos.",
+                      "A place to share funds, organize payments, and decide together.",
+                    )}
+              </p>
+            </div>
             <div className="steps">
               <p>
                 <span>1</span>
@@ -750,6 +761,12 @@ export default function Home() {
               <ShieldCheck size={18} />
               {t("Tus claves siguen siendo tuyas.", "Your keys stay yours.")}
             </div>
+            <IntroTour
+              es={es}
+              joining={!!joinToken}
+              testnet={chain.id === "testnet"}
+              blocked={busy || !!modal}
+            />
             {showCreate ? (
               <button
                 className="text-button"
@@ -760,7 +777,7 @@ export default function Home() {
               </button>
             ) : null}
           </div>
-          <section className="setup-card">
+          <section className="setup-card" data-product-tour="intro-form">
             <div className="card-kicker">
               <span className="icon-box">
                 <Users size={24} />
@@ -884,7 +901,7 @@ export default function Home() {
         </main>
       ) : v ? (
         <main className="dashboard">
-          <div className="vault-heading">
+          <div className="vault-heading" data-product-tour="setup-status">
             <div>
               <button
                 className="vault-switch"
@@ -909,6 +926,15 @@ export default function Home() {
               </div>
             </div>
             <div className="heading-actions">
+              {v.status !== "active" && (
+                <SetupTour
+                  es={es}
+                  account={me?.address}
+                  network={chain.id}
+                  blocked={busy || !!modal}
+                  onStart={() => setTab("overview")}
+                />
+              )}
               <button
                 className="icon-button"
                 onClick={() => void refresh(v.id)}
@@ -957,7 +983,11 @@ export default function Home() {
             </div>
           ) : null}
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList variant="line" className="vault-tabs">
+            <TabsList
+              variant="line"
+              className="vault-tabs"
+              data-product-tour="setup-navigation"
+            >
               {[
                 ["overview", t("Resumen", "Overview")],
                 ["payments", t("Pagos", "Payments")],
@@ -1026,7 +1056,7 @@ export default function Home() {
                     </button>
                   </div>
                 </section>
-                <section className="next-panel">
+                <section className="next-panel" data-product-tour="setup-next">
                   <span className="eyebrow">
                     {t("Tu siguiente paso", "Up next")}
                   </span>

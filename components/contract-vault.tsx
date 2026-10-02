@@ -19,6 +19,8 @@ import { toast, Toaster } from "sonner";
 import { StrKey, TransactionBuilder, type xdr } from "@stellar/stellar-sdk";
 import { AssetMark } from "./vault-assets";
 import { NetworkBanner } from "./network-banner";
+import { VaultTour } from "./product-tour/tour-guide";
+import type { TourStep } from "./product-tour/types";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +62,7 @@ export function ContractVault({
   es: esProp,
   onLanguage,
   onMetadataChange,
+  tourBlocked = false,
 }: {
   address: string;
   chain: NetworkConfig;
@@ -73,6 +76,7 @@ export function ContractVault({
   es?: boolean;
   onLanguage?: () => void;
   onMetadataChange?: () => Promise<void>;
+  tourBlocked?: boolean;
 }) {
   const router = useRouter();
   const [observedAt, setObservedAt] = useState(0);
@@ -118,6 +122,9 @@ export function ContractVault({
   // The parent refreshes shared metadata; do not freeze contacts at mount.
   const book = contacts;
   const [contactName, setContactName] = useState("");
+  const navigateTour = useCallback((step: TourStep) => {
+    if (step.section) setSection(step.section);
+  }, []);
   const requestId = useRef(0);
   const t = (a: string, b: string) => (es ? a : b);
   const person = (s: string) =>
@@ -227,22 +234,37 @@ export function ContractVault({
     const quote = await prepareCall(chain, signer, target, method, args);
     setIntent({ xdr: quote.xdr, fee: quote.fee, title, details, sync });
   };
-  const readContactCounts = async () => {
-    const counts: Record<string, bigint> = {};
-    for (const c of book) {
-      try {
-        counts[c.address] = await readContract<bigint>(
-          chain,
-          address,
-          "payments_to",
-          [val.address(c.address)],
+  const contactAddresses = book.map((c) => c.address).join(",");
+  useEffect(() => {
+    if (section !== "contacts") return;
+    let cancelled = false;
+    // The tab and the guide both enter this section. Read the real history.
+    void Promise.all(
+      contactAddresses
+        .split(",")
+        .filter(Boolean)
+        .map(async (recipient) => {
+          try {
+            return [
+              recipient,
+              await readContract<bigint>(chain, address, "payments_to", [
+                val.address(recipient),
+              ]),
+            ] as const;
+          } catch {
+            return undefined; // Unknown, never a made-up zero.
+          }
+        }),
+    ).then((counts) => {
+      if (!cancelled)
+        setPaidCounts(
+          Object.fromEntries(counts.filter((c) => c !== undefined)),
         );
-      } catch {
-        /* Leave unknown; never show a made-up zero. */
-      }
-    }
-    setPaidCounts(counts);
-  };
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [section, contactAddresses, chain, address]);
   const copy = (s: string) =>
     void navigator.clipboard
       .writeText(s)
@@ -318,7 +340,9 @@ export function ContractVault({
           <span className="brand-dot">.</span>
         </Link>
         <div className="header-right">
-          <span className="network">{chain.label}</span>
+          <span className="network" data-product-tour="app-network">
+            {chain.label}
+          </span>
           <button
             className="language"
             onClick={toggleLanguage}
@@ -329,6 +353,7 @@ export function ContractVault({
           </button>
           <button
             className="secondary"
+            data-product-tour="app-identity"
             disabled={busy}
             onClick={() =>
               void work(async () =>
@@ -348,16 +373,39 @@ export function ContractVault({
           >
             ← {t("Mis bóvedas", "My vaults")}
           </button>
-          <button
-            className="text-button"
-            onClick={() => void load()}
-            aria-label={t("Actualizar", "Refresh")}
-          >
-            <RefreshCw size={16} />
-          </button>
+          <div className="tour-actions">
+            <VaultTour
+              key={`${chain.id}:${address}:${signer}`}
+              es={es}
+              account={signer || undefined}
+              network={chain.id}
+              ready={
+                !!config &&
+                !loading &&
+                !error &&
+                !busy &&
+                !modal &&
+                !intent &&
+                !tourBlocked
+              }
+              threshold={config?.rules.threshold ?? 0}
+              signers={config?.rules.signers.length ?? 0}
+              currencies={assets.map((a) => a.code)}
+              feeBps={config?.protocol.fee_bps ?? 0}
+              sharedContacts={!!metadataId}
+              onStepChange={navigateTour}
+            />
+            <button
+              className="text-button"
+              onClick={() => void load()}
+              aria-label={t("Actualizar", "Refresh")}
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
         </div>
         <div className="contract-heading">
-          <div>
+          <div data-product-tour="vault-identity">
             <p className="eyebrow">{t("Bóveda compartida", "Shared vault")}</p>
             <h1>{config?.name || t("Abriendo bóveda…", "Opening vault…")}</h1>
             <button className="contract-address" onClick={() => copy(address)}>
@@ -375,7 +423,7 @@ export function ContractVault({
             </a>
           </div>
           {config && (
-            <div className="contract-rule">
+            <div className="contract-rule" data-product-tour="vault-rule">
               <ShieldCheck size={24} />
               <strong>
                 {config.rules.threshold} / {config.rules.signers.length}
@@ -412,10 +460,7 @@ export function ContractVault({
             <button
               key={id}
               className={section === id ? "active" : ""}
-              onClick={() => {
-                setSection(id);
-                if (id === "contacts") void readContactCounts();
-              }}
+              onClick={() => setSection(id)}
             >
               {label}
             </button>
@@ -442,8 +487,11 @@ export function ContractVault({
                       </p>
                     </div>
                   </div>
-                  <div className="contract-assets">
-                    {assets.map((a) => (
+                  <div
+                    className="contract-assets"
+                    data-product-tour="vault-currencies"
+                  >
+                    {assets.map((a, assetIndex) => (
                       <article className="contract-asset" key={a.contract}>
                         <AssetMark asset={a} network={chain.id} />
                         <div>
@@ -470,6 +518,9 @@ export function ContractVault({
                           </button>
                           <button
                             className="secondary"
+                            data-product-tour={
+                              assetIndex === 0 ? "vault-send" : undefined
+                            }
                             disabled={
                               busy ||
                               !!error ||
@@ -500,7 +551,10 @@ export function ContractVault({
               )}
               {section === "activity" && (
                 <section>
-                  <div className="section-heading">
+                  <div
+                    className="section-heading"
+                    data-product-tour="vault-operations"
+                  >
                     <div>
                       <h2>{t("Operaciones del equipo", "Team operations")}</h2>
                       <p>
@@ -672,7 +726,10 @@ export function ContractVault({
               )}
               {section === "contacts" && (
                 <section>
-                  <div className="section-heading">
+                  <div
+                    className="section-heading"
+                    data-product-tour="vault-contacts"
+                  >
                     <div>
                       <h2>{t("Libreta compartida", "Shared address book")}</h2>
                       <p>
@@ -727,7 +784,10 @@ export function ContractVault({
               )}
               {section === "team" && (
                 <section>
-                  <div className="section-heading">
+                  <div
+                    className="section-heading"
+                    data-product-tour="vault-team"
+                  >
                     <div>
                       <h2>
                         {t("Personas y aprobaciones", "People and approvals")}
@@ -764,7 +824,7 @@ export function ContractVault({
                       </span>
                     </div>
                   ))}
-                  <dl className="details">
+                  <dl className="details" data-product-tour="vault-fees">
                     <dt>{t("Comisión por pago", "Fee per payment")}</dt>
                     <dd>{config.protocol.fee_bps / 100}%</dd>
                     <dt>{t("Destino de la comisión", "Fee recipient")}</dt>
