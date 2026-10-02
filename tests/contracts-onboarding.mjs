@@ -12,7 +12,7 @@ await build({
   target: "node22",
 });
 const { assertActivation } = await import("../qa/client-wallet.mjs");
-const base = "http://localhost:8789";
+const base = process.env.JUNTO_TEST_BASE || "http://localhost:8789";
 const state = await fetch(base + "/api/junto").then((r) => r.json());
 assert.equal(state.network.id, "testnet");
 assert(state.factory);
