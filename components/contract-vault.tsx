@@ -208,6 +208,10 @@ export function ContractVault({
     config?.protocol.assets.includes(a.contract),
   );
   const chosen = assets.find((a) => a.contract === selected);
+  // Paying a contact starts with the first currency the vault holds.
+  const funded = assets.find(
+    (a) => (balances[a.contract] ?? BigInt(0)) > BigInt(0),
+  );
   const member = !!config?.rules.signers.includes(signer);
   const errorText = (e: unknown) =>
     errors[e instanceof Error ? e.message : ""]?.[es ? 0 : 1] ||
@@ -896,6 +900,30 @@ export function ContractVault({
                             : String(paidCounts[c.address])}{" "}
                           {t("pagos confirmados", "confirmed payments")}
                         </small>
+                        {member && (
+                          <button
+                            className="secondary contact-pay"
+                            disabled={busy || !!error || !funded}
+                            title={
+                              funded
+                                ? undefined
+                                : t(
+                                    "Añade fondos a la bóveda para pagar",
+                                    "Add funds to the vault to pay",
+                                  )
+                            }
+                            onClick={() => {
+                              if (!funded) return;
+                              setSelected(funded.contract);
+                              setRecipient(c.address);
+                              setAmount("");
+                              setModal("pay");
+                            }}
+                          >
+                            <ArrowUpRight size={16} />
+                            {t("Pagar", "Pay")}
+                          </button>
+                        )}
                       </article>
                     ))
                   ) : (

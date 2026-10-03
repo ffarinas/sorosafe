@@ -2296,3 +2296,11 @@ button.brand {
   text-align: left;
   cursor: pointer;
 }
+
+.contract-contact .contact-pay {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
