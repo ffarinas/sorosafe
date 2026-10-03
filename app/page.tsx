@@ -617,6 +617,63 @@ export default function Home() {
       </button>
     </form>
   );
+  const accountPanel = me ? (
+    <div className="modal-body">
+      <span className="avatar large">{initials(me.name)}</span>
+      <h3>{me.name}</h3>
+      <button
+        className="text-button"
+        onClick={() => {
+          setPersonName(me.name === NEW_NAME ? "" : me.name);
+          setModal("profile");
+        }}
+      >
+        {t("Cambiar nombre", "Change name")}
+      </button>
+      <div className="address-block">{me.address}</div>
+      <button className="secondary wide" onClick={() => void copy(me.address)}>
+        <Copy size={17} />
+        {t("Copiar dirección", "Copy address")}
+      </button>
+      <button
+        className="secondary wide"
+        disabled={busy}
+        onClick={() =>
+          void (async () => {
+            // Another person on this computer, or a second signer:
+            // sign out and sign straight back in with Freighter.
+            await work(async () => {
+              await api("logout");
+              disconnectWallet();
+              setModal("");
+            });
+            signIn();
+          })()
+        }
+      >
+        <Wallet size={17} />
+        {t("Cambiar de cuenta", "Switch account")}
+      </button>
+      <button
+        className="text-button"
+        disabled={busy}
+        onClick={() =>
+          void work(async () => {
+            await api("logout");
+            disconnectWallet();
+            setModal("");
+            setJoinToken("");
+            setSelected("");
+            history.replaceState(null, "", "/");
+            await refresh();
+          })
+        }
+      >
+        <LogOut size={17} />
+        {t("Desconectar", "Disconnect")}
+      </button>
+    </div>
+  ) : null;
   const vaultPicker = (
     <div className="modal-body">
       {data.vaults.map((vault) => (
@@ -668,6 +725,7 @@ export default function Home() {
     return (
       <>
         <ContractVault
+          key={`${v.id}:${me?.address ?? ""}`}
           address={v.address}
           chain={chain}
           factory={data.factory}
@@ -678,6 +736,7 @@ export default function Home() {
           es={es}
           onLanguage={language}
           onBack={() => setModal("vaults")}
+          onAccount={() => setModal("account")}
           onMetadataChange={async () => {
             await refresh(v.id);
           }}
@@ -722,6 +781,25 @@ export default function Home() {
               )}
             </DialogDescription>
             {profileForm}
+          </DialogContent>
+        </Dialog>
+        <Dialog
+          open={modal === "account" && !!me}
+          onOpenChange={(open) => {
+            if (!open && !busy) setModal("");
+          }}
+        >
+          <DialogContent className="junto-dialog" showCloseButton={false}>
+            <DialogTitle className="dialog-title">
+              {t("Tu wallet", "Your wallet")}
+            </DialogTitle>
+            <DialogDescription className="dialog-description">
+              {t(
+                "La clave privada permanece en tu wallet.",
+                "The private key stays in your wallet.",
+              )}
+            </DialogDescription>
+            {accountPanel}
           </DialogContent>
         </Dialog>
       </>
@@ -968,7 +1046,13 @@ export default function Home() {
                 </label>
                 <button className="primary wide" disabled={busy}>
                   {busy ? (
-                    <Loader2 className="spin" size={19} />
+                    <>
+                      <Loader2 className="spin" size={19} />
+                      {t(
+                        "Creando tu bóveda en Stellar…",
+                        "Creating your vault on Stellar…",
+                      )}
+                    </>
                   ) : (
                     t("Continuar", "Continue")
                   )}
@@ -2751,47 +2835,7 @@ export default function Home() {
           ) : null}
           {modal === "vaults" ? vaultPicker : null}
           {modal === "profile" && me ? profileForm : null}
-          {modal === "account" && me ? (
-            <div className="modal-body">
-              <span className="avatar large">{initials(me.name)}</span>
-              <h3>{me.name}</h3>
-              <button
-                className="text-button"
-                onClick={() => {
-                  setPersonName(me.name === NEW_NAME ? "" : me.name);
-                  setModal("profile");
-                }}
-              >
-                {t("Cambiar nombre", "Change name")}
-              </button>
-              <div className="address-block">{me.address}</div>
-              <button
-                className="secondary wide"
-                onClick={() => void copy(me.address)}
-              >
-                <Copy size={17} />
-                {t("Copiar dirección", "Copy address")}
-              </button>
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={() =>
-                  void work(async () => {
-                    await api("logout");
-                    disconnectWallet();
-                    setModal("");
-                    setJoinToken("");
-                    setSelected("");
-                    history.replaceState(null, "", "/");
-                    await refresh();
-                  })
-                }
-              >
-                <LogOut size={17} />
-                {t("Desconectar", "Disconnect")}
-              </button>
-            </div>
-          ) : null}
+          {modal === "account" ? accountPanel : null}
         </DialogContent>
       </Dialog>
     </div>

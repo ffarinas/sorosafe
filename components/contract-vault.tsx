@@ -39,7 +39,9 @@ import {
   type ContractProposal,
 } from "@/lib/contracts";
 import { connectWallet, ensureTestFunds, signXdr } from "@/lib/client-wallet";
-import { decimal, normalizeAmount, units } from "@/lib/assets";
+import { decimal as exact, normalizeAmount, units } from "@/lib/assets";
+// Readable amounts: 90.475 rather than 90.4750000. Parsing stays exact.
+const decimal = (value: bigint) => exact(value).replace(/\.?0+$/, "");
 import { errors } from "@/lib/messages";
 import { SHORT, type Contact, type Person } from "@/lib/domain";
 import type { NetworkConfig } from "@/lib/network";
@@ -62,6 +64,7 @@ export function ContractVault({
   es: esProp,
   onLanguage,
   onMetadataChange,
+  onAccount,
   tourBlocked = false,
 }: {
   address: string;
@@ -76,6 +79,8 @@ export function ContractVault({
   es?: boolean;
   onLanguage?: () => void;
   onMetadataChange?: () => Promise<void>;
+  /** Inside the app, the identity button opens the account menu. */
+  onAccount?: () => void;
   tourBlocked?: boolean;
 }) {
   const router = useRouter();
@@ -127,8 +132,11 @@ export function ContractVault({
   }, []);
   const requestId = useRef(0);
   const t = (a: string, b: string) => (es ? a : b);
-  const person = (s: string) =>
-    people.find((p) => p.address === s)?.name || SHORT(s);
+  const person = (s: string) => {
+    const name = people.find((p) => p.address === s)?.name;
+    // Signers added on-chain have no chosen name yet: show the short address.
+    return name && name !== s ? name : SHORT(s);
+  };
   const assets = contractAssets(chain).filter((a) =>
     config?.protocol.assets.includes(a.contract),
   );
@@ -356,9 +364,11 @@ export function ContractVault({
             data-product-tour="app-identity"
             disabled={busy}
             onClick={() =>
-              void work(async () =>
-                setSigner(await connectWallet(false, chain)),
-              )
+              onAccount
+                ? onAccount()
+                : void work(async () =>
+                    setSigner(await connectWallet(false, chain)),
+                  )
             }
           >
             {signer ? person(signer) : t("Conectar", "Connect")}
@@ -886,10 +896,15 @@ export function ContractVault({
                   "Review the details before signing with your wallet.",
                 )
               : modal === "pay"
-                ? t(
-                    "El equipo revisará y aprobará este pago.",
-                    "Your team will review and approve this payment.",
-                  )
+                ? config && config.rules.threshold <= 1
+                  ? t(
+                      "Con tu firma el pago sale de inmediato.",
+                      "With your signature the payment goes out right away.",
+                    )
+                  : t(
+                      "El equipo revisará y aprobará este pago.",
+                      "Your team will review and approve this payment.",
+                    )
                 : ""}
           </DialogDescription>
           {intent ? (

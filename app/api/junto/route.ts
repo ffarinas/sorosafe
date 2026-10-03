@@ -175,7 +175,7 @@ async function reconcileTeam(v: InternalVault, c: ContractConfig) {
         .prepare(
           "INSERT INTO people(address,name,joined) VALUES(?,?,?) ON CONFLICT(address) DO NOTHING",
         )
-        .bind(signer, signer, issued),
+        .bind(signer, `${signer.slice(0, 4)}…${signer.slice(-4)}`, issued),
     );
     statements.push(
       db()
