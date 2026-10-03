@@ -26,15 +26,20 @@ const target = {
   network: "testnet",
   factory: demo.factory,
 };
+// The Cloudflare API fails intermittently; every step here is idempotent,
+// so retry a couple of times before giving up.
 const wrangler = (args, input) => {
-  const r = spawnSync("npx", ["wrangler", ...args], {
-    input,
-    encoding: "utf8",
-    stdio: [input === undefined ? "inherit" : "pipe", "pipe", "inherit"],
-  });
-  if (r.status !== 0)
-    throw Error(`wrangler ${args[0]} ${args[1] ?? ""} failed`);
-  return r.stdout;
+  for (let attempt = 1; ; attempt++) {
+    const r = spawnSync("npx", ["wrangler", ...args], {
+      input,
+      encoding: "utf8",
+      stdio: [input === undefined ? "inherit" : "pipe", "pipe", "inherit"],
+    });
+    if (r.status === 0) return r.stdout;
+    if (attempt === 3)
+      throw Error(`wrangler ${args[0]} ${args[1] ?? ""} failed`);
+    console.log(`Retrying wrangler ${args[0]} (${attempt + 1}/3)`);
+  }
 };
 
 // One D1 database per environment; reuse it when it already exists.
