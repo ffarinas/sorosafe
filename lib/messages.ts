@@ -44,8 +44,8 @@ export const errors: Record<string, [string, string]> = {
     "This currency is no longer available in the vault. Refresh balances and prepare the payment again.",
   ],
   TEST_WALLET_GONE: [
-    "La clave de esta wallet temporal se perdió al recargar. Desconecta para empezar otra prueba con una nueva wallet.",
-    "This temporary wallet’s key was lost when the page reloaded. Disconnect to start a new test with a new wallet.",
+    "La clave de esta wallet temporal se borró al cerrar la pestaña. Desconecta para empezar otra prueba con una nueva wallet.",
+    "This temporary wallet’s key was discarded when its tab closed. Disconnect to start a new test with a new wallet.",
   ],
   CONFIGURATION_REQUIRED: [
     "Configura tu bóveda en Equipo y ajustes antes de continuar.",

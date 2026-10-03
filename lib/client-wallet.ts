@@ -4,11 +4,16 @@ import type { NetworkConfig } from "./network";
 import { units, TRUST_LIMIT } from "./assets";
 let temporaryKey: Keypair | undefined;
 const temporaryMarker = "junto-temporary-address";
+// Testnet only, test funds only: the key survives a reload of this tab so a
+// refresh never locks someone out of their trial vault. Closing the tab
+// (sessionStorage) still discards it.
+const temporarySecret = "junto-temporary-secret";
 export function temporaryWalletStatus(
   address: string,
 ): "active" | "lost" | "none" {
   if (temporaryKey?.publicKey() === address) return "active";
-  return sessionStorage.getItem(temporaryMarker) === address ? "lost" : "none";
+  if (sessionStorage.getItem(temporaryMarker) !== address) return "none";
+  return sessionStorage.getItem(temporarySecret) ? "active" : "lost";
 }
 /** Testnet only: a new wallet gets free test XLM so it can pay network fees. */
 export async function ensureTestFunds(address: string, network: NetworkConfig) {
@@ -24,6 +29,7 @@ export async function connectWallet(temporary = false, network: NetworkConfig) {
     const { Keypair } = await import("@stellar/stellar-sdk");
     temporaryKey = Keypair.random();
     sessionStorage.setItem(temporaryMarker, temporaryKey.publicKey());
+    sessionStorage.setItem(temporarySecret, temporaryKey.secret());
     return temporaryKey.publicKey();
   }
   const f = await import("@stellar/freighter-api");
@@ -33,6 +39,7 @@ export async function connectWallet(temporary = false, network: NetworkConfig) {
   if (r.error || !r.address) throw new Error("WALLET_CANCELLED");
   temporaryKey = undefined;
   sessionStorage.removeItem(temporaryMarker);
+  sessionStorage.removeItem(temporarySecret);
   return r.address;
 }
 export async function signXdr(
@@ -40,8 +47,16 @@ export async function signXdr(
   address: string,
   chain: NetworkConfig,
 ) {
-  const { TransactionBuilder, Transaction } =
+  const { TransactionBuilder, Transaction, Keypair } =
     await import("@stellar/stellar-sdk");
+  const saved = sessionStorage.getItem(temporarySecret);
+  if (
+    !temporaryKey &&
+    saved &&
+    chain.id === "testnet" &&
+    sessionStorage.getItem(temporaryMarker) === address
+  )
+    temporaryKey = Keypair.fromSecret(saved);
   if (temporaryKey?.publicKey() === address) {
     if (chain.id !== "testnet") throw new Error("NETWORK_MISMATCH");
     const tx = TransactionBuilder.fromXDR(xdr, chain.passphrase);
@@ -295,4 +310,5 @@ export async function assertActivation(
 export function disconnectWallet() {
   temporaryKey = undefined;
   sessionStorage.removeItem(temporaryMarker);
+  sessionStorage.removeItem(temporarySecret);
 }

@@ -904,10 +904,7 @@ export default function Home() {
                 <span>1</span>
                 {joinToken
                   ? t("Revisa la invitación", "Check the invitation")
-                  : t(
-                      "Ponle nombre y firma una vez",
-                      "Name it and sign once",
-                    )}
+                  : t("Ponle nombre y firma una vez", "Name it and sign once")}
               </p>
               <p>
                 <span>2</span>
@@ -1150,8 +1147,8 @@ export default function Home() {
           {temporary ? (
             <div className="notice">
               {t(
-                "Usas una wallet temporal de prueba. Al recargar o cerrar esta página perderás su clave.",
-                "You’re using a temporary test wallet. Reloading or closing this page loses its key.",
+                "Usas una wallet temporal de prueba. Al cerrar esta pestaña perderás su clave.",
+                "You’re using a temporary test wallet. Closing this tab discards its key.",
               )}
             </div>
           ) : null}
@@ -1926,8 +1923,8 @@ export default function Home() {
                   </strong>
                   <p>
                     {t(
-                      "Crea una wallet temporal de Testnet. Su clave se pierde al recargar o cerrar esta página.",
-                      "Create a temporary Testnet wallet. Its key is lost when you reload or close this page.",
+                      "Crea una wallet temporal de Testnet al instante, sin instalar nada. Su clave se borra al cerrar esta pestaña.",
+                      "Create a temporary Testnet wallet instantly, nothing to install. Its key is discarded when you close this tab.",
                     )}
                   </p>
                   <button
