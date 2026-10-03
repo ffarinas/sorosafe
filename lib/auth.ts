@@ -164,7 +164,13 @@ export async function authenticate(
       .prepare(
         "INSERT INTO people(address,name,joined) VALUES(?,?,?) ON CONFLICT(address) DO UPDATE SET name=CASE WHEN ? IS NOT NULL THEN excluded.name ELSE people.name END",
       )
-      .bind(address, name || "Team member", issued, name || null),
+      // Until a person picks a name, their team sees the short address.
+      .bind(
+        address,
+        name || `${address.slice(0, 4)}…${address.slice(-4)}`,
+        issued,
+        name || null,
+      ),
     db()
       .prepare("INSERT INTO sessions(hash,address,expires) VALUES(?,?,?)")
       .bind(await digest(`${NETWORK}:${session}`), address, expires),

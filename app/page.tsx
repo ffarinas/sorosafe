@@ -112,7 +112,7 @@ const initials = (name: string) =>
     .map((s) => s[0])
     .join("")
     .toUpperCase();
-// Name the server gives an account that has not chosen one yet.
+// Placeholder name older accounts got before choosing one.
 const NEW_NAME = "Team member";
 export default function Home() {
   const [es, setEs] = useState(true),
@@ -153,20 +153,11 @@ export default function Home() {
     data.vault?.custody !== "soroban" || data.vault.status !== "active",
   );
   const authPurpose = useRef("login");
-  // New accounts are asked for a name once, after their first sign-in.
-  const askedName = useRef(false);
   const seq = useRef(0);
   const t = (a: string, b: string) => (es ? a : b);
   const v = data.vault,
     me = data.user;
   const configured = !!v && v.size >= 1 && v.threshold >= 1;
-  useEffect(() => {
-    if (!me || me.name !== NEW_NAME || askedName.current || modal || busy)
-      return;
-    askedName.current = true;
-    setPersonName("");
-    setModal("profile");
-  }, [me, modal, busy]);
   const tempStatus = me ? temporaryWalletStatus(me.address) : "none",
     temporary = tempStatus === "active",
     lostTemporary = tempStatus === "lost";
