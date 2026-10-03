@@ -58,7 +58,11 @@ export default function IndependentVault() {
             </select>
           </label>
           <button className="primary">{es ? "Abrir" : "Open"}</button>
-          <Link href="/" className="text-button">
+          <Link
+            href="/"
+            className="text-button"
+            style={{ display: "block", marginTop: 20 }}
+          >
             {es
               ? "¿Buscas tus bóvedas? Entra en SoroSafe"
               : "Looking for your vaults? Sign in to SoroSafe"}
