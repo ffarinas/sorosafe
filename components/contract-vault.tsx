@@ -126,12 +126,48 @@ export function ContractVault({
   const [amount, setAmount] = useState(""),
     [recipient, setRecipient] = useState("");
   const [draftSigner, setDraftSigner] = useState("");
+  // What the connected wallet holds, shown when adding funds.
+  const [walletBalance, setWalletBalance] = useState<string | null>();
   // A temporary Testnet wallet whose tab was closed can no longer sign.
   const [lostWallet, setLostWallet] = useState(false);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLostWallet(!!signer && temporaryWalletStatus(signer) === "lost");
   }, [signer]);
+  const depositAsset = modal === "deposit" ? selected : "";
+  useEffect(() => {
+    const asset = contractAssets(chain).find(
+      (a) => a.contract === depositAsset,
+    );
+    if (!asset || !signer) return;
+    let current = true;
+    fetch(`${chain.horizon}/accounts/${signer}`)
+      .then(
+        (r) =>
+          (r.ok ? r.json() : null) as Promise<{
+            balances?: {
+              asset_type: string;
+              asset_code?: string;
+              asset_issuer?: string;
+              balance: string;
+            }[];
+          } | null>,
+      )
+      .then((account) => {
+        const line = account?.balances?.find((b) =>
+          asset.issuer
+            ? b.asset_code === asset.code && b.asset_issuer === asset.issuer
+            : b.asset_type === "native",
+        );
+        if (current)
+          setWalletBalance(line ? line.balance.replace(/\.?0+$/, "") : null);
+      })
+      .catch(() => current && setWalletBalance(undefined));
+    return () => {
+      current = false;
+      setWalletBalance(undefined);
+    };
+  }, [chain, depositAsset, signer]);
   const [newSigners, setNewSigners] = useState(""),
     [threshold, setThreshold] = useState(2);
   const [intent, setIntent] = useState<Intent>();
@@ -1390,6 +1426,19 @@ export function ContractVault({
                           placeholder="0.00"
                         />
                       </label>
+                      {modal === "deposit" && walletBalance !== undefined && (
+                        <p className="footnote">
+                          {walletBalance === null
+                            ? t(
+                                `Tu wallet no tiene ${chosen.code} todavía.`,
+                                `Your wallet doesn’t hold ${chosen.code} yet.`,
+                              )
+                            : t(
+                                `En tu wallet: ${walletBalance} ${chosen.code}`,
+                                `In your wallet: ${walletBalance} ${chosen.code}`,
+                              )}
+                        </p>
+                      )}
                       {modal === "pay" && (
                         <p className="footnote">
                           {t("Saldo: ", "Balance: ")}
