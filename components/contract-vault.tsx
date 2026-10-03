@@ -38,7 +38,12 @@ import {
   type ContractConfig,
   type ContractProposal,
 } from "@/lib/contracts";
-import { connectWallet, ensureTestFunds, signXdr } from "@/lib/client-wallet";
+import {
+  connectWallet,
+  ensureTestFunds,
+  signXdr,
+  temporaryWalletStatus,
+} from "@/lib/client-wallet";
 import { decimal as exact, normalizeAmount, units } from "@/lib/assets";
 // Readable amounts: 90.475 rather than 90.4750000. Parsing stays exact.
 const decimal = (value: bigint) => exact(value).replace(/\.?0+$/, "");
@@ -121,6 +126,12 @@ export function ContractVault({
   const [amount, setAmount] = useState(""),
     [recipient, setRecipient] = useState("");
   const [draftSigner, setDraftSigner] = useState("");
+  // A temporary Testnet wallet whose tab was closed can no longer sign.
+  const [lostWallet, setLostWallet] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLostWallet(!!signer && temporaryWalletStatus(signer) === "lost");
+  }, [signer]);
   const [newSigners, setNewSigners] = useState(""),
     [threshold, setThreshold] = useState(2);
   const [intent, setIntent] = useState<Intent>();
@@ -519,6 +530,11 @@ export function ContractVault({
         ) : (
           config && (
             <>
+              {lostWallet && (
+                <p className="error-banner" role="alert">
+                  {errorText(new Error("TEST_WALLET_GONE"))}
+                </p>
+              )}
               {waiting.length > 0 && section !== "activity" && (
                 <button
                   className="waiting-banner"

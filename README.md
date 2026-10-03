@@ -41,7 +41,7 @@ Collaboration data (names, contacts, invitations) lives in Cloudflare D1. It nev
 3. **Add funds**: move some test XLM from your wallet into the vault.
 4. **Send a payment**: as a 1-of-1 vault it executes immediately. Open the receipt.
 5. **Add a second signer** (another Freighter account) and set the rule to 2 of 2.
-6. **Send another payment**: now it waits. Switch Freighter to the second account, approve, and execute.
+6. **Send another payment**: now it waits for your teammate ("1 operation is waiting for your approval" on their side). Open SoroSafe as the second account (in Freighter: account menu → Switch account; or a second browser profile with a temporary wallet) and choose **Approve and complete**: one signature approves and sends the payment.
 
 ## Deployed on Testnet
 

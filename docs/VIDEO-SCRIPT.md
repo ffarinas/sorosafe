@@ -36,9 +36,9 @@ Narración en inglés (jueces internacionales). Las indicaciones de pantalla van
 
 ## 1:40 – 2:20 · Pago con doble aprobación
 
-**Pantalla:** con la Cuenta A, enviar 20 XLM. Mostrar "1 / 2 approvals". Cambiar Freighter a la Cuenta B, pulsar "Connect" en la app, "Review and approve", firmar, y después "Execute". Abrir el recibo.
+**Pantalla:** con la Cuenta A, enviar 20 XLM: queda en "1 / 2 approvals". Menú de cuenta → "Switch account" y entrar con la Cuenta B en Freighter. Se ve el aviso "1 operation is waiting for your approval"; pulsar "Approve and complete", firmar una vez y abrir el recibo.
 
-> "I propose a payment — my proposal already counts as my approval, so I only sign once. It's waiting for my teammate. On their side, they see the same clear summary and approve. Once the rule is met, anyone can execute it. The payment and the service fee move atomically, in one transaction."
+> "I propose a payment — my proposal already counts as my approval, so I only sign once. It's waiting for my teammate. When they open SoroSafe, it tells them what needs their approval. They see the same clear summary, approve once — and because that completes the rule, the payment and the fee go out in that same transaction. Nobody signs twice."
 
 ## 2:20 – 2:45 · Por qué es seguro y diferente
 
@@ -55,5 +55,5 @@ Narración en inglés (jueces internacionales). Las indicaciones de pantalla van
 ## Consejos de edición
 
 - Acelera ×2 las esperas de confirmación y los cambios de cuenta en Freighter.
-- Pon un rótulo pequeño en cada paso: *Create · Fund · Pay · Add signer · Approve · Execute*.
+- Pon un rótulo pequeño en cada paso: *Create · Fund · Pay · Add signer · Approve*.
 - Si te pasas de tiempo, recorta la sección 2:20–2:45 antes que la demo de doble aprobación: es el momento más fuerte.
