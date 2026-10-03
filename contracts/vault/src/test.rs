@@ -115,13 +115,15 @@ impl Fixture {
         }
     }
 }
+/// More than the fixture vault holds (1_000_000), so approvals stay pending.
+const UNFUNDED: i128 = 2_000_000;
 #[test]
 fn transfers_and_fee_are_atomic_and_exact() {
     let f = Fixture::new();
     let c = f.client();
     let id = f.pay(100_001);
+    // The approval that completes the quorum executes the payment.
     f.approve(id);
-    c.execute(&id);
     let t = token::Client::new(&f.e, &f.asset);
     assert_eq!(t.balance(&f.to), 100_001);
     assert_eq!(t.balance(&f.collector), 251);
@@ -155,7 +157,6 @@ fn proposer_counts_as_first_approval() {
     );
     // With a 2-of-3 rule, one more signer is enough.
     c.approve(&f.signers.get(1).unwrap(), &id);
-    c.execute(&id);
     assert_eq!(c.proposal(&id).status, 1);
 }
 #[test]
@@ -199,7 +200,7 @@ fn nonmember_cannot_propose_approve_cancel_or_revoke() {
 fn revocation_removes_only_own_approval() {
     let f = Fixture::new();
     let c = f.client();
-    let id = f.pay(100);
+    let id = f.pay(UNFUNDED);
     f.approve(id);
     c.revoke(&f.signers.get(0).unwrap(), &id);
     assert_eq!(
@@ -212,7 +213,7 @@ fn revocation_removes_only_own_approval() {
 fn cancel_requires_proposer_and_is_terminal() {
     let f = Fixture::new();
     let c = f.client();
-    let id = f.pay(100);
+    let id = f.pay(UNFUNDED);
     f.approve(id);
     assert_eq!(
         c.try_cancel(&f.signers.get(1).unwrap(), &id),
@@ -229,7 +230,7 @@ fn cancel_requires_proposer_and_is_terminal() {
 fn expiration_is_enforced_on_approval_and_execution() {
     let f = Fixture::new();
     let c = f.client();
-    let id = f.pay(100);
+    let id = f.pay(UNFUNDED);
     f.approve(id);
     f.e.ledger().with_mut(|l| l.timestamp = 2_000);
     assert_eq!(c.try_execute(&id), Err(Ok(Error::Expired.into())));
@@ -242,7 +243,7 @@ fn expiration_is_enforced_on_approval_and_execution() {
 fn rotation_requires_old_quorum_and_invalidates_pending_actions() {
     let f = Fixture::new();
     let c = f.client();
-    let payment = f.pay(100);
+    let payment = f.pay(UNFUNDED);
     f.approve(payment);
     let replacement = account(&f.e, 6);
     let rules = Rules {
@@ -262,7 +263,6 @@ fn rotation_requires_old_quorum_and_invalidates_pending_actions() {
     );
     assert_eq!(c.try_execute(&change), Err(Ok(Error::Quorum.into())));
     f.approve(change);
-    c.execute(&change);
     assert_eq!(c.config().rules, rules);
     assert_eq!(c.config().epoch, 1);
     assert_eq!(c.try_execute(&payment), Err(Ok(Error::StaleRules.into())));
@@ -420,6 +420,18 @@ fn solo_vault_adds_signers_and_then_needs_their_approval() {
     assert_eq!(c.proposal(&id).status, 0);
     assert_eq!(c.try_execute(&id), Err(Ok(Error::Quorum.into())));
     c.approve(&f.signers.get(1).unwrap(), &id);
+    assert_eq!(c.proposal(&id).status, 1);
+}
+#[test]
+fn unfunded_approval_is_recorded_and_executes_later() {
+    let f = Fixture::new();
+    let c = f.client();
+    let id = f.pay(UNFUNDED);
+    f.approve(id);
+    // Quorum reached but the vault cannot pay yet: nothing moves.
+    assert_eq!(c.proposal(&id).status, 0);
+    assert_eq!(c.proposal(&id).approvals.len(), 2);
+    token::StellarAssetClient::new(&f.e, &f.asset).mint(&f.id, &UNFUNDED);
     c.execute(&id);
     assert_eq!(c.proposal(&id).status, 1);
 }

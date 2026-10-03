@@ -43,7 +43,7 @@ npm run dev -- --host 127.0.0.1 --port 8789
 
 Publicada en https://testnet.sorosafe.app (Cloudflare Workers + D1). `npm run deploy:testnet` compila y despliega; `deploy/redirect` envía `sorosafe.app` a Testnet hasta el lanzamiento en Mainnet.
 
-Para la demo en Testnet: `npm run contracts:deploy-testnet` despliega una fábrica con XLM y USDC de prueba y comisión de 25 bps, con cuentas temporales de Friendbot, y guarda el resultado en `docs/testnet-demo-factory.json`. La fábrica actual es `CDQUOMGSDKWG57JV2FEETR2SCEXUBMYGQBLGDUVKS53TBF7OKCSHJWV3`.
+Para la demo en Testnet: `npm run contracts:deploy-testnet` despliega una fábrica con XLM y USDC de prueba y comisión de 25 bps, con cuentas temporales de Friendbot, y guarda el resultado en `docs/testnet-demo-factory.json`. La fábrica actual es `CDY4CAOMSGQC5JSTGLKIOXPHJROQ55FT7NFC37WYE5ZZ3OQD4GZFSXFM`.
 
 En `.dev.vars` (no versionado): `JUNTO_NETWORK=mainnet|testnet` y `JUNTO_FACTORY=C…` de la red correspondiente. No usar una fábrica de Testnet en Mainnet. Sin fábrica, se puede preparar el equipo, pero activar una bóveda contractual permanece bloqueado con un mensaje explícito. El despliegue de la app no firma transacciones ni despliega contratos por sí mismo.
 
@@ -70,7 +70,7 @@ npm run build
 
 El límite de desafíos es de 30 solicitudes por cliente cada cinco minutos, compartido entre cuentas. No se reinicia al consumir un desafío y no elimina los intentos pendientes de otras personas. Las migraciones `0003`, `0004` y `0005` deben aplicarse antes de ejecutar esta versión. Si Stellar o la sincronización de miembros falla, el servidor rechaza el acceso a la libreta compartida hasta poder verificarlo.
 
-Evidencia actual: 18 pruebas Rust, 20 comprobaciones de flujo real en Testnet, 19 de integración del alta y 10 del cliente. [Recibos de Testnet](docs/soroban-testnet-evidence.json). Las suites antiguas `test:integration` y `test:tokens` documentan el recorrido nativo anterior; no describen el contrato nuevo y deben ejecutarse contra esa versión, no tratarse como validación Soroban.
+Evidencia actual: 19 pruebas Rust, 20 comprobaciones de flujo real en Testnet, 19 de integración del alta y 10 del cliente. [Recibos de Testnet](docs/soroban-testnet-evidence.json). Las suites antiguas `test:integration` y `test:tokens` documentan el recorrido nativo anterior; no describen el contrato nuevo y deben ejecutarse contra esa versión, no tratarse como validación Soroban.
 
 ## Preparar Mainnet
 

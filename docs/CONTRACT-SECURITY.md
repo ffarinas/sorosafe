@@ -37,7 +37,7 @@ Storage is persistent and extended to 30 days on successful transactions. Read s
 
 ## Evidence and limits
 
-- 18 Rust tests (16 vault, 2 factory): 1-of-1 vaults that execute on propose and then add signers, proposer counted as first approval and able to withdraw it, quorum, duplicate signers/approvals, missing authorization, unauthorized members, revocation, cancellation, expiry, nonce, fee rounding/overflow, atomic rollback, signer rotation and factory provenance/namespacing.
+- 19 Rust tests (17 vault, 2 factory): the approval that completes the quorum executes (or stays recorded when the vault cannot cover the payment yet), 1-of-1 vaults that execute on propose and then add signers, proposer counted as first approval and able to withdraw it, quorum, duplicate signers/approvals, missing authorization, unauthorized members, revocation, cancellation, expiry, nonce, fee rounding/overflow, atomic rollback, signer rotation and factory provenance/namespacing.
 - 17 real-Testnet workflow checks in `docs/soroban-testnet-evidence.json`, using compiled WASM, Friendbot-funded ephemeral wallets and real Ed25519 transaction signatures. Negative preflight checks exercise the network's contract simulation; the invalid transaction-signature check is submitted to RPC. Positive operations were confirmed on-chain. Test secrets were never persisted.
 - 16 application onboarding checks: SEP-10 sessions, shared invitations, exact constructor validation, activation, shared contacts and rejection of memo-dependent destinations.
 - 10 client checks for exact asset, recipient, function, signer and constructor encoding.

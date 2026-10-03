@@ -185,17 +185,17 @@ await assert.rejects(() =>
   ]),
 );
 ok("Duplicate approval cannot increase the quorum", true);
-await call(keys[1], vault, "approve", [
-  val.address(keys[1].publicKey()),
-  val.u64(0n),
-]);
 const beforeTo = await readContract(chain, xlm, "balance", [
   val.address(keys[3].publicKey()),
 ]);
 const beforeFee = await readContract(chain, xlm, "balance", [
   val.address(keys[4].publicKey()),
 ]);
-await call(keys[2], vault, "execute", [val.u64(0n)]);
+// The approval that completes the quorum pays in the same transaction.
+await call(keys[1], vault, "approve", [
+  val.address(keys[1].publicKey()),
+  val.u64(0n),
+]);
 ok(
   "Exact recipient amount arrived",
   (await readContract(chain, xlm, "balance", [
@@ -262,7 +262,7 @@ await call(keys[1], vault, "approve", [
   val.address(keys[1].publicKey()),
   val.u64(1n),
 ]);
-await call(keys[2], vault, "execute", [val.u64(1n)]);
+
 const rotated = await readContract(chain, vault, "config");
 ok(
   "Original signer removed without changing the vault address",

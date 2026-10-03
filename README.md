@@ -15,7 +15,7 @@ Groups that share money (a team travelling to an event, a family, a small DAO, a
 ## What SoroSafe does
 
 - **Start alone, grow later.** Creating a vault takes a name and one wallet signature. You start as the only signer (1 of 1) and can use it right away. Add people and raise the rule (for example 2 of 3) whenever the group is ready; the vault keeps the same address.
-- **One signature per decision.** Proposing a payment already counts as your approval. When the rule is met, the payment executes in that same transaction; otherwise it waits for the others.
+- **One signature per decision.** Proposing a payment already counts as your approval, and the approval that completes the rule sends the payment in that same transaction. Nobody signs twice, and there is no separate "execute" step.
 - **Readable before signing.** Every request shows recipient, amount, service fee, total and asset contract. The app rebuilds each transaction locally and checks contract, function and arguments byte for byte before asking your wallet to sign.
 - **Shared contacts.** The team keeps one address book with who added each contact and how many confirmed payments it has received on-chain.
 - **Verifiable receipts.** Every confirmed operation links to the transaction and the vault contract on stellar.expert.
@@ -46,14 +46,14 @@ Collaboration data (names, contacts, invitations) lives in Cloudflare D1. It nev
 ## Deployed on Testnet
 
 - App: https://testnet.sorosafe.app (Cloudflare Workers + D1)
-- Factory: [`CDQUOMGSDKWG57JV2FEETR2SCEXUBMYGQBLGDUVKS53TBF7OKCSHJWV3`](https://stellar.expert/explorer/testnet/contract/CDQUOMGSDKWG57JV2FEETR2SCEXUBMYGQBLGDUVKS53TBF7OKCSHJWV3)
-- Vault WASM SHA-256 `e4f44dcf…0081`, factory WASM SHA-256 `053fe96e…f9ff` (see `lib/contract-artifacts.json`). The app checks both hashes on-chain before operating a vault.
+- Factory: [`CDY4CAOMSGQC5JSTGLKIOXPHJROQ55FT7NFC37WYE5ZZ3OQD4GZFSXFM`](https://stellar.expert/explorer/testnet/contract/CDY4CAOMSGQC5JSTGLKIOXPHJROQ55FT7NFC37WYE5ZZ3OQD4GZFSXFM)
+- Vault WASM SHA-256 `c78ed14a…4c0f`, factory WASM SHA-256 `053fe96e…f9ff` (see `lib/contract-artifacts.json`). The app checks both hashes on-chain before operating a vault.
 
 ## Verification
 
 | Suite | Result |
 | --- | --- |
-| Rust contract tests (`npm run contracts:test`) | 18/18 |
+| Rust contract tests (`npm run contracts:test`) | 19/19 |
 | Real Testnet flow with Friendbot wallets (`npm run test:soroban`) | 20/20, receipts in `docs/soroban-testnet-evidence.json` |
 | End-to-end sign-up and vault creation through the API (`tests/contracts-onboarding.mjs`) | 19/19, also run against the deployed app |
 | Backend regression tests (`npm run test:audit-regressions`) | 24/24 |

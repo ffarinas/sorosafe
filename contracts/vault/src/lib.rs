@@ -241,6 +241,12 @@ impl Vault {
             approved: true,
         }
         .publish(&e);
+        // The approval that completes the quorum also runs the action, so
+        // nobody signs twice. If the vault cannot cover a payment yet, the
+        // approval is still recorded and `execute` remains available.
+        if p.approvals.len() >= c.rules.threshold && fundable(&e, &p) {
+            apply(e.clone(), c, p);
+        }
     }
     pub fn revoke(e: Env, signer: Address, id: u64) {
         let c = config(&e);
@@ -283,6 +289,16 @@ impl Vault {
     }
 }
 
+/// Whether the vault holds enough of the asset for a payment and its fee.
+fn fundable(e: &Env, p: &Proposal) -> bool {
+    match &p.action {
+        Action::Pay(asset, _, amount) => {
+            let needed = amount.checked_add(p.fee).unwrap_or(i128::MAX);
+            token::Client::new(e, asset).balance(&e.current_contract_address()) >= needed
+        }
+        Action::ChangeRules(_) => true,
+    }
+}
 /// Executes an approved proposal. Callers check status, expiry, epoch and quorum.
 fn apply(e: Env, mut c: Config, mut p: Proposal) {
     let id = p.id;

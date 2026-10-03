@@ -311,6 +311,16 @@ export function ContractVault({
     p.status === 0 &&
     p.epoch === config.epoch &&
     p.expires > BigInt(observedAt);
+  // The contract runs the action in the approval that completes the rule,
+  // as long as the vault can cover the payment.
+  const completes = (p: ContractProposal) =>
+    !!config &&
+    p.approvals.length + 1 >= config.rules.threshold &&
+    (p.action[0] !== "Pay" ||
+      (balances[p.action[1]] ?? BigInt(0)) >= p.action[3] + p.fee);
+  const waiting = proposals.filter(
+    (p) => live(p) && member && !p.approvals.includes(signer),
+  );
   const detailsFor = (p: ContractProposal): [string, string][] =>
     p.action[0] === "Pay"
       ? [
@@ -346,7 +356,8 @@ export function ContractVault({
           : [val.address(signer), val.u64(p.id)],
         title,
         detailsFor(p),
-        method === "execute" && p.action[0] === "ChangeRules",
+        (method === "execute" || (method === "approve" && completes(p))) &&
+          p.action[0] === "ChangeRules",
       );
     });
   return (
@@ -483,7 +494,11 @@ export function ContractVault({
         >
           {[
             ["funds", t("Monedas", "Currencies")],
-            ["activity", t("Operaciones", "Operations")],
+            [
+              "activity",
+              t("Operaciones", "Operations") +
+                (waiting.length ? ` (${waiting.length})` : ""),
+            ],
             ["contacts", t("Contactos", "Contacts")],
             ["team", t("Equipo", "Team")],
           ].map(([id, label]) => (
@@ -504,6 +519,25 @@ export function ContractVault({
         ) : (
           config && (
             <>
+              {waiting.length > 0 && section !== "activity" && (
+                <button
+                  className="waiting-banner"
+                  onClick={() => setSection("activity")}
+                >
+                  <strong>
+                    {waiting.length === 1
+                      ? t(
+                          "1 operación espera tu aprobación",
+                          "1 operation is waiting for your approval",
+                        )
+                      : t(
+                          `${waiting.length} operaciones esperan tu aprobación`,
+                          `${waiting.length} operations are waiting for your approval`,
+                        )}
+                  </strong>
+                  <span>{t("Revisar", "Review")} →</span>
+                </button>
+              )}
               {section === "funds" && (
                 <section>
                   <div className="section-heading">
@@ -660,14 +694,27 @@ export function ContractVault({
                                     operation(
                                       p,
                                       "approve",
-                                      t(
-                                        "Aprobar operación",
-                                        "Approve operation",
-                                      ),
+                                      completes(p)
+                                        ? t(
+                                            "Aprobar y completar",
+                                            "Approve and complete",
+                                          )
+                                        : t(
+                                            "Aprobar operación",
+                                            "Approve operation",
+                                          ),
                                     )
                                   }
                                 >
-                                  {t("Revisar y aprobar", "Review and approve")}
+                                  {completes(p)
+                                    ? t(
+                                        "Aprobar y completar",
+                                        "Approve and complete",
+                                      )
+                                    : t(
+                                        "Revisar y aprobar",
+                                        "Review and approve",
+                                      )}
                                   <Check size={17} />
                                 </button>
                               )}
@@ -1049,7 +1096,7 @@ export function ContractVault({
                       [
                         [
                           t("Firmantes nuevos", "New signers"),
-                          rules.signers.join("\n"),
+                          rules.signers.map(label).join("\n"),
                         ],
                         [
                           t("Aprobaciones necesarias", "Required approvals"),
@@ -1141,7 +1188,7 @@ export function ContractVault({
                           </strong>
                           <code>{SHORT(s)}</code>
                         </span>
-                        {signerList.length > 1 && (
+                        {signerList.length > 1 && s !== signer && (
                           <button
                             type="button"
                             className="text-button"
