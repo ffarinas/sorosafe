@@ -2208,3 +2208,20 @@ button.brand {
   align-items: center;
   gap: 8px;
 }
+
+.signed-in-empty {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+  background: white;
+  border: 1px solid #dedede;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.signed-in-empty .text-button {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

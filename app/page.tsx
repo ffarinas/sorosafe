@@ -188,6 +188,7 @@ export default function Home() {
         setData(d);
         setLoadError("");
       }
+      return d;
     } catch (e) {
       if (n === seq.current) {
         const code = e instanceof Error ? e.message : "UNAVAILABLE";
@@ -368,7 +369,19 @@ export default function Home() {
       else {
         setSelected("");
         history.replaceState(null, "", "/");
-        await refresh();
+        const state = await refresh();
+        // Say what happened: a silent sign-in looked like nothing changed.
+        toast.success(
+          state?.vault
+            ? t(
+                `Sesión iniciada. Abriendo «${state.vault.name}».`,
+                `Signed in. Opening “${state.vault.name}”.`,
+              )
+            : t(
+                "Sesión iniciada. Todavía no tienes bóvedas en esta red.",
+                "Signed in. You don’t have vaults on this network yet.",
+              ),
+        );
       }
     });
   };
@@ -665,7 +678,9 @@ export default function Home() {
           es={es}
           onLanguage={language}
           onBack={() => setModal("vaults")}
-          onMetadataChange={() => refresh(v.id)}
+          onMetadataChange={async () => {
+            await refresh(v.id);
+          }}
           tourBlocked={!!modal}
         />
         <Dialog
@@ -905,6 +920,30 @@ export default function Home() {
                       <Wallet size={17} />
                       {t("Entrar con tu wallet", "Sign in with your wallet")}
                     </button>
+                  </div>
+                ) : null}
+                {me && !data.vaults.length ? (
+                  <div className="signed-in-empty" role="status">
+                    <strong>
+                      {t("Sesión iniciada como ", "Signed in as ")}
+                      {me.name}
+                    </strong>
+                    <span>
+                      {t(
+                        `Todavía no tienes bóvedas en ${chain.label}. Crea la primera aquí, o abre una existente por su dirección C…`,
+                        `You don’t have vaults on ${chain.label} yet. Create your first one here, or open an existing one by its C… address.`,
+                      )}
+                    </span>
+                    <a
+                      className="text-button"
+                      href={`/contract?network=${chain.id}`}
+                    >
+                      {t(
+                        "Abrir una bóveda por su dirección",
+                        "Open a vault by its address",
+                      )}
+                      <ArrowUpRight size={15} />
+                    </a>
                   </div>
                 ) : null}
                 <h2>{t("Crea tu bóveda", "Create your vault")}</h2>

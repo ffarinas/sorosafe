@@ -37,8 +37,8 @@ export default function IndependentVault() {
           <label>
             Red / Network
             <select name="network">
-              <option value="mainnet">Stellar Mainnet</option>
               <option value="testnet">Stellar Testnet</option>
+              <option value="mainnet">Stellar Mainnet</option>
             </select>
           </label>
           <button className="primary">Abrir / Open</button>
