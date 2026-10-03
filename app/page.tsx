@@ -350,9 +350,24 @@ export default function Home() {
     setModal("");
     toast.success(t("Ya estás en la bóveda.", "You’re in the vault."));
   };
+  // Returning users: one click opens Freighter and lands in their last vault.
+  const signIn = () => {
+    authPurpose.current = "login";
+    void connect(false);
+  };
   const connect = async (temp: boolean) => {
     await work(async () => {
-      const key = await connectWallet(temp, chain);
+      let key: string;
+      try {
+        key = await connectWallet(temp, chain);
+      } catch (e) {
+        // Without Freighter, show the options (install it or a test wallet).
+        if (!temp && e instanceof Error && e.message === "INSTALL_FREIGHTER") {
+          setModal("connect");
+          return;
+        }
+        throw e;
+      }
       // Returning accounts keep their name; new ones are asked afterwards.
       await loginWithWallet(key, undefined, chain);
       setModal("");
@@ -747,10 +762,8 @@ export default function Home() {
             <button
               className="secondary login-button"
               data-product-tour="app-identity"
-              onClick={() => {
-                authPurpose.current = "login";
-                setModal("connect");
-              }}
+              disabled={busy}
+              onClick={signIn}
             >
               {t("Entrar", "Sign in")}
             </button>
@@ -887,6 +900,22 @@ export default function Home() {
               </>
             ) : (
               <form onSubmit={submitCreate}>
+                {!me ? (
+                  <div className="returning">
+                    <span>
+                      {t("¿Ya tienes una bóveda?", "Already have a vault?")}
+                    </span>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={signIn}
+                    >
+                      <Wallet size={17} />
+                      {t("Entrar con tu wallet", "Sign in with your wallet")}
+                    </button>
+                  </div>
+                ) : null}
                 <h2>{t("Crea tu bóveda", "Create your vault")}</h2>
                 <p className="muted">
                   {t(

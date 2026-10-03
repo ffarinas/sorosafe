@@ -2191,3 +2191,20 @@ button.brand {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+.returning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 22px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid #dedede;
+  font-size: 14px;
+}
+.returning button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
