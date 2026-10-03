@@ -20,8 +20,8 @@ export const errors: Record<string, [string, string]> = {
     "The network fee exceeds this application’s limit. Review the operation.",
   ],
   UNVERIFIED_CONTRACT: [
-    "No pudimos verificar el origen de esta bóveda.",
-    "We could not verify this vault’s origin.",
+    "Una de tus bóvedas no es de una versión verificada de SoroSafe, así que no la abrimos por seguridad.",
+    "One of your vaults isn’t from a verified SoroSafe version, so we didn’t open it to keep you safe.",
   ],
   MAINNET_REQUIRED: [
     "Cambia tu wallet a Stellar Mainnet para continuar.",
