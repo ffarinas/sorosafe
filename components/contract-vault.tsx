@@ -898,7 +898,9 @@ export function ContractVault({
                           {paidCounts[c.address] === undefined
                             ? "—"
                             : String(paidCounts[c.address])}{" "}
-                          {t("pagos confirmados", "confirmed payments")}
+                          {paidCounts[c.address] === BigInt(1)
+                            ? t("pago confirmado", "confirmed payment")
+                            : t("pagos confirmados", "confirmed payments")}
                         </small>
                         {member && (
                           <button
