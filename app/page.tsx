@@ -1008,20 +1008,10 @@ export default function Home() {
                     </strong>
                     <span>
                       {t(
-                        `Todavía no tienes bóvedas en ${chain.label}. Crea la primera aquí, o abre una existente por su dirección C…`,
-                        `You don’t have vaults on ${chain.label} yet. Create your first one here, or open an existing one by its C… address.`,
+                        `Todavía no tienes bóvedas en ${chain.label}. Crea la primera aquí. Si alguien te añadió a la suya, aparecerá en cuanto entres.`,
+                        `You don’t have vaults on ${chain.label} yet. Create your first one here. If someone added you to theirs, it will show up when you sign in.`,
                       )}
                     </span>
-                    <a
-                      className="text-button"
-                      href={`/contract?network=${chain.id}`}
-                    >
-                      {t(
-                        "Abrir una bóveda por su dirección",
-                        "Open a vault by its address",
-                      )}
-                      <ArrowUpRight size={15} />
-                    </a>
                   </div>
                 ) : null}
                 <h2>{t("Crea tu bóveda", "Create your vault")}</h2>

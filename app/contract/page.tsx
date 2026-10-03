@@ -9,7 +9,14 @@ export default function IndependentVault() {
     address: string;
     network: NetworkId;
   }>();
+  const [es, setEs] = useState(true);
   useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEs(localStorage.getItem("junto-language") !== "en");
+    } catch {
+      /* Spanish stays the default. */
+    }
     const q = new URLSearchParams(location.search),
       address = q.get("address") || "",
       network = q.get("network") || "mainnet";
@@ -18,7 +25,6 @@ export default function IndependentVault() {
       (network === "mainnet" || network === "testnet")
     ) {
       // URL is the canonical on-chain vault identity; no SoroSafe session or DB lookup.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setParams({ address, network });
     }
   }, []);
@@ -28,20 +34,35 @@ export default function IndependentVault() {
         <Link href="/" className="brand">
           sorosafe.
         </Link>
-        <h1>Abrir bóveda / Open vault</h1>
+        <h1>{es ? "Abrir una bóveda" : "Open a vault"}</h1>
+        <p className="muted">
+          {es
+            ? "Para abrir una bóveda directamente desde Stellar, sin iniciar sesión. Pega la dirección del contrato de la bóveda: empieza por C y aparece bajo su nombre. No es la dirección de tu wallet."
+            : "Open a vault straight from Stellar, without signing in. Paste the vault's contract address: it starts with C and appears under the vault's name. It is not your wallet address."}
+        </p>
         <form method="get">
           <label>
-            Dirección / Address
-            <input name="address" required pattern="C[A-Z2-7]{55}" />
+            {es ? "Dirección de la bóveda (C…)" : "Vault address (C…)"}
+            <input
+              name="address"
+              required
+              pattern="C[A-Z2-7]{55}"
+              placeholder="C…"
+            />
           </label>
           <label>
-            Red / Network
+            {es ? "Red" : "Network"}
             <select name="network">
               <option value="testnet">Stellar Testnet</option>
               <option value="mainnet">Stellar Mainnet</option>
             </select>
           </label>
-          <button className="primary">Abrir / Open</button>
+          <button className="primary">{es ? "Abrir" : "Open"}</button>
+          <Link href="/" className="text-button">
+            {es
+              ? "¿Buscas tus bóvedas? Entra en SoroSafe"
+              : "Looking for your vaults? Sign in to SoroSafe"}
+          </Link>
         </form>
       </main>
     );
