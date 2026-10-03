@@ -83,6 +83,8 @@ export type State = {
   chainError?: boolean;
   /** The contract at the activating address has rules the team did not agree on. */
   policyMismatch?: boolean;
+  /** A vault could not be opened; the rest of the state is still valid. */
+  vaultError?: string;
   invite?: {
     name: string;
     threshold: number;

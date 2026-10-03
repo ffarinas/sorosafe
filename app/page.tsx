@@ -183,10 +183,19 @@ export default function Home() {
       return d;
     };
     try {
-      const d = await fetchState(id);
+      let d = await fetchState(id);
+      const failed = d.vaultError;
+      // The requested vault could not be opened: show the next one that can.
+      if (failed && id && !d.vault) {
+        d = await fetchState();
+        if (n === seq.current) {
+          setSelected("");
+          history.replaceState(null, "", "/");
+        }
+      }
       if (n === seq.current) {
         setData(d);
-        setLoadError("");
+        setLoadError(failed || "");
       }
       return d;
     } catch (e) {

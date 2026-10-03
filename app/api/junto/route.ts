@@ -309,6 +309,17 @@ async function broadcast(p: Payment, v: Vault) {
   }
 }
 function error(e: unknown) {
+  const code = errorCode(e);
+  return json(
+    { error: code },
+    ["SIGN_IN_REQUIRED", "EXPIRED_LOGIN"].includes(code)
+      ? 401
+      : ["NOT_MEMBER", "NOT_OWNER", "INVALID_ORIGIN"].includes(code)
+        ? 403
+        : 400,
+  );
+}
+function errorCode(e: unknown) {
   const msg = e instanceof Error ? e.message : "UNKNOWN";
   const known = [
     "CANNOT_REMOVE",
@@ -358,14 +369,7 @@ function error(e: unknown) {
   const code = known.includes(msg) ? msg : "UNAVAILABLE";
   if (code === "UNAVAILABLE")
     console.error("junto_api_error", msg.slice(0, 180));
-  return json(
-    { error: code },
-    ["SIGN_IN_REQUIRED", "EXPIRED_LOGIN"].includes(code)
-      ? 401
-      : ["NOT_MEMBER", "NOT_OWNER", "INVALID_ORIGIN"].includes(code)
-        ? 403
-        : 400,
-  );
+  return code;
 }
 export async function GET(req: Request) {
   try {
@@ -399,22 +403,35 @@ export async function GET(req: Request) {
     };
     if (!me) return json(state);
     const requested = url.searchParams.get("vault") || "";
-    const id =
-      requested ||
-      (
-        await one<{ id: string }>(
-          `SELECT v.id FROM vaults v JOIN members m ON v.id=m.vault WHERE m.address=? AND v.network=? ORDER BY v.created DESC LIMIT 1`,
-          me.address,
-          chain.id,
-        )
-      )?.id;
-    if (!id) return json(state);
-    const v = await membership(id, me.address);
+    const candidates = requested
+      ? [requested]
+      : (
+          await all<{ id: string }>(
+            `SELECT v.id FROM vaults v JOIN members m ON v.id=m.vault WHERE m.address=? AND v.network=? ORDER BY v.created DESC`,
+            me.address,
+            chain.id,
+          )
+        ).map((row) => row.id);
+    // One vault that cannot be verified (RPC down, old factory, removed
+    // member) must not take the whole app down: open the next one instead
+    // and report what failed.
+    let v: InternalVault | undefined;
+    let id = "";
+    for (const candidate of candidates) {
+      try {
+        v = await membership(candidate, me.address);
+        id = candidate;
+        break;
+      } catch (e) {
+        state.vaultError ??= errorCode(e);
+      }
+    }
     state.vaults = await all<Vault>(
       `SELECT ${vaultFields} FROM vaults v JOIN members m ON v.id=m.vault WHERE m.address=? AND v.network=? ORDER BY v.created DESC`,
       me.address,
       chain.id,
     );
+    if (!v) return json(state);
     const people = await team(id);
     state.people = people;
     if (v.custody !== "soroban" && v.status === "activating" && v.address) {

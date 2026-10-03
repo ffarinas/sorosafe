@@ -210,6 +210,15 @@ const members = () =>
     .all()
     .map((p) => p.address)
     .sort();
+// A vault that cannot be opened answers 200 with the error, the vault list
+// and nothing private: no vault, team, contacts or payments.
+function assertClosed(response, code) {
+  assert.equal(response.status, 200);
+  assert.equal(response.data.vaultError, code);
+  assert.equal(response.data.vault, undefined);
+  assert.deepEqual(response.data.people, []);
+  assert.deepEqual(response.data.contacts, []);
+}
 const contact = () =>
   request("contact", { name: "Supplier", address: addresses[3] });
 
@@ -287,7 +296,7 @@ for (const code of ["CONTRACT_UNAVAILABLE", "UNVERIFIED_CONTRACT"]) {
   test(`${code} never grants cached membership read or write access`, async () => {
     reset("active");
     config = Error(code);
-    assert.equal((await request()).data.error, code);
+    assertClosed(await request(), code);
     assert.equal((await contact()).data.error, code);
     assert.equal(
       database.prepare("SELECT count(*) as n FROM contacts").get().n,
@@ -300,7 +309,7 @@ test("failed reconciliation never restores access to a removed signer", async ()
   config.rules.signers[0] = addresses[3];
   batchError = true;
   assert.equal((await contact()).data.error, "STORAGE_UNAVAILABLE");
-  assert.equal((await request()).data.error, "STORAGE_UNAVAILABLE");
+  assertClosed(await request(), "STORAGE_UNAVAILABLE");
   assert.equal(
     database.prepare("SELECT count(*) as n FROM contacts").get().n,
     0,
@@ -310,7 +319,7 @@ test("self-removal syncs the team but denies the former member", async () => {
   reset("active");
   config.rules.signers[0] = addresses[3];
   config.epoch++;
-  assert.equal((await request()).status, 403);
+  assertClosed(await request(), "NOT_MEMBER");
   assert.deepEqual(members(), config.rules.signers.toSorted());
   const joined = await request(undefined, {}, 3);
   assert.equal(joined.status, 200);
@@ -350,7 +359,7 @@ test("draft owner can remove a member and revoke their invitation", async () => 
   );
   assert.deepEqual(members(), [addresses[0], addresses[2]].sort());
   assert.equal(stored().invite_hash, null);
-  assert.equal((await request(undefined, {}, 1)).status, 403);
+  assertClosed(await request(undefined, {}, 1), "NOT_MEMBER");
 });
 test("activation winning the race prevents removal", async () => {
   reset("draft");
