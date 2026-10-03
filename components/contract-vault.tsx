@@ -120,6 +120,7 @@ export function ContractVault({
     [selected, setSelected] = useState("");
   const [amount, setAmount] = useState(""),
     [recipient, setRecipient] = useState("");
+  const [draftSigner, setDraftSigner] = useState("");
   const [newSigners, setNewSigners] = useState(""),
     [threshold, setThreshold] = useState(2);
   const [intent, setIntent] = useState<Intent>();
@@ -136,6 +137,25 @@ export function ContractVault({
     const name = people.find((p) => p.address === s)?.name;
     // Signers added on-chain have no chosen name yet: show the short address.
     return name && name !== s ? name : SHORT(s);
+  };
+  // Contact names first: "Hotel Alfama" says more than a G… address.
+  const label = (s: string) =>
+    book.find((c) => c.address === s)?.name || person(s);
+  const named = (s: string) =>
+    book.some((c) => c.address === s) ? `${label(s)}\n${s}` : s;
+  const signerList = newSigners.split(/\s+/).filter(Boolean);
+  const setSignerList = (list: string[]) => {
+    setNewSigners(list.join("\n"));
+    setThreshold((n) => Math.min(Math.max(n, 1), Math.max(list.length, 1)));
+  };
+  const addSigner = (address: string) => {
+    const value = address.trim();
+    if (!StrKey.isValidEd25519PublicKey(value)) {
+      toast.error(errorText(new Error("INVALID_ADDRESS")));
+      return;
+    }
+    if (!signerList.includes(value)) setSignerList([...signerList, value]);
+    setDraftSigner("");
   };
   const assets = contractAssets(chain).filter((a) =>
     config?.protocol.assets.includes(a.contract),
@@ -294,7 +314,7 @@ export function ContractVault({
   const detailsFor = (p: ContractProposal): [string, string][] =>
     p.action[0] === "Pay"
       ? [
-          [t("Destinatario", "Recipient"), p.action[2]],
+          [t("Destinatario", "Recipient"), named(p.action[2])],
           [
             t("Importe", "Amount"),
             `${decimal(p.action[3])} ${assets.find((a) => a.contract === p.action[1])?.code || SHORT(p.action[1])}`,
@@ -305,7 +325,7 @@ export function ContractVault({
       : [
           [
             t("Firmantes nuevos", "New signers"),
-            p.action[1].signers.join("\n"),
+            p.action[1].signers.map(label).join("\n"),
           ],
           [
             t("Aprobaciones necesarias", "Required approvals"),
@@ -716,22 +736,24 @@ export function ContractVault({
                       );
                     })
                   )}
-                  <div className="contract-actions">
-                    <button
-                      className="secondary"
-                      disabled={page === 0}
-                      onClick={() => setPage(page - 1)}
-                    >
-                      {t("Más recientes", "Newer")}
-                    </button>
-                    <button
-                      className="secondary"
-                      disabled={config.next_id <= BigInt((page + 1) * 20)}
-                      onClick={() => setPage(page + 1)}
-                    >
-                      {t("Anteriores", "Older")}
-                    </button>
-                  </div>
+                  {config.next_id > BigInt(20) && (
+                    <div className="contract-actions">
+                      <button
+                        className="secondary"
+                        disabled={page === 0}
+                        onClick={() => setPage(page - 1)}
+                      >
+                        {t("Más recientes", "Newer")}
+                      </button>
+                      <button
+                        className="secondary"
+                        disabled={config.next_id <= BigInt((page + 1) * 20)}
+                        onClick={() => setPage(page + 1)}
+                      >
+                        {t("Anteriores", "Older")}
+                      </button>
+                    </div>
+                  )}
                 </section>
               )}
               {section === "contacts" && (
@@ -1084,7 +1106,7 @@ export function ContractVault({
                         ? t("Enviar pago", "Send payment")
                         : t("Solicitar aprobaciones", "Request approvals"),
                       [
-                        [t("Destinatario", "Recipient"), recipient],
+                        [t("Destinatario", "Recipient"), named(recipient)],
                         [
                           t("Importe", "Amount"),
                           `${decimal(value)} ${chosen.code}`,
@@ -1109,29 +1131,118 @@ export function ContractVault({
             >
               {modal === "rules" ? (
                 <>
+                  <div className="signer-list">
+                    {signerList.map((s) => (
+                      <div className="signer-row" key={s}>
+                        <span>
+                          <strong>
+                            {label(s)}
+                            {s === signer ? t(" (tú)", " (you)") : ""}
+                          </strong>
+                          <code>{SHORT(s)}</code>
+                        </span>
+                        {signerList.length > 1 && (
+                          <button
+                            type="button"
+                            className="text-button"
+                            onClick={() =>
+                              setSignerList(signerList.filter((x) => x !== s))
+                            }
+                          >
+                            {t("Quitar", "Remove")}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                   <label>
-                    {t(
-                      "Pega la dirección G… de cada persona, una por línea. Las actuales ya están incluidas.",
-                      "Paste each person's G… address, one per line. Current signers are already included.",
-                    )}
-                    <textarea
-                      required
-                      rows={5}
-                      value={newSigners}
-                      onChange={(e) => setNewSigners(e.target.value)}
-                    />
+                    {t("Añadir a una persona", "Add a person")}
+                    <span className="add-signer">
+                      <input
+                        value={draftSigner}
+                        placeholder={t(
+                          "Su dirección de wallet (G…)",
+                          "Their wallet address (G…)",
+                        )}
+                        onChange={(e) => setDraftSigner(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addSigner(draftSigner);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={!draftSigner.trim()}
+                        onClick={() => addSigner(draftSigner)}
+                      >
+                        {t("Añadir", "Add")}
+                      </button>
+                    </span>
                   </label>
-                  <label>
-                    {t("Aprobaciones necesarias", "Required approvals")}
-                    <input
-                      type="number"
-                      min={1}
-                      max={20}
-                      required
-                      value={threshold}
-                      onChange={(e) => setThreshold(Number(e.target.value))}
-                    />
-                  </label>
+                  {book.some(
+                    (c) =>
+                      StrKey.isValidEd25519PublicKey(c.address) &&
+                      !signerList.includes(c.address),
+                  ) && (
+                    <label>
+                      {t(
+                        "O elige de tus contactos",
+                        "Or pick from your contacts",
+                      )}
+                      <select
+                        value=""
+                        onChange={(e) =>
+                          e.target.value && addSigner(e.target.value)
+                        }
+                      >
+                        <option value="">
+                          {t("Elegir contacto", "Choose contact")}
+                        </option>
+                        {book
+                          .filter(
+                            (c) =>
+                              StrKey.isValidEd25519PublicKey(c.address) &&
+                              !signerList.includes(c.address),
+                          )
+                          .map((c) => (
+                            <option key={c.id} value={c.address}>
+                              {c.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  )}
+                  <div className="approval-picker">
+                    <span>
+                      {t(
+                        "¿Cuántas personas deben aprobar cada pago?",
+                        "How many people must approve each payment?",
+                      )}
+                    </span>
+                    <div role="radiogroup">
+                      {signerList.map((_, i) => (
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={threshold === i + 1}
+                          className={threshold === i + 1 ? "selected" : ""}
+                          key={i}
+                          onClick={() => setThreshold(i + 1)}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                    <small>
+                      {t(
+                        `${threshold} de ${signerList.length} ${signerList.length === 1 ? "persona" : "personas"}`,
+                        `${threshold} of ${signerList.length} ${signerList.length === 1 ? "person" : "people"}`,
+                      )}
+                    </small>
+                  </div>
                   <p className="footnote">
                     {t(
                       "Al aprobar este cambio, las operaciones pendientes con las reglas anteriores dejarán de ser válidas.",

@@ -40,8 +40,8 @@ export function introSteps(
         : t("Empieza a tu ritmo", "Start at your own pace"),
       body: joining
         ? t(
-            "Comprueba el nombre de la bóveda y la regla de aprobación de esta invitación. Introduce tu nombre y continúa con tu wallet; no necesitas crear otra bóveda.",
-            "Check the vault name and approval rule in this invitation. Enter your name and continue with your wallet; you don't need to create another vault.",
+            "Comprueba el nombre de la bóveda y la regla de aprobación de esta invitación. Continúa con tu wallet; no necesitas crear otra bóveda.",
+            "Check the vault name and approval rule in this invitation. Continue with your wallet; you don't need to create another vault.",
           )
         : t(
             "Dale un nombre a la bóveda y continúa con tu wallet. Empiezas como único firmante: puedes añadir personas y acordar más aprobaciones desde Equipo cuando estén listas.",

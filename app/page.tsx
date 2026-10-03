@@ -903,20 +903,29 @@ export default function Home() {
               <p>
                 <span>1</span>
                 {joinToken
-                  ? t("Confirma tu nombre", "Confirm your name")
-                  : t("Dale un nombre", "Give it a name")}
+                  ? t("Revisa la invitación", "Check the invitation")
+                  : t(
+                      "Ponle nombre y firma una vez",
+                      "Name it and sign once",
+                    )}
               </p>
               <p>
                 <span>2</span>
                 {joinToken
                   ? t("Conecta tu wallet", "Connect your wallet")
-                  : t("Prepara tu bóveda", "Set up your vault")}
+                  : t(
+                      "Añade fondos y paga al instante",
+                      "Add funds and pay right away",
+                    )}
               </p>
               <p>
                 <span>3</span>
                 {joinToken
                   ? t("Entra a la misma bóveda", "Join the same vault")
-                  : t("Invita a tu equipo", "Invite your team")}
+                  : t(
+                      "Suma a tu equipo cuando quieras",
+                      "Add your team whenever you're ready",
+                    )}
               </p>
             </div>
             <div className="stellar-mark">

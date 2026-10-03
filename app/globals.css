@@ -2225,3 +2225,58 @@ button.brand {
   align-items: center;
   gap: 6px;
 }
+
+.signer-list {
+  display: grid;
+  border-top: 1px solid #dedede;
+}
+.signer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #dedede;
+}
+.signer-row span {
+  display: grid;
+  gap: 2px;
+}
+.signer-row code {
+  font-size: 12px;
+  color: #626262;
+}
+.add-signer {
+  display: flex;
+  gap: 8px;
+}
+.add-signer input {
+  flex: 1;
+  min-width: 0;
+}
+.approval-picker {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.approval-picker [role="radiogroup"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.approval-picker button {
+  min-width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid #cfcfcf;
+  background: white;
+  font-weight: 600;
+}
+.approval-picker button.selected {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+.approval-picker small {
+  color: #626262;
+}
