@@ -1,3 +1,4 @@
+import testnetTokens from "./testnet-tokens.json";
 import type { Balance, Payment } from "./domain";
 import type { NetworkId } from "./network";
 export type CatalogAsset = AssetIdentity & {
@@ -65,15 +66,23 @@ export const mainnetCatalog: CatalogAsset[] = [
   },
 ] as const;
 
+// Testnet: Circle's official Testnet USDC, and SoroSafe's own test USDT0
+// (USDT0 has no official Testnet deployment). Same codes and logos as
+// Mainnet, but they are told apart by issuer, never by ticker.
+export const testnetCatalog: CatalogAsset[] = [
+  {
+    ...mainnetCatalog[0],
+    issuer: testnetTokens.USDC.issuer,
+  },
+  {
+    ...mainnetCatalog[1],
+    issuer: testnetTokens.USDT0.issuer,
+    issuerName: "SoroSafe · Testnet",
+    source: `https://stellar.expert/explorer/testnet/contract/${testnetTokens.USDT0.contract}`,
+  },
+];
 export function assetCatalog(network: NetworkId): CatalogAsset[] {
-  return network === "mainnet"
-    ? mainnetCatalog
-    : [
-        {
-          ...mainnetCatalog[0],
-          issuer: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
-        },
-      ];
+  return network === "mainnet" ? mainnetCatalog : testnetCatalog;
 }
 export function officialAsset(asset: AssetIdentity, network: NetworkId) {
   return assetCatalog(network).find((entry) => sameAsset(entry, asset));

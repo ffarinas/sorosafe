@@ -145,8 +145,8 @@ export function LandingLayout({
       body:
         chain.id === "testnet"
           ? t(
-              "La demo funciona en Testnet con XLM y USDC de prueba. Friendbot puede proporcionar XLM para empezar. Mainnet y USDT0 forman parte del siguiente paso. El contrato todavía no cuenta con una auditoría independiente.",
-              "The demo runs on Testnet with test XLM and USDC. Friendbot can provide XLM to get started. Mainnet and USDT0 are part of the next step. The contract has not yet been independently audited.",
+              "La demo funciona en Testnet con XLM, USDC y USDT0 de prueba. SoroSafe consigue XLM de Friendbot por ti, y un botón te da USDT0 de prueba. USDT0 aún no existe en Testnet, así que este es un token de prueba emitido por SoroSafe con suministro fijo. Mainnet, con USDC y USDT0 oficiales, es el siguiente paso. El contrato todavía no cuenta con una auditoría independiente.",
+              "The demo runs on Testnet with test XLM, USDC, and USDT0. SoroSafe gets XLM from Friendbot for you, and one button gives you test USDT0. USDT0 has no Testnet deployment yet, so this is a fixed-supply test token issued by SoroSafe. Mainnet, with official USDC and USDT0, is the next step. The contract has not yet been independently audited.",
             )
           : t(
               "Consulta las monedas admitidas y sus saldos dentro de tu bóveda. La compatibilidad depende de los activos permitidos por su contrato; un símbolo de moneda por sí solo no identifica un activo.",
@@ -357,18 +357,20 @@ export function LandingLayout({
               <img src="/assets/xlm.svg" width="40" height="40" alt="" />
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/assets/usdc.svg" width="40" height="40" alt="" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/usdt0.svg" width="40" height="40" alt="" />
             </div>
             <div>
               <h3>
                 {t(
-                  "XLM y USDC, para probar el flujo.",
-                  "XLM and USDC, to try the flow.",
+                  "XLM, USDC y USDT0, para probar el flujo.",
+                  "XLM, USDC, and USDT0, to try the flow.",
                 )}
               </h3>
               <p>
                 {t(
-                  "Friendbot proporciona XLM de prueba para empezar. La demo usa fondos sin valor real; Mainnet y USDT0 son el siguiente paso.",
-                  "Friendbot provides test XLM to get started. The demo uses funds with no real value; Mainnet and USDT0 are the next step.",
+                  "Los dos stablecoins con su logo oficial, más XLM. Consigue USDT0 de prueba con un botón (emitido por SoroSafe, porque USDT0 aún no existe en Testnet) y USDC de Circle. Fondos sin valor real; Mainnet es el siguiente paso.",
+                  "Both stablecoins with their official logos, plus XLM. Get test USDT0 with one button (issued by SoroSafe, since USDT0 isn't on Testnet yet) and Circle's USDC. No real value; Mainnet is the next step.",
                 )}
               </p>
             </div>

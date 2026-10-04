@@ -19,6 +19,7 @@ import { toast, Toaster } from "sonner";
 import { StrKey, TransactionBuilder, type xdr } from "@stellar/stellar-sdk";
 import { AssetMark } from "./vault-assets";
 import { NetworkBanner } from "./network-banner";
+import testnetTokens from "@/lib/testnet-tokens.json";
 import { VaultTour } from "./product-tour/tour-guide";
 import { BrandWordmark } from "./brand-wordmark";
 import type { TourStep } from "./product-tour/types";
@@ -34,6 +35,7 @@ import {
   readContract,
   prepareCall,
   submitContract,
+  trustlineXdr,
   val,
   actionVal,
   type ContractConfig,
@@ -129,6 +131,7 @@ export function ContractVault({
   const [draftSigner, setDraftSigner] = useState("");
   // What the connected wallet holds, shown when adding funds.
   const [walletBalance, setWalletBalance] = useState<string | null>();
+  const [walletTick, setWalletTick] = useState(0);
   // A temporary Testnet wallet whose tab was closed can no longer sign.
   const [lostWallet, setLostWallet] = useState(false);
   useEffect(() => {
@@ -168,7 +171,7 @@ export function ContractVault({
       current = false;
       setWalletBalance(undefined);
     };
-  }, [chain, depositAsset, signer]);
+  }, [chain, depositAsset, signer, walletTick]);
   const [newSigners, setNewSigners] = useState(""),
     [threshold, setThreshold] = useState(2);
   const [intent, setIntent] = useState<Intent>();
@@ -394,6 +397,72 @@ export function ContractVault({
             String(p.action[1].threshold),
           ],
         ];
+  // Testnet faucets: SoroSafe's test USDT0 and Circle's Testnet USDC.
+  const faucetFor = (asset?: { code: string; issuer: string }) => {
+    if (chain.id !== "testnet" || !asset) return undefined;
+    const entry =
+      asset.code === "USDT0"
+        ? testnetTokens.USDT0
+        : asset.code === "USDC"
+          ? testnetTokens.USDC
+          : undefined;
+    return entry && entry.issuer === asset.issuer ? entry : undefined;
+  };
+  const claimTestTokens = (asset: {
+    code: string;
+    issuer: string;
+    contract: string;
+  }) =>
+    void work(async () => {
+      const faucet = faucetFor(asset);
+      if (!faucet || !signer) return;
+      await ensureTestFunds(signer, chain);
+      const wait = await readContract<bigint>(chain, faucet.faucet, "wait", [
+        val.address(signer),
+      ]);
+      if (wait > BigInt(0)) throw new Error("FAUCET_WAIT");
+      const stock = await readContract<bigint>(
+        chain,
+        asset.contract,
+        "balance",
+        [val.address(faucet.faucet)],
+      );
+      if (stock < BigInt(faucet.perClaim) * BigInt(10_000_000))
+        throw new Error(
+          asset.code === "USDC" ? "FAUCET_EMPTY_USDC" : "FAUCET_EMPTY",
+        );
+      // A wallet needs a trustline before it can hold a classic asset.
+      const account = await fetch(`${chain.horizon}/accounts/${signer}`).then(
+        (r) =>
+          r.json() as Promise<{
+            balances?: { asset_code?: string; asset_issuer?: string }[];
+          }>,
+      );
+      if (
+        !account.balances?.some(
+          (b) => b.asset_code === asset.code && b.asset_issuer === asset.issuer,
+        )
+      ) {
+        const trust = await trustlineXdr(
+          chain,
+          signer,
+          asset.code,
+          asset.issuer,
+        );
+        await submitContract(chain, await signXdr(trust, signer, chain));
+      }
+      const quote = await prepareCall(chain, signer, faucet.faucet, "claim", [
+        val.address(signer),
+      ]);
+      await submitContract(chain, await signXdr(quote.xdr, signer, chain));
+      setWalletTick((n) => n + 1);
+      toast.success(
+        t(
+          `Recibiste ${faucet.perClaim} ${asset.code} de prueba en tu wallet.`,
+          `You received ${faucet.perClaim} test ${asset.code} in your wallet.`,
+        ),
+      );
+    });
   const operation = (
     p: ContractProposal,
     method: "approve" | "revoke" | "execute" | "cancel",
@@ -1473,6 +1542,19 @@ export function ContractVault({
                                 `In your wallet: ${walletBalance} ${chosen.code}`,
                               )}
                         </p>
+                      )}
+                      {modal === "deposit" && faucetFor(chosen) && (
+                        <button
+                          type="button"
+                          className="secondary faucet-button"
+                          disabled={busy}
+                          onClick={() => claimTestTokens(chosen)}
+                        >
+                          {t(
+                            `Conseguir ${faucetFor(chosen)?.perClaim} ${chosen.code} de prueba`,
+                            `Get ${faucetFor(chosen)?.perClaim} test ${chosen.code}`,
+                          )}
+                        </button>
                       )}
                       {modal === "pay" && (
                         <p className="footnote">

@@ -25,7 +25,7 @@ Groups that share money (a team travelling to an event, a family, a small DAO, a
 
 | Piece | What it does |
 | --- | --- |
-| **Vault contract (Soroban)** | Holds SAC tokens (XLM, USDC). Stores signers, threshold and proposals. `propose`, `approve`, `revoke`, `cancel`, `execute`. Signers are authenticated with `require_auth`, so each approval is bound to the exact contract, function and arguments. |
+| **Vault contract (Soroban)** | Holds SAC tokens (XLM, USDC, USDT0). Stores signers, threshold and proposals. `propose`, `approve`, `revoke`, `cancel`, `execute`. Signers are authenticated with `require_auth`, so each approval is bound to the exact contract, function and arguments. |
 | **Factory contract** | Deploys one vault per team from a fixed WASM hash with a deterministic, creator-namespaced salt, and registers it (`is_vault`) so the app can verify a vault's origin. No admin, no upgrade, no withdrawal key. |
 | **Team changes** | `ChangeRules` proposals need the current quorum. Executing one bumps an epoch that invalidates every older pending request. |
 | **Fees** | Optional service fee in the same token, computed with OpenZeppelin's audited fixed-point math (`mul_div_ceil`) and paid atomically with the payment. The demo factory uses 0.25 %. |
@@ -38,15 +38,17 @@ Collaboration data (names, contacts, invitations) lives in Cloudflare D1. It nev
 
 1. Install [Freighter](https://www.freighter.app/) and switch it to **Testnet**.
 2. Open https://testnet.sorosafe.app and create a vault. If your Testnet account is new, SoroSafe funds it with Friendbot test XLM.
-3. **Add funds**: move some test XLM from your wallet into the vault.
+3. **Add funds**: move some test XLM into the vault. For USDT0, open *Add funds* on the USDT0 row and press **Get 1000 test USDT0** first.
 4. **Send a payment**: as a 1-of-1 vault it executes immediately. Open the receipt.
 5. **Add a second signer** (another Freighter account) and set the rule to 2 of 2.
 6. **Send another payment**: now it waits for your teammate ("1 operation is waiting for your approval" on their side). Open SoroSafe as the second account (in Freighter: account menu → Switch account; or a second browser profile with a temporary wallet) and choose **Approve and complete**: one signature approves and sends the payment.
 
 ## Deployed on Testnet
 
+- Currencies: XLM, Circle's Testnet USDC and **SoroSafe's test USDT0**. USDT0 has no official Testnet deployment, so SoroSafe issued a fixed-supply test USDT0 (issuer locked after minting) held by a faucet contract: **Add funds → Get 1000 test USDT0** adds the trustline and claims it (once a day per account). Mainnet uses the official USDC and USDT0 issuers. Addresses in `lib/testnet-tokens.json`.
+
 - App: https://testnet.sorosafe.app (Cloudflare Workers + D1)
-- Factory: [`CDY4CAOMSGQC5JSTGLKIOXPHJROQ55FT7NFC37WYE5ZZ3OQD4GZFSXFM`](https://stellar.expert/explorer/testnet/contract/CDY4CAOMSGQC5JSTGLKIOXPHJROQ55FT7NFC37WYE5ZZ3OQD4GZFSXFM)
+- Factory: [`CDBS4UB4EQ4HZNRCA5LVFFFM3ELQCSLF2XHSKP6VE35XZRJRBCT3YIGM`](https://stellar.expert/explorer/testnet/contract/CDBS4UB4EQ4HZNRCA5LVFFFM3ELQCSLF2XHSKP6VE35XZRJRBCT3YIGM)
 - Vault WASM SHA-256 `c78ed14a…4c0f`, factory WASM SHA-256 `053fe96e…f9ff` (see `lib/contract-artifacts.json`). The app checks both hashes on-chain before operating a vault.
 
 ## Verification

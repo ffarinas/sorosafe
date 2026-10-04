@@ -2304,3 +2304,8 @@ button.brand {
   gap: 6px;
   margin-top: 8px;
 }
+
+.faucet-button {
+  width: 100%;
+  justify-content: center;
+}

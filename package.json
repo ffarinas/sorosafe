@@ -32,6 +32,7 @@
     "db:local:attempts": "node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js d1 execute DB --local --persist-to .wrangler/state --config scripts/local-db.jsonc --file drizzle/0005_vault_attempt.sql",
     "test:contracts-client": "npm run contracts:client && node tests/contracts-client.mjs",
     "test:contracts-onboarding": "node tests/contracts-onboarding.mjs",
+    "contracts:deploy-testnet-tokens": "npm run contracts:client && node scripts/deploy-testnet-tokens.mjs",
     "contracts:deploy-testnet": "npm run contracts:client && node scripts/deploy-testnet-demo.mjs",
     "deploy:testnet": "npm run build && node scripts/deploy-cloudflare.mjs"
   },

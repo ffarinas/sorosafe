@@ -135,6 +135,18 @@ export const errors: Record<string, [string, string]> = {
     "Esta acción corresponde a quien creó la bóveda.",
     "Only the vault creator can do this.",
   ],
+  FAUCET_WAIT: [
+    "Ya recibiste esta moneda de prueba hoy. Vuelve a pedirla en 24 horas.",
+    "You already received this test currency today. Ask again in 24 hours.",
+  ],
+  FAUCET_EMPTY: [
+    "El grifo de esta moneda de prueba está vacío por ahora.",
+    "This test currency’s faucet is empty for now.",
+  ],
+  FAUCET_EMPTY_USDC: [
+    "El grifo de USDC de prueba está vacío. Puedes pedir USDC de Testnet en faucet.circle.com (red Stellar).",
+    "The test USDC faucet is empty. You can get Testnet USDC at faucet.circle.com (Stellar network).",
+  ],
   CANNOT_REMOVE: [
     "Quien creó la bóveda permanece en el equipo.",
     "The person who created the vault stays on the team.",

@@ -25,6 +25,9 @@ const usdc = new Asset(
   "USDC",
   "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
 );
+// SoroSafe's test USDT0 (scripts/deploy-testnet-tokens.mjs).
+const tokens = JSON.parse(await readFile("lib/testnet-tokens.json", "utf8"));
+const usdt0 = new Asset("USDT0", tokens.USDT0.issuer);
 const FEE_BPS = 25;
 const s = new rpc.Server(chain.rpc);
 if ((await s.getNetwork()).passphrase !== chain.passphrase)
@@ -61,6 +64,7 @@ async function send(key, operation, soroban = true) {
 }
 // The contract refuses a fee collector that cannot hold every listed asset.
 await send(collector, Operation.changeTrust({ asset: usdc }), false);
+await send(collector, Operation.changeTrust({ asset: usdt0 }), false);
 for (const asset of [Asset.native(), usdc]) {
   try {
     await send(deployer, Operation.createStellarAssetContract({ asset }));
@@ -103,6 +107,7 @@ const factory = await send(
         assets: nativeToScVal([
           val.address(Asset.native().contractId(chain.passphrase)),
           val.address(usdc.contractId(chain.passphrase)),
+          val.address(tokens.USDT0.contract),
         ]),
         collector: val.address(collector.publicKey()),
         fee_bps: val.u32(FEE_BPS),
@@ -118,7 +123,7 @@ const record = {
   factorySha256: artifacts.factory.sha256,
   collector: collector.publicKey(),
   feeBps: FEE_BPS,
-  assets: ["XLM", "USDC"],
+  assets: ["XLM", "USDC", "USDT0 (SoroSafe test)"],
   transactions: txs,
 };
 await writeFile(

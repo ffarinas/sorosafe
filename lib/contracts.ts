@@ -4,6 +4,7 @@ import {
   Address,
   Asset,
   Contract,
+  Operation,
   StrKey,
   Transaction,
   TransactionBuilder,
@@ -213,6 +214,23 @@ export function assertCall(
     throw new Error("CONTRACT_FEE_LIMIT", {
       cause: { fee: tx.fee, timeBounds: tx.timeBounds, now: Date.now() / 1000 },
     });
+}
+/** A classic changeTrust so a wallet can hold a token (e.g. before a faucet). */
+export async function trustlineXdr(
+  chain: NetworkConfig,
+  address: string,
+  code: string,
+  issuer: string,
+) {
+  const s = await server(chain);
+  return new TransactionBuilder(await s.getAccount(address), {
+    fee: "100",
+    networkPassphrase: chain.passphrase,
+  })
+    .addOperation(Operation.changeTrust({ asset: new Asset(code, issuer) }))
+    .setTimeout(300)
+    .build()
+    .toXDR();
 }
 export async function submitContract(chain: NetworkConfig, encoded: string) {
   const tx = TransactionBuilder.fromXDR(encoded, chain.passphrase);
