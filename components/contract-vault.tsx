@@ -213,9 +213,10 @@ export function ContractVault({
   );
   const chosen = assets.find((a) => a.contract === selected);
   // Paying a contact starts with the first currency the vault holds.
-  const funded = assets.find(
+  const fundedAssets = assets.filter(
     (a) => (balances[a.contract] ?? BigInt(0)) > BigInt(0),
   );
+  const funded = fundedAssets[0];
   const member = !!config?.rules.signers.includes(signer);
   const errorText = (e: unknown) =>
     errors[e instanceof Error ? e.message : ""]?.[es ? 0 : 1] ||
@@ -1551,11 +1552,35 @@ export function ContractVault({
                   )}
                   {modal !== "contact" && chosen && (
                     <>
-                      <div className="contract-selected">
-                        <AssetMark asset={chosen} network={chain.id} />
-                        <strong>{chosen.code}</strong>
-                        <span>{chosen.issuerName}</span>
-                      </div>
+                      {modal === "pay" && fundedAssets.length > 1 ? (
+                        <div
+                          className="currency-picker"
+                          role="radiogroup"
+                          aria-label={t("Moneda", "Currency")}
+                        >
+                          {fundedAssets.map((a) => (
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={a.contract === chosen.contract}
+                              className={
+                                a.contract === chosen.contract ? "selected" : ""
+                              }
+                              key={a.contract}
+                              onClick={() => setSelected(a.contract)}
+                            >
+                              <AssetMark asset={a} network={chain.id} />
+                              <strong>{a.code}</strong>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="contract-selected">
+                          <AssetMark asset={chosen} network={chain.id} />
+                          <strong>{chosen.code}</strong>
+                          <span>{chosen.issuerName}</span>
+                        </div>
+                      )}
                       <label>
                         {t("Importe", "Amount")}
                         <input

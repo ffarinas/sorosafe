@@ -2316,3 +2316,28 @@ button.brand {
   font-size: 12px;
   font-weight: 400;
 }
+
+.currency-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.currency-picker button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 6px;
+  border-radius: 999px;
+  border: 1px solid #cfcfcf;
+  background: white;
+  font-size: 14px;
+}
+.currency-picker button.selected {
+  border-color: var(--foreground);
+  box-shadow: inset 0 0 0 1px var(--foreground);
+}
+.currency-picker img,
+.currency-picker svg {
+  width: 26px;
+  height: 26px;
+}
