@@ -1,6 +1,6 @@
 # SoroSafe · video script (max 3:00)
 
-Narration in English (~390 words, about 2:45 at a calm pace). Stage directions in Spanish. Record https://testnet.sorosafe.app with Freighter on Testnet, 1920×1080, browser zoom 110–125 %, app language in English.
+Narration in English (~330 words, about 2:20 at a calm pace, leaving room for pauses). Stage directions in Spanish. Record https://testnet.sorosafe.app with Freighter on Testnet, 1920×1080, browser zoom 110–125 %, app language in English.
 
 ## Antes de grabar
 
