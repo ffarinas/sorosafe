@@ -2,6 +2,8 @@
 import { ContractVault } from "@/components/contract-vault";
 import { NetworkBanner } from "@/components/network-banner";
 import { IntroTour, SetupTour } from "@/components/product-tour/tour-guide";
+import { LandingLayout, LandingFooter } from "@/components/landing";
+import { BrandWordmark } from "@/components/brand-wordmark";
 import {
   useCallback,
   useEffect,
@@ -814,9 +816,15 @@ export default function Home() {
       </>
     );
   const setupVisible = (!v || showCreate || !!joinToken) && loaded;
+  const publicLanding = setupVisible && !me && !joinToken && !showCreate;
   return (
-    <div className="app">
+    <div className={`app${publicLanding ? " is-landing" : ""}`}>
       <Toaster position="bottom-right" richColors />
+      {publicLanding && (
+        <a className="landing-skip" href="#landing-main">
+          {t("Ir al contenido", "Skip to content")}
+        </a>
+      )}
       <NetworkBanner chain={chain} es={es} />
       <header className="topbar">
         <button
@@ -827,11 +835,25 @@ export default function Home() {
           }}
           aria-label="SoroSafe"
         >
-          <span className="brand-icon">s</span>sorosafe
-          <span className="brand-dot">.</span>
+          <BrandWordmark decorative />
         </button>
+        {publicLanding && (
+          <nav
+            className="landing-navigation"
+            aria-label={t("Conoce SoroSafe", "About SoroSafe")}
+          >
+            <a href="#stellar">Stellar</a>
+            <a href="#why">{t("Por qué SoroSafe", "Why SoroSafe")}</a>
+            <a href="#security">{t("Seguridad", "Security")}</a>
+          </nav>
+        )}
         <div className="header-right">
-          <span className="network" data-product-tour="app-network">
+          <span
+            className="network"
+            data-product-tour={
+              chain.id === "mainnet" ? "app-network" : undefined
+            }
+          >
             {chain.label}
           </span>
           <button
@@ -877,36 +899,55 @@ export default function Home() {
           {t("Abriendo tus bóvedas…", "Opening your vaults…")}
         </div>
       ) : setupVisible ? (
-        <main className="onboarding">
+        <LandingLayout marketing={publicLanding} es={es} chain={chain}>
           <div className="intro">
-            <div data-product-tour="intro-story">
-              <p className="eyebrow">
-                {joinToken
-                  ? t("Te invitaron", "You’re invited")
-                  : t("Dinero en equipo", "Money, together")}
-              </p>
-              <h1>
-                {joinToken
-                  ? t(
-                      "Tu equipo.\nLa misma bóveda.",
-                      "Your team.\nThe same vault.",
-                    )
-                  : t(
-                      "Una bóveda.\nTodo tu equipo.",
-                      "One vault.\nYour whole team.",
+            <div data-product-tour={publicLanding ? undefined : "intro-story"}>
+              {publicLanding ? (
+                <>
+                  <h2>
+                    {t(
+                      "Tu primera bóveda.\nA tu ritmo.",
+                      "Your first vault.\nAt your own pace.",
                     )}
-              </h1>
-              <p className="intro-copy">
-                {joinToken
-                  ? t(
-                      "Entra a la bóveda que ya creó tu equipo. Los contactos y los pagos estarán ahí para todos.",
-                      "Join the vault your team already created. Contacts and payments will be there for everyone.",
-                    )
-                  : t(
-                      "Un lugar para compartir fondos, organizar pagos y decidir juntos.",
-                      "A place to share funds, organize payments, and decide together.",
+                  </h2>
+                  <p className="intro-copy">
+                    {t(
+                      "Ponle un nombre, conecta tu wallet y empieza. Puedes sumar al equipo y ajustar las aprobaciones cuando estés listo.",
+                      "Give it a name, connect your wallet, and get started. Bring in your team and adjust approvals when you're ready.",
                     )}
-              </p>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="eyebrow">
+                    {joinToken
+                      ? t("Te invitaron", "You’re invited")
+                      : t("Dinero en equipo", "Money, together")}
+                  </p>
+                  <h1>
+                    {joinToken
+                      ? t(
+                          "Tu equipo.\nLa misma bóveda.",
+                          "Your team.\nThe same vault.",
+                        )
+                      : t(
+                          "Una bóveda.\nTodo tu equipo.",
+                          "One vault.\nYour whole team.",
+                        )}
+                  </h1>
+                  <p className="intro-copy">
+                    {joinToken
+                      ? t(
+                          "Entra a la bóveda que ya creó tu equipo. Los contactos y los pagos estarán ahí para todos.",
+                          "Join the vault your team already created. Contacts and payments will be there for everyone.",
+                        )
+                      : t(
+                          "Un lugar para compartir fondos, organizar pagos y decidir juntos.",
+                          "A place to share funds, organize payments, and decide together.",
+                        )}
+                  </p>
+                </>
+              )}
             </div>
             <div className="steps">
               <p>
@@ -1039,6 +1080,7 @@ export default function Home() {
                 <label>
                   {t("Nombre de la bóveda", "Vault name")}
                   <input
+                    id="vault-name"
                     required
                     maxLength={80}
                     placeholder={t(
@@ -1077,7 +1119,7 @@ export default function Home() {
               </form>
             )}
           </section>
-        </main>
+        </LandingLayout>
       ) : v ? (
         <main className="dashboard">
           <div className="vault-heading" data-product-tour="setup-status">
@@ -1746,15 +1788,19 @@ export default function Home() {
           ) : null}
         </main>
       ) : null}
-      <footer>
-        sorosafe{" "}
-        <span>
-          {t(
-            "Hecho para decidir juntos. Construido sobre Stellar.",
-            "Made to decide together. Built on Stellar.",
-          )}
-        </span>
-      </footer>
+      {publicLanding ? (
+        <LandingFooter es={es} />
+      ) : (
+        <footer>
+          <BrandWordmark />
+          <span>
+            {t(
+              "Hecho para decidir juntos. Construido sobre Stellar.",
+              "Made to decide together. Built on Stellar.",
+            )}
+          </span>
+        </footer>
+      )}
       <Dialog
         open={!!modal}
         onOpenChange={(open) => {

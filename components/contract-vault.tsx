@@ -20,6 +20,7 @@ import { StrKey, TransactionBuilder, type xdr } from "@stellar/stellar-sdk";
 import { AssetMark } from "./vault-assets";
 import { NetworkBanner } from "./network-banner";
 import { VaultTour } from "./product-tour/tour-guide";
+import { BrandWordmark } from "./brand-wordmark";
 import type { TourStep } from "./product-tour/types";
 import {
   Dialog,
@@ -426,11 +427,15 @@ export function ContractVault({
             onBack();
           }}
         >
-          <span className="brand-icon">s</span>sorosafe
-          <span className="brand-dot">.</span>
+          <BrandWordmark />
         </Link>
         <div className="header-right">
-          <span className="network" data-product-tour="app-network">
+          <span
+            className="network"
+            data-product-tour={
+              chain.id === "mainnet" ? "app-network" : undefined
+            }
+          >
             {chain.label}
           </span>
           <button

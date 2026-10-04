@@ -1,0 +1,9 @@
+.brand-wordmark {
+  display: block;
+  width: var(--brand-wordmark-width, 146px);
+  max-width: 100%;
+  height: auto;
+  flex-shrink: 0;
+  color: inherit;
+  overflow: visible;
+}
