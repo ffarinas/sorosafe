@@ -155,6 +155,8 @@ export default function Home() {
     data.vault?.custody !== "soroban" || data.vault.status !== "active",
   );
   const authPurpose = useRef("login");
+  // Only the create flow says "Creating your vault"; signing in just spins.
+  const [creating, setCreating] = useState(false);
   const seq = useRef(0);
   const t = (a: string, b: string) => (es ? a : b);
   const v = data.vault,
@@ -328,6 +330,14 @@ export default function Home() {
   };
   const create = async (owner = me?.address) => {
     const vaultName = name.trim();
+    setCreating(true);
+    try {
+      await createVault(owner, vaultName);
+    } finally {
+      setCreating(false);
+    }
+  };
+  const createVault = async (owner: string | undefined, vaultName: string) => {
     const r = await api("create", { name: vaultName });
     setInvite("");
     setModal("");
@@ -1118,10 +1128,12 @@ export default function Home() {
                   {busy ? (
                     <>
                       <Loader2 className="spin" size={19} />
-                      {t(
-                        "Creando tu bóveda en Stellar…",
-                        "Creating your vault on Stellar…",
-                      )}
+                      {creating
+                        ? t(
+                            "Creando tu bóveda en Stellar…",
+                            "Creating your vault on Stellar…",
+                          )
+                        : null}
                     </>
                   ) : (
                     t("Continuar", "Continue")
