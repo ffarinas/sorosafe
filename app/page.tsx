@@ -262,12 +262,14 @@ export default function Home() {
     document.documentElement.lang = es ? "es" : "en";
   }, [es]);
   useEffect(() => {
-    if (!me) return;
+    // No background refresh while an action runs: creating a vault would
+    // otherwise flash its half-created draft behind the wallet prompt.
+    if (!me || busy) return;
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") void refresh(selected);
     }, 15000);
     return () => clearInterval(timer);
-  }, [me, selected, refresh]);
+  }, [me, selected, refresh, busy]);
   const work = async (fn: () => Promise<void>) => {
     if (busy) return;
     setBusy(true);

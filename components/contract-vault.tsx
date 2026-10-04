@@ -129,9 +129,22 @@ export function ContractVault({
   const [amount, setAmount] = useState(""),
     [recipient, setRecipient] = useState("");
   const [draftSigner, setDraftSigner] = useState("");
+  // Testnet faucets: SoroSafe's test USDT0 and Circle's Testnet USDC.
+  const faucetFor = (asset?: { code: string; issuer: string }) => {
+    if (chain.id !== "testnet" || !asset) return undefined;
+    const entry =
+      asset.code === "USDT0"
+        ? testnetTokens.USDT0
+        : asset.code === "USDC"
+          ? testnetTokens.USDC
+          : undefined;
+    return entry && entry.issuer === asset.issuer ? entry : undefined;
+  };
   // What the connected wallet holds, shown when adding funds.
   const [walletBalance, setWalletBalance] = useState<string | null>();
   const [walletTick, setWalletTick] = useState(0);
+  // Whether the Testnet faucet for the deposit currency can pay a claim.
+  const [faucetReady, setFaucetReady] = useState<boolean>();
   // A temporary Testnet wallet whose tab was closed can no longer sign.
   const [lostWallet, setLostWallet] = useState(false);
   useEffect(() => {
@@ -172,6 +185,29 @@ export function ContractVault({
       setWalletBalance(undefined);
     };
   }, [chain, depositAsset, signer, walletTick]);
+  useEffect(() => {
+    const asset = contractAssets(chain).find(
+      (a) => a.contract === depositAsset,
+    );
+    const faucet = faucetFor(asset);
+    if (!asset || !faucet) return;
+    let current = true;
+    readContract<bigint>(chain, asset.contract, "balance", [
+      val.address(faucet.faucet),
+    ])
+      .then(
+        (stock) =>
+          current &&
+          setFaucetReady(stock >= BigInt(faucet.perClaim) * BigInt(10_000_000)),
+      )
+      .catch(() => current && setFaucetReady(undefined));
+    return () => {
+      current = false;
+      setFaucetReady(undefined);
+    };
+    // faucetFor only depends on the network.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chain, depositAsset, walletTick]);
   const [newSigners, setNewSigners] = useState(""),
     [threshold, setThreshold] = useState(2);
   const [intent, setIntent] = useState<Intent>();
@@ -424,17 +460,6 @@ export function ContractVault({
     }
     const { txHash } = await submitContract(chain, signed);
     return { hash: txHash, sponsored: false };
-  };
-  // Testnet faucets: SoroSafe's test USDT0 and Circle's Testnet USDC.
-  const faucetFor = (asset?: { code: string; issuer: string }) => {
-    if (chain.id !== "testnet" || !asset) return undefined;
-    const entry =
-      asset.code === "USDT0"
-        ? testnetTokens.USDT0
-        : asset.code === "USDC"
-          ? testnetTokens.USDC
-          : undefined;
-    return entry && entry.issuer === asset.issuer ? entry : undefined;
   };
   const claimTestTokens = (asset: {
     code: string;
@@ -1607,19 +1632,38 @@ export function ContractVault({
                               )}
                         </p>
                       )}
-                      {modal === "deposit" && faucetFor(chosen) && (
-                        <button
-                          type="button"
-                          className="secondary faucet-button"
-                          disabled={busy}
-                          onClick={() => claimTestTokens(chosen)}
-                        >
-                          {t(
-                            `Conseguir ${faucetFor(chosen)?.perClaim} ${chosen.code} de prueba`,
-                            `Get ${faucetFor(chosen)?.perClaim} test ${chosen.code}`,
-                          )}
-                        </button>
-                      )}
+                      {modal === "deposit" &&
+                        faucetFor(chosen) &&
+                        faucetReady === false &&
+                        chosen.code === "USDC" && (
+                          <a
+                            className="text-button"
+                            href="https://faucet.circle.com"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {t(
+                              "Consigue USDC de Testnet en el faucet de Circle (red Stellar)",
+                              "Get Testnet USDC from Circle's faucet (Stellar network)",
+                            )}
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                      {modal === "deposit" &&
+                        faucetFor(chosen) &&
+                        faucetReady !== false && (
+                          <button
+                            type="button"
+                            className="secondary faucet-button"
+                            disabled={busy}
+                            onClick={() => claimTestTokens(chosen)}
+                          >
+                            {t(
+                              `Conseguir ${faucetFor(chosen)?.perClaim} ${chosen.code} de prueba`,
+                              `Get ${faucetFor(chosen)?.perClaim} test ${chosen.code}`,
+                            )}
+                          </button>
+                        )}
                       {modal === "pay" && (
                         <p className="footnote">
                           {t("Saldo: ", "Balance: ")}
