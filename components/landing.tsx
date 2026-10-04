@@ -141,6 +141,16 @@ export function LandingLayout({
       ),
     },
     {
+      title: t(
+        "¿Necesito XLM para usar SoroSafe?",
+        "Do I need XLM to use SoroSafe?",
+      ),
+      body: t(
+        "Para el día a día, no. SoroSafe paga la comisión de red de propuestas, aprobaciones y depósitos mediante fee-bump, con un límite diario por cuenta. Crear la bóveda sí la paga quien la crea, porque despliega un contrato. Si el patrocinio no está disponible, tu wallet paga la comisión, como en cualquier operación de Stellar.",
+        "Not for everyday use. SoroSafe pays the network fee for proposals, approvals, and deposits through fee-bump, within a daily limit per account. Creating a vault is paid by its creator, because it deploys a contract. If sponsorship is unavailable, your wallet pays the fee, like any Stellar operation.",
+      ),
+    },
+    {
       title: t("¿Qué puedo probar hoy?", "What can I try today?"),
       body:
         chain.id === "testnet"
@@ -455,6 +465,20 @@ export function LandingLayout({
                 {t(
                   "Destinatario, moneda, importe y comisiones, antes de confirmar. La aprobación que completa la regla también completa el pago, si hay saldo.",
                   "Recipient, currency, amount, and fees, before confirming. The approval that meets the rule also completes the payment when funds are available.",
+                )}
+              </p>
+            </article>
+            <article className="landing-feature">
+              <h3>
+                {t(
+                  "Sin gas.\nLa red corre por nuestra cuenta.",
+                  "No gas.\nThe network is on us.",
+                )}
+              </h3>
+              <p>
+                {t(
+                  "SoroSafe paga en XLM la comisión de red de pagos, aprobaciones y depósitos con una transacción fee-bump de Stellar. Tu firma no cambia y, si alguna vez no podemos cubrirla, la operación sigue igual.",
+                  "SoroSafe pays the XLM network fee for payments, approvals, and deposits with a Stellar fee-bump transaction. Your signature stays the same, and if we ever can't cover it, the operation still goes through.",
                 )}
               </p>
             </article>

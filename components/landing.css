@@ -355,7 +355,8 @@
   gap: 0 60px;
 }
 .landing-feature-main {
-  grid-row: span 2;
+  /* Spans every feature in the right-hand column. */
+  grid-row: span 3;
   background: #fafafa;
   border-radius: 20px;
   padding: 42px;
