@@ -21,6 +21,15 @@ Groups that share money (a team travelling to an event, a family, a small DAO, a
 - **Verifiable receipts.** Every confirmed operation links to the transaction and the vault contract on stellar.expert.
 - **Bilingual.** Spanish and English throughout, including errors and confirmations.
 
+## Gas on us
+
+Everyday operations are free for the people using the vault: SoroSafe wraps the transaction they signed in a **fee-bump** and pays the network fee in XLM from a sponsor account. The sponsor signs only the outer envelope, so it cannot change the call or authorize anything in a vault.
+
+- Sponsored: proposals, approvals (which also send the payment), cancellations, team changes and adding funds to a SoroSafe vault; on Testnet also the faucets.
+- Not sponsored: creating a vault (the most expensive operation) or any call outside SoroSafe's verified vaults.
+- Limits: at most 1 XLM per transaction and 20 sponsored transactions per account per day. If the sponsor runs low or the limit is reached, the same signed transaction is submitted and the signer pays as usual: the perk never blocks an operation.
+- Business model: the 0.25 % service fee on payments goes to a treasury account, which tops up the sponsor's small XLM float. The server never holds the treasury key.
+
 ## How it uses Stellar
 
 | Piece | What it does |

@@ -1,6 +1,10 @@
 import { env } from "cloudflare:workers";
+import testnetTokens from "@/lib/testnet-tokens.json";
 import {
+  contractAssets,
   createArgs,
+  describeCall,
+  submitFeeBump,
   prepareCall,
   readContract,
   submitContract,
@@ -202,6 +206,40 @@ async function reconcileTeam(v: InternalVault, c: ContractConfig) {
   v.size = signers.length;
   v.threshold = c.rules.threshold;
   v.contract = c;
+}
+// Gas sponsorship: SoroSafe pays network fees for everyday vault operations,
+// within limits that keep it affordable. Creating a vault is never sponsored.
+const SPONSOR_MAX_FEE = BigInt(10_000_000); // 1 XLM per transaction
+const SPONSOR_MIN_BALANCE = 20; // XLM kept so the sponsor account stays usable
+const SPONSOR_DAILY_LIMIT = 20; // sponsored transactions per account per day
+const VAULT_METHODS = ["propose", "approve", "revoke", "cancel", "execute"];
+async function isVault(address: unknown) {
+  if (typeof address !== "string" || !StrKey.isValidContract(address))
+    return false;
+  try {
+    await verifiedConfig(chain, address, env.JUNTO_FACTORY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function sponsorable(call: ReturnType<typeof describeCall>) {
+  // Proposals, approvals and the rest of a vault's everyday operations.
+  if (VAULT_METHODS.includes(call.method)) return isVault(call.contract);
+  // Adding funds: a catalog token moved from the signer into a vault.
+  if (
+    call.method === "transfer" &&
+    contractAssets(chain).some((a) => a.contract === call.contract)
+  )
+    return call.args[0] === call.source && isVault(call.args[1]);
+  // Testnet faucets.
+  return (
+    chain.id === "testnet" &&
+    call.method === "claim" &&
+    [testnetTokens.USDT0.faucet, testnetTokens.USDC.faucet].includes(
+      call.contract,
+    )
+  );
 }
 // The on-chain rules must be exactly the team and threshold agreed in the draft.
 function matchesTeam(
@@ -598,6 +636,47 @@ export async function POST(req: Request) {
         "Set-Cookie":
           "junto_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
       });
+    }
+    if (action === "sponsor") {
+      // Gas sponsorship is a perk, never a dependency: every "no" here makes
+      // the client submit the same signed transaction and pay the fee itself.
+      const no = (reason: string) => json({ sponsored: false, reason });
+      if (!env.SPONSOR_SECRET) return no("OFF");
+      const signed = str(b, "signed", 40000);
+      let call: ReturnType<typeof describeCall>;
+      try {
+        call = describeCall(signed, chain);
+      } catch {
+        return no("NOT_ELIGIBLE");
+      }
+      if (call.source !== me.address || call.fee > SPONSOR_MAX_FEE)
+        return no("NOT_ELIGIBLE");
+      if (!(await sponsorable(call))) return no("NOT_ELIGIBLE");
+      const key = Keypair.fromSecret(env.SPONSOR_SECRET);
+      const sponsor = await fetch(
+        `${chain.horizon}/accounts/${key.publicKey()}`,
+      )
+        .then((r) =>
+          r.ok
+            ? (r.json() as Promise<{
+                balances: { asset_type: string; balance: string }[];
+              }>)
+            : null,
+        )
+        .catch(() => null);
+      const xlm = Number(
+        sponsor?.balances.find((x) => x.asset_type === "native")?.balance ?? 0,
+      );
+      if (xlm < SPONSOR_MIN_BALANCE) return no("EMPTY");
+      const counted = await run(
+        "INSERT INTO sponsorships(address,day,count) VALUES(?,?,1) ON CONFLICT(address,day) DO UPDATE SET count=sponsorships.count+1 WHERE sponsorships.count<?",
+        me.address,
+        Math.floor(now() / 86400),
+        SPONSOR_DAILY_LIMIT,
+      );
+      if (!counted.meta.changes) return no("LIMIT");
+      const result = await submitFeeBump(chain, signed, key);
+      return json({ sponsored: true, hash: result.txHash });
     }
     if (action === "profile") {
       await run(

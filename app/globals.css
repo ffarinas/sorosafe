@@ -2309,3 +2309,10 @@ button.brand {
   width: 100%;
   justify-content: center;
 }
+
+.sponsor-note {
+  display: block;
+  color: #626262;
+  font-size: 12px;
+  font-weight: 400;
+}

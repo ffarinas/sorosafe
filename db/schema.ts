@@ -34,6 +34,16 @@ export const authLimits = sqliteTable(
   },
   (t) => [index("auth_limits_expiry").on(t.expires)],
 );
+// Gas sponsored per account and UTC day; caps what SoroSafe gives away.
+export const sponsorships = sqliteTable(
+  "sponsorships",
+  {
+    address: text("address").notNull(),
+    day: integer("day").notNull(),
+    count: integer("count").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.address, t.day] })],
+);
 export const vaults = sqliteTable("vaults", {
   custody: text("custody").notNull().default("classic"),
   network: text("network").notNull().default("testnet"),

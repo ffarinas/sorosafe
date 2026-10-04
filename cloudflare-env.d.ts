@@ -6,5 +6,7 @@ declare namespace Cloudflare {
     BUCKET?: R2Bucket;
     STELLAR_AUTH_SIGNING_SEED?: string;
     STELLAR_AUTH_ORIGIN?: string;
+    /** Hot account that pays network fees by fee-bump. Holds only XLM. */
+    SPONSOR_SECRET?: string;
   }
 }

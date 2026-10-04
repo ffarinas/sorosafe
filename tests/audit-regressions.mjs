@@ -27,6 +27,8 @@ const env = {
   STELLAR_AUTH_SIGNING_SEED: Keypair.random().secret(),
 };
 let database, config, beforeBatch, beforePrepare, batchError;
+let sponsorCall,
+  sponsorXlm = 100;
 function statement(sql) {
   return {
     bind(...args) {
@@ -72,13 +74,25 @@ globalThis.__juntoAuditTests = {
     if (config instanceof Error) throw config;
     return structuredClone(config);
   },
+  bumps: 0,
+  call() {
+    if (sponsorCall instanceof Error) throw sponsorCall;
+    return sponsorCall;
+  },
   prepare() {
     beforePrepare?.();
     return { result: contract, xdr: "prepared", fee: "0.01" };
   },
 };
 const originalFetch = globalThis.fetch;
+const sponsorKey = Keypair.random();
 globalThis.fetch = async (url) => {
+  if (String(url).endsWith(`/accounts/${sponsorKey.publicKey()}`))
+    return new Response(
+      JSON.stringify({
+        balances: [{ asset_type: "native", balance: String(sponsorXlm) }],
+      }),
+    );
   assert.match(
     String(url),
     /^https:\/\/horizon-testnet\.stellar\.org\/accounts\/G[A-Z2-7]+$/,
@@ -124,7 +138,10 @@ await build({
          export const prepareCall = async () => globalThis.__juntoAuditTests.prepare();
          export const readContract = async () => ({ protocol: globalThis.__juntoAuditTests.config().protocol });
          export const verifyCode = async () => {};
-         export const submitContract = async () => { throw Error('Unexpected submission'); };`,
+         export const submitContract = async () => { throw Error('Unexpected submission'); };
+         export const contractAssets = () => [];
+         export const describeCall = () => globalThis.__juntoAuditTests.call();
+         export const submitFeeBump = async () => { globalThis.__juntoAuditTests.bumps++; return { txHash: 'bumped' }; };`,
         }));
       },
     },
@@ -464,4 +481,66 @@ test("forwarded IP spoofing cannot change the trusted client budget", async () =
   const req = authRequest();
   req.headers.set("x-forwarded-for", "198.51.100.99");
   await assert.rejects(() => challenge(req, addresses[1]), /RATE_LIMITED/);
+});
+
+// Gas sponsorship: only everyday operations on verified vaults, within limits.
+function sponsorship(over = {}) {
+  sponsorCall = {
+    source: addresses[0],
+    fee: 50_000n,
+    contract,
+    method: "approve",
+    args: [addresses[0], 0n],
+    ...over,
+  };
+  return request("sponsor", { signed: "signed-xdr" });
+}
+test("sponsorship is off without a sponsor key", async () => {
+  reset("active");
+  delete env.SPONSOR_SECRET;
+  const r = await sponsorship();
+  assert.equal(r.data.sponsored, false);
+  assert.equal(r.data.reason, "OFF");
+});
+test("sponsors an approval on a verified vault and caps it per day", async () => {
+  reset("active");
+  env.SPONSOR_SECRET = sponsorKey.secret();
+  sponsorXlm = 100;
+  globalThis.__juntoAuditTests.bumps = 0;
+  const first = await sponsorship();
+  assert.equal(first.data.sponsored, true);
+  assert.equal(first.data.hash, "bumped");
+  for (let n = 1; n < 20; n++) await sponsorship();
+  const over = await sponsorship();
+  assert.equal(over.data.reason, "LIMIT");
+  assert.equal(globalThis.__juntoAuditTests.bumps, 20);
+});
+test("never sponsors vault creation, other sources, big fees or unverified contracts", async () => {
+  reset("active");
+  env.SPONSOR_SECRET = sponsorKey.secret();
+  sponsorXlm = 100;
+  globalThis.__juntoAuditTests.bumps = 0;
+  for (const over of [
+    { method: "create", contract: factory },
+    { source: addresses[1] },
+    { fee: 20_000_000n },
+    { method: "transfer", args: [addresses[0], contract, 1n] },
+  ])
+    assert.equal((await sponsorship(over)).data.reason, "NOT_ELIGIBLE");
+  config = Error("UNVERIFIED_CONTRACT");
+  assert.equal((await sponsorship()).data.reason, "NOT_ELIGIBLE");
+  sponsorCall = Error("INVALID_TRANSACTION");
+  assert.equal(
+    (await request("sponsor", { signed: "x" })).data.reason,
+    "NOT_ELIGIBLE",
+  );
+  assert.equal(globalThis.__juntoAuditTests.bumps, 0);
+});
+test("an empty sponsor falls back instead of failing", async () => {
+  reset("active");
+  env.SPONSOR_SECRET = sponsorKey.secret();
+  sponsorXlm = 5;
+  const r = await sponsorship();
+  assert.equal(r.status, 200);
+  assert.equal(r.data.reason, "EMPTY");
 });

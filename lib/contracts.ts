@@ -12,6 +12,7 @@ import {
   scValToNative,
   rpc,
   xdr,
+  type Keypair,
 } from "@stellar/stellar-sdk";
 import artifacts from "./contract-artifacts.json";
 import type { NetworkConfig } from "./network";
@@ -214,6 +215,63 @@ export function assertCall(
     throw new Error("CONTRACT_FEE_LIMIT", {
       cause: { fee: tx.fee, timeBounds: tx.timeBounds, now: Date.now() / 1000 },
     });
+}
+/** What a signed single-call transaction invokes, without trusting the client. */
+export function describeCall(encoded: string, chain: NetworkConfig) {
+  const tx = TransactionBuilder.fromXDR(encoded, chain.passphrase);
+  if (
+    !(tx instanceof Transaction) ||
+    tx.operations.length !== 1 ||
+    tx.memo.type !== "none"
+  )
+    throw new Error("INVALID_TRANSACTION");
+  const op = tx.operations[0];
+  if (
+    op.type !== "invokeHostFunction" ||
+    op.source ||
+    op.func.type !== "hostFunctionTypeInvokeContract"
+  )
+    throw new Error("INVALID_TRANSACTION");
+  const call = op.func.invokeContract;
+  return {
+    source: tx.source,
+    fee: BigInt(tx.fee),
+    contract: Address.fromScAddress(call.contractAddress).toString(),
+    method: call.functionName.toString(),
+    args: call.args.map((a) => scValToNative(a) as unknown),
+  };
+}
+/**
+ * Pays the network fee of a user-signed transaction with a fee-bump from the
+ * sponsor account. The sponsor signs only the outer envelope: it cannot change
+ * the inner call or authorize anything in a vault.
+ */
+export async function submitFeeBump(
+  chain: NetworkConfig,
+  encoded: string,
+  sponsor: Keypair,
+) {
+  const inner = TransactionBuilder.fromXDR(encoded, chain.passphrase);
+  if (!(inner instanceof Transaction)) throw new Error("INVALID_TRANSACTION");
+  const bump = TransactionBuilder.buildFeeBumpTransaction(
+    sponsor,
+    (BigInt(inner.fee) + BigInt(100)).toString(),
+    inner,
+    chain.passphrase,
+  );
+  bump.sign(sponsor);
+  const s = await server(chain);
+  const sent = await s.sendTransaction(bump);
+  if (sent.status === "ERROR") throw new Error("CONTRACT_REJECTED");
+  for (let n = 0; n < 15; n++) {
+    const result = await s.getTransaction(sent.hash);
+    if (result.status === rpc.Api.GetTransactionStatus.SUCCESS)
+      return { txHash: sent.hash };
+    if (result.status === rpc.Api.GetTransactionStatus.FAILED)
+      throw new Error("CONTRACT_REJECTED");
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  throw new Error("SUBMISSION_UNCERTAIN");
 }
 /** A classic changeTrust so a wallet can hold a token (e.g. before a faucet). */
 export async function trustlineXdr(

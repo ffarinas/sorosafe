@@ -397,6 +397,33 @@ export function ContractVault({
             String(p.action[1].threshold),
           ],
         ];
+  // Signed in through the app, SoroSafe may pay the network fee (fee-bump).
+  // When it does not (limit, empty sponsor, standalone /contract view), the
+  // same signed transaction is submitted and the signer pays as usual.
+  const send = async (signed: string) => {
+    if (metadataId) {
+      const r = await fetch("/api/junto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sponsor", signed }),
+      });
+      const d = (await r.json()) as {
+        sponsored?: boolean;
+        hash?: string;
+        error?: string;
+      };
+      if (r.ok && d.sponsored && d.hash)
+        return { hash: d.hash, sponsored: true };
+      // The sponsor tried and Stellar rejected it: do not submit it twice.
+      if (
+        !r.ok &&
+        !["SIGN_IN_REQUIRED", "EXPIRED_LOGIN"].includes(d.error ?? "")
+      )
+        throw new Error(d.error || "UNAVAILABLE");
+    }
+    const { txHash } = await submitContract(chain, signed);
+    return { hash: txHash, sponsored: false };
+  };
   // Testnet faucets: SoroSafe's test USDT0 and Circle's Testnet USDC.
   const faucetFor = (asset?: { code: string; issuer: string }) => {
     if (chain.id !== "testnet" || !asset) return undefined;
@@ -454,7 +481,7 @@ export function ContractVault({
       const quote = await prepareCall(chain, signer, faucet.faucet, "claim", [
         val.address(signer),
       ]);
-      await submitContract(chain, await signXdr(quote.xdr, signer, chain));
+      await send(await signXdr(quote.xdr, signer, chain));
       setWalletTick((n) => n + 1);
       toast.success(
         t(
@@ -1142,7 +1169,17 @@ export function ContractVault({
                   </div>
                 ))}
                 <dt>{t("Coste máximo de red", "Maximum network fee")}</dt>
-                <dd>{intent.fee} XLM</dd>
+                <dd>
+                  {intent.fee} XLM
+                  {metadataId && (
+                    <small className="sponsor-note">
+                      {t(
+                        "SoroSafe lo cubre cuando puede",
+                        "SoroSafe covers it when it can",
+                      )}
+                    </small>
+                  )}
+                </dd>
                 <dt>{t("Tu wallet", "Your wallet")}</dt>
                 <dd className="full-address">{signer}</dd>
                 <dt>{t("Red", "Network")}</dt>
@@ -1170,20 +1207,22 @@ export function ContractVault({
                         )
                     )
                       throw new Error("CHANGED_TRANSACTION");
-                    const { txHash: hash } = await submitContract(
-                      chain,
-                      signed,
-                    );
+                    const { hash, sponsored } = await send(signed);
                     const syncTeam = intent.sync;
                     setIntent(undefined);
                     setModal("");
                     await load();
                     if (syncTeam) await onMetadataChange?.();
                     toast.success(
-                      t(
-                        "Operación confirmada en Stellar.",
-                        "Operation confirmed on Stellar.",
-                      ),
+                      sponsored
+                        ? t(
+                            "Operación confirmada en Stellar. SoroSafe cubrió el coste de red.",
+                            "Operation confirmed on Stellar. SoroSafe covered the network fee.",
+                          )
+                        : t(
+                            "Operación confirmada en Stellar.",
+                            "Operation confirmed on Stellar.",
+                          ),
                       {
                         duration: 10000,
                         action: {
