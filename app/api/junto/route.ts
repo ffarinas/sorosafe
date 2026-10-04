@@ -461,7 +461,11 @@ export async function GET(req: Request) {
         id = candidate;
         break;
       } catch (e) {
-        state.vaultError ??= errorCode(e);
+        const code = errorCode(e);
+        // Vaults from an earlier SoroSafe version can never be opened again;
+        // skip them quietly unless the person asked for that vault.
+        if (requested || code !== "UNVERIFIED_CONTRACT")
+          state.vaultError ??= code;
       }
     }
     state.vaults = await all<Vault>(

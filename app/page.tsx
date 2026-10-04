@@ -234,6 +234,22 @@ export default function Home() {
     }
   }, []);
   useEffect(() => {
+    let switching = false;
+    try {
+      switching = sessionStorage.getItem("sorosafe-switch-account") === "1";
+      sessionStorage.removeItem("sorosafe-switch-account");
+    } catch {
+      /* No hint without storage. */
+    }
+    if (switching)
+      toast.info(
+        localStorage.getItem("junto-language") === "en"
+          ? "Signed out. Choose the other account in Freighter, then press Sign in."
+          : "Sesión cerrada. Elige la otra cuenta en Freighter y pulsa Entrar.",
+        { duration: 10000 },
+      );
+  }, []);
+  useEffect(() => {
     const saved = localStorage.getItem("junto-language");
     const params = new URLSearchParams(location.search);
     const id = params.get("vault") || "";
@@ -652,16 +668,21 @@ export default function Home() {
         className="secondary wide"
         disabled={busy}
         onClick={() =>
-          void (async () => {
-            // Another person on this computer, or a second signer:
-            // sign out and sign straight back in with Freighter.
-            await work(async () => {
-              await api("logout");
-              disconnectWallet();
-              setModal("");
-            });
-            signIn();
-          })()
+          void work(async () => {
+            // Another person on this computer, or a second signer: sign out
+            // and start from a clean page. Swapping accounts in place left
+            // the open vault with stale state and could crash the view.
+            await api("logout");
+            disconnectWallet();
+            try {
+              sessionStorage.setItem("sorosafe-switch-account", "1");
+            } catch {
+              /* The landing page still offers "Sign in". */
+            }
+            // A full reload on purpose: no client state may survive the swap.
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+            location.assign("/");
+          })
         }
       >
         <Wallet size={17} />
