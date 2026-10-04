@@ -26,7 +26,7 @@ Narración en inglés (jueces internacionales). Las indicaciones de pantalla van
 
 **Pantalla:** "Add funds" con 100 XLM, firmar. Luego "Send" a la dirección de un contacto con 10 XLM: mostrar la revisión (destinatario, importe, comisión, total), firmar y abrir "View receipt" en stellar.expert.
 
-> "I add funds with a normal token transfer. Now I send a payment. Before my wallet signs anything, SoroSafe shows exactly what will happen — recipient, amount, fee, total — and checks the transaction byte by byte. Since I'm alone, it executes in that same transaction. Here's the receipt on-chain."
+> "I add funds with a normal token transfer. Now I send a payment. Before my wallet signs anything, SoroSafe shows exactly what will happen — recipient, amount, fee, total — and checks the transaction byte by byte. Since I'm alone, it executes in that same transaction — and SoroSafe paid the network fee for me with a Stellar fee-bump, so I didn't spend any XLM. Here's the receipt on-chain."
 
 ## 1:10 – 1:40 · Sumar al equipo
 
