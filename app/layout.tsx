@@ -15,16 +15,26 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/brand/shared-control.webp",
-        width: 1448,
-        height: 1086,
-        alt: "SoroSafe: multisig vaults on Stellar",
+        url: "/brand/sorosafe-og.png",
+        width: 1200,
+        height: 630,
+        alt: "SoroSafe: shared control, simple by design",
       },
     ],
   },
+  twitter: { card: "summary_large_image", images: ["/brand/sorosafe-og.png"] },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "48x48" },
+      {
+        url: "/brand/sorosafe-icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
 };
 

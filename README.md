@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/brand/sorosafe-logo-white.svg">
+    <img src="public/brand/sorosafe-logo.svg" alt="SoroSafe" width="360">
+  </picture>
+</p>
+
 # SoroSafe
 
 English · [Español](README.es.md)

@@ -837,7 +837,7 @@
     gap: 10px;
   }
   .is-landing .brand-wordmark {
-    width: 126px;
+    --brand-wordmark-width: 126px;
   }
   .landing-cta-row {
     gap: 16px;

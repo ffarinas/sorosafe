@@ -868,7 +868,7 @@ export default function Home() {
           }}
           aria-label="SoroSafe"
         >
-          <BrandWordmark decorative />
+          <BrandWordmark mark decorative />
         </button>
         {publicLanding && (
           <nav

@@ -549,7 +549,7 @@ export function ContractVault({
             onBack();
           }}
         >
-          <BrandWordmark />
+          <BrandWordmark mark />
         </Link>
         <div className="header-right">
           <span

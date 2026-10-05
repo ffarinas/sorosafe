@@ -645,7 +645,7 @@ export function LandingFooter({ es }: { es: boolean }) {
               ? "Proyecto independiente del ecosistema Stellar."
               : "An independent project in the Stellar ecosystem."}
           </span>
-          <a href="/brand/sorosafe-wordmark.svg" download>
+          <a href="/brand/sorosafe-logo.svg" download>
             {es ? "Descargar logo" : "Download logo"}
             <ArrowUpRight size={14} aria-hidden="true" />
           </a>
