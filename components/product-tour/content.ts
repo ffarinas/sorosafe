@@ -18,8 +18,8 @@ export function introSteps(
       ),
       body: joining
         ? t(
-            "Te han invitado a una bóveda que ya existe. Al unirte, compartirás sus fondos, contactos y operaciones con el equipo.",
-            "You've been invited to an existing vault. Once you join, you'll share its funds, contacts and operations with the team.",
+            "Te han invitado a una bóveda que ya existe. Al unirte, compartirás sus fondos, contactos y solicitudes de pago con el equipo.",
+            "You've been invited to an existing vault. Once you join, you'll share its funds, contacts and payment requests with the team.",
           )
         : t(
             "Una bóveda reúne los fondos del grupo en una misma dirección de Stellar. Cada persona conserva su propia wallet para firmar.",
@@ -64,8 +64,8 @@ export function introSteps(
       placement: "bottom",
       title: t("Tu wallet es tu firma", "Your wallet is your signature"),
       body: t(
-        "Con Freighter puedes entrar y firmar las operaciones. La firma de acceso identifica tu cuenta; los movimientos de dinero se revisan y se firman por separado.",
-        "Use Freighter to sign in and sign operations. Signing in identifies your account; money movements are reviewed and signed separately.",
+        "Freighter es una extensión gratuita del navegador que guarda tu clave, como el token de seguridad de tu banco. Entrar solo identifica tu cuenta; cada pago lo revisas y lo apruebas por separado.",
+        "Freighter is a free browser extension that keeps your key, like a bank security token. Signing in only identifies your account; you review and approve each payment separately.",
       ),
       note: t(
         "SoroSafe nunca te pide tu frase de recuperación.",
@@ -82,8 +82,8 @@ export function introSteps(
         : t("Ten presente la red", "Keep the network in mind"),
       body: testnet
         ? t(
-            "Estás en Stellar Testnet: sus fondos no tienen valor real. Selecciona Testnet en Freighter. Si tu cuenta es nueva, SoroSafe puede conseguir XLM de prueba para empezar.",
-            "You're on Stellar Testnet: its funds have no real value. Select Testnet in Freighter. If your account is new, SoroSafe can get test XLM to help you start.",
+            "Estás en Stellar Testnet: sus fondos no tienen valor real. En Freighter, toca el nombre de la red y elige Test Net. Si tu cuenta es nueva, SoroSafe consigue XLM de prueba para empezar.",
+            "You're on Stellar Testnet: its funds have no real value. In Freighter, tap the network name and choose Test Net. If your account is new, SoroSafe gets test XLM to help you start.",
           )
         : t(
             "Estás en Stellar Mainnet, donde los fondos tienen valor real. Antes de firmar, comprueba la red, la moneda, la dirección y el importe.",
@@ -140,12 +140,12 @@ export function vaultSteps({
       section: "funds",
       title: t("Esta es la bóveda del equipo", "This is your team's vault"),
       body: t(
-        "Su nombre y su dirección identifican los mismos fondos para todos. El dinero está en este contrato de Stellar, separado de las wallets personales.",
-        "Its name and address identify the same funds for everyone. The money lives in this Stellar contract, separate from personal wallets.",
+        "Su nombre y su dirección identifican los mismos fondos para todos. El dinero está en Stellar, separado de las wallets personales.",
+        "Its name and address identify the same funds for everyone. The money lives on Stellar, separate from personal wallets.",
       ),
       note: t(
-        "Puedes consultar el contrato en Stellar desde este enlace.",
-        "Use this link to view the contract on Stellar.",
+        "Ver en Stellar abre el registro público de la bóveda.",
+        "View on Stellar opens the vault's public record.",
       ),
     },
     {
@@ -156,8 +156,8 @@ export function vaultSteps({
       section: "funds",
       title: t("Una regla que todos pueden ver", "A rule everyone can see"),
       body: t(
-        `Esta bóveda necesita ${threshold} ${singleApproval ? "aprobación" : "aprobaciones"} de sus ${signers} ${signers === 1 ? "firmante" : "firmantes"} para cada operación. ${singleApproval ? "Una sola persona puede autorizarla con la regla actual." : "Una sola firma no basta para mover los fondos."}`,
-        `This vault needs ${threshold} ${singleApproval ? "approval" : "approvals"} from its ${signers} ${signers === 1 ? "signer" : "signers"} for each operation. ${singleApproval ? "One person can authorize it under the current rule." : "One signature alone cannot move the funds."}`,
+        `Esta bóveda necesita ${threshold} de ${signers} aprobaciones para cada pago. ${singleApproval ? "Una sola persona puede autorizarlo con la regla actual." : "Una sola persona no basta para mover los fondos."}`,
+        `This vault needs ${threshold} of ${signers} approvals for each payment. ${singleApproval ? "One person can authorize it under the current rule." : "One person alone cannot move the funds."}`,
       ),
       note: t(
         "La regla se aplica en Stellar, también fuera de esta página.",
@@ -179,8 +179,8 @@ export function vaultSteps({
         `These are the currencies this vault supports: ${currencies.join(", ")}. Add funds moves your selected currency from your wallet into the vault.`,
       ),
       note: t(
-        "Para depósitos externos, el origen debe admitir direcciones de contrato de Stellar (C…).",
-        "For external deposits, the sender must support Stellar contract addresses (C…).",
+        "Para recibir de un cliente o un exchange, pide que lo envíen a tu propia wallet y después usa Añadir fondos.",
+        "To receive from a client or exchange, have it sent to your own wallet, then use Add funds.",
       ),
     },
     {
@@ -194,8 +194,8 @@ export function vaultSteps({
         "Know exactly what you're sending",
       ),
       body: t(
-        "Enviar conserva la moneda de esta fila. Elige un contacto o pega una dirección, indica el importe y revisa el destinatario, las comisiones y el total antes de firmar.",
-        "Send keeps the currency from this row. Choose a contact or paste an address, enter the amount, and review the recipient, fees and total before signing.",
+        "Elige un contacto o pega una dirección de wallet, indica el importe y revisa el destinatario, la comisión y el total antes de confirmar en tu wallet.",
+        "Choose a contact or paste a wallet address, enter the amount, and review the recipient, fee and total before confirming in your wallet.",
       ),
       note: singleApproval
         ? t(
@@ -203,8 +203,8 @@ export function vaultSteps({
             "With one approval required, your signature sends the payment when you propose it.",
           )
         : t(
-            "Al proponer el pago, tu firma ya cuenta como la primera aprobación.",
-            "When you propose a payment, your signature already counts as its first approval.",
+            "Al solicitar el pago, tu solicitud ya cuenta como la primera aprobación.",
+            "When you request a payment, your request already counts as its first approval.",
           ),
     },
     {
@@ -214,23 +214,20 @@ export function vaultSteps({
       placement: "bottom",
       section: "activity",
       title: singleApproval
-        ? t(
-            "Cada operación deja un registro",
-            "Every operation leaves a record",
-          )
-        : t("Aprobar y después ejecutar", "Approve, then execute"),
+        ? t("Cada pago deja un registro", "Every payment leaves a record")
+        : t("Aprobar en equipo", "Approve together"),
       body: singleApproval
         ? t(
-            "Aquí puedes ver los pagos y los cambios de equipo, con su estado y sus aprobaciones. Tras confirmar una operación, Ver recibo abre su comprobante en Stellar.",
-            "See payments and team changes here, along with their status and approvals. After an operation is confirmed, View receipt opens its record on Stellar.",
+            "Aquí puedes ver los pagos y los cambios de equipo, con su estado y sus aprobaciones. Tras confirmar un pago, Ver recibo abre su comprobante en Stellar.",
+            "See payments and team changes here, along with their status and approvals. After a payment is confirmed, View receipt opens its record on Stellar.",
           )
         : t(
-            "Revisa cada solicitud antes de aprobarla. Al alcanzar la regla aparece Ejecutar: ese paso completa el pago. Mientras siga pendiente, puedes retirar tu aprobación; quien la creó puede cancelarla.",
-            "Review each request before approving it. Once the rule is met, Execute becomes available: that step completes the payment. While it's pending, you can revoke your approval; its creator can cancel it.",
+            "Aprobar en equipo: la última aprobación necesaria envía el pago. Hasta entonces puedes retirar tu aprobación, y quien lo pidió puede cancelarlo.",
+            "Approve together: the last approval needed sends the payment. Until then you can withdraw your approval, and whoever requested it can cancel it.",
           ),
       note: t(
-        "Una operación pendiente todavía no es un pago realizado.",
-        "A pending operation is not yet a completed payment.",
+        "Una solicitud pendiente todavía no es un pago realizado.",
+        "A pending request is not yet a completed payment.",
       ),
     },
     {
@@ -262,8 +259,8 @@ export function vaultSteps({
       section: "team",
       title: t("El equipo puede crecer", "Your team can grow"),
       body: t(
-        "Desde aquí puedes proponer añadir o quitar firmantes y cambiar las aprobaciones necesarias. El cambio necesita la regla actual y conserva la dirección de la bóveda.",
-        "Propose adding or removing signers and changing the required approvals here. The change must meet the current rule and keeps the vault's address.",
+        "Desde aquí puedes añadir o quitar personas y cambiar las aprobaciones necesarias. Cambiar el equipo necesita las mismas aprobaciones y la bóveda conserva su dirección.",
+        "Add or remove people and change the approvals needed here. Changing the team needs the same approvals, and the vault keeps its address.",
       ),
       note: t(
         "Al cambiar la regla, las solicitudes anteriores pendientes dejan de ser válidas.",
@@ -278,12 +275,12 @@ export function vaultSteps({
       section: "team",
       title: t("Los costes, a la vista", "See the costs clearly"),
       body: t(
-        `La comisión de servicio de esta bóveda es ${fee} % por pago, en la misma moneda que envías. Cada transacción también tiene un coste de red en XLM que paga la wallet que firma.`,
-        `This vault's service fee is ${fee}% per payment, in the currency you send. Each transaction also has an XLM network fee paid by the signing wallet.`,
+        `La comisión de servicio de esta bóveda es ${fee} % por pago, en la misma moneda que envías. SoroSafe cubre el coste de red cuando puede; si no, tu wallet paga unos céntimos.`,
+        `This vault's service fee is ${fee}% per payment, in the currency you send. SoroSafe covers network fees when it can; otherwise your wallet pays a few cents.`,
       ),
       note: t(
-        "Revisa el importe y el coste de red antes de confirmar en tu wallet.",
-        "Review the amount and network fee before confirming in your wallet.",
+        "Revisa el importe y la comisión antes de confirmar en tu wallet.",
+        "Review the amount and fee before confirming in your wallet.",
       ),
     },
     {

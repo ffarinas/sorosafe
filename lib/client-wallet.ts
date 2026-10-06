@@ -72,12 +72,21 @@ export async function signXdr(
     throw new Error(
       chain.id === "mainnet" ? "MAINNET_REQUIRED" : "TESTNET_REQUIRED",
     );
+  // Another account selected in Freighter would only fail later as a
+  // "cancelled" signature. Say which account to switch to instead.
+  const wrongAccount = () =>
+    new Error("WRONG_ACCOUNT", {
+      cause: { address: `${address.slice(0, 4)}…${address.slice(-3)}` },
+    });
+  const current = await f.getAddress().catch(() => undefined);
+  if (current?.address && current.address !== address) throw wrongAccount();
   const r = await f.signTransaction(xdr, {
     address,
     networkPassphrase: chain.passphrase,
   });
-  if (r.error || !r.signedTxXdr || r.signerAddress !== address)
-    throw new Error("WALLET_CANCELLED");
+  if (!r.error && r.signedTxXdr && r.signerAddress !== address)
+    throw wrongAccount();
+  if (r.error || !r.signedTxXdr) throw new Error("WALLET_CANCELLED");
   return r.signedTxXdr;
 }
 export async function loginWithWallet(

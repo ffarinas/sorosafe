@@ -1,0 +1,181 @@
+/* Vault UX additions. Uses the tokens defined in app/globals.css. */
+.vault-address-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+}
+.vault-heading-side {
+  display: grid;
+  gap: 12px;
+  justify-items: stretch;
+  flex-shrink: 0;
+}
+.vault-heading-actions {
+  display: flex;
+  gap: 10px;
+}
+.vault-heading-actions > button {
+  flex: 1;
+  justify-content: center;
+  white-space: nowrap;
+}
+.nav-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: var(--white);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: 1px;
+}
+.row-actions {
+  gap: 4px 18px;
+  justify-content: flex-end;
+}
+.row-actions .text-button {
+  color: var(--graphite);
+}
+.row-actions .text-button:not(:disabled):hover {
+  color: var(--ink);
+}
+.row-actions .text-button:disabled {
+  opacity: 0.4;
+}
+.solo-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 22px;
+  margin-bottom: 28px;
+  border-radius: var(--r-panel);
+  background: var(--paper);
+}
+.solo-card > svg {
+  flex-shrink: 0;
+  color: var(--graphite);
+}
+.solo-card > div {
+  flex: 1;
+  min-width: 0;
+}
+.solo-card p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--graphite);
+}
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.empty-state > svg {
+  margin: 0 0 6px;
+}
+.empty-state p {
+  margin: 0 auto 16px;
+}
+.waiting-line strong {
+  font-weight: 600;
+}
+.tech-details {
+  margin-top: 18px;
+}
+.tech-details summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--graphite);
+  padding: 8px 0;
+}
+.tech-details .details {
+  margin-top: 8px;
+}
+.address-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--graphite);
+}
+.help-box {
+  padding: 14px 16px;
+  border-radius: var(--r-control);
+  background: var(--paper);
+  font-size: 13px;
+  color: var(--graphite);
+}
+.help-box p {
+  margin: 0;
+}
+.help-box .text-button {
+  min-height: 36px;
+  padding: 6px 0 0;
+}
+.inline-warning {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--r-control);
+  background: #fff4e5;
+  color: #7a3e00;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.recipient-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  min-width: 0;
+}
+.recipient-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recipient-chip code {
+  font-size: 12px;
+  color: var(--graphite);
+}
+.recipient-chip .text-button {
+  min-height: 32px;
+  padding: 0;
+  flex-shrink: 0;
+}
+.amount-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.amount-row input {
+  flex: 1;
+  min-width: 0;
+}
+.amount-row .text-button {
+  flex-shrink: 0;
+}
+@media (max-width: 760px) {
+  .vault-heading-side {
+    width: 100%;
+  }
+  .row-actions {
+    justify-content: flex-start;
+  }
+  .solo-card {
+    flex-wrap: wrap;
+  }
+}

@@ -7,14 +7,18 @@ import {
   ArrowUpRight,
   Check,
   Copy,
+  BookUser,
   ExternalLink,
   Globe2,
+  Inbox,
   Loader2,
   RefreshCw,
   ShieldCheck,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
+import "./vault-ux.css";
 import { toast, Toaster } from "sonner";
 import { StrKey, TransactionBuilder, type xdr } from "@stellar/stellar-sdk";
 import { AssetMark } from "./vault-assets";
@@ -50,7 +54,7 @@ import {
 import { decimal as exact, normalizeAmount, units } from "@/lib/assets";
 // Readable amounts: 90.475 rather than 90.4750000. Parsing stays exact.
 const decimal = (value: bigint) => exact(value).replace(/\.?0+$/, "");
-import { errors } from "@/lib/messages";
+import { errorWith } from "@/lib/messages";
 import { SHORT, type Contact, type Person } from "@/lib/domain";
 import type { NetworkConfig } from "@/lib/network";
 type Intent = {
@@ -58,8 +62,19 @@ type Intent = {
   fee: string;
   title: string;
   details: [string, string][];
+  /** Shown collapsed under "Technical details". */
+  technical?: [string, string][];
   sync?: boolean;
+  /** What to say once Stellar confirms it. */
+  outcome?: Outcome;
 };
+type Outcome =
+  | { kind: "propose" | "approve" | "execute"; id: bigint }
+  | { kind: "revoke" | "cancel" }
+  | { kind: "deposit"; amount: string; code: string };
+// Middle-truncated, for addresses that are not the main thing on screen.
+const shortAddress = (s: string) =>
+  s.length > 12 ? `${s.slice(0, 4)}…${s.slice(-3)}` : s;
 export function ContractVault({
   address,
   chain,
@@ -99,13 +114,18 @@ export function ContractVault({
   useEffect(() => {
     // Standalone /contract: follow the language saved by the main app.
     if (esProp !== undefined) return;
+    let saved: string | null = null;
     try {
-      const saved = localStorage.getItem("junto-language");
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (saved) setLocalEs(saved === "es");
+      saved = localStorage.getItem("junto-language");
     } catch {
-      /* Storage can be blocked; Spanish stays the default. */
+      /* Storage can be blocked; the browser language decides. */
     }
+    // No saved choice: follow the browser (Spanish or English). Decided after
+    // hydration so the server and the first client render agree.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLocalEs(
+      saved ? saved === "es" : /^es\b/i.test(navigator.language || ""),
+    );
   }, [esProp]);
   const toggleLanguage = () => {
     if (onLanguage) return onLanguage();
@@ -233,8 +253,23 @@ export function ContractVault({
   const signerList = newSigners.split(/\s+/).filter(Boolean);
   const setSignerList = (list: string[]) => {
     setNewSigners(list.join("\n"));
-    setThreshold((n) => Math.min(Math.max(n, 1), Math.max(list.length, 1)));
+    // Going from just you to a team: suggest a majority (2 of 2, 2 of 3…).
+    if (signerList.length <= 1 && list.length > 1)
+      setThreshold(Math.floor(list.length / 2) + 1);
+    else
+      setThreshold((n) => Math.min(Math.max(n, 1), Math.max(list.length, 1)));
   };
+  // Where a colleague signs in to find their address.
+  const [appHost, setAppHost] = useState("testnet.sorosafe.app");
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAppHost(window.location.host);
+  }, []);
+  const invitation = () =>
+    t(
+      `Hola: quiero añadirte a nuestra bóveda «${config?.name || "SoroSafe"}» en SoroSafe para aprobar pagos juntos. Abre ${window.location.origin}, entra con tu wallet, abre el menú de tu cuenta → Copiar dirección y envíamela.`,
+      `Hi! I'd like to add you to our SoroSafe vault "${config?.name || "SoroSafe"}" so we can approve payments together. Open ${window.location.origin}, sign in with your wallet, open your account menu → Copy address, and send it to me.`,
+    );
   const addSigner = (address: string) => {
     const value = address.trim();
     if (!StrKey.isValidEd25519PublicKey(value)) {
@@ -255,10 +290,10 @@ export function ContractVault({
   const funded = fundedAssets[0];
   const member = !!config?.rules.signers.includes(signer);
   const errorText = (e: unknown) =>
-    errors[e instanceof Error ? e.message : ""]?.[es ? 0 : 1] ||
+    errorWith(e, es) ||
     t(
-      "No pudimos completar la operación. Actualiza y vuelve a intentarlo.",
-      "We could not complete the operation. Refresh and try again.",
+      "No pudimos completarlo. Actualiza y vuelve a intentarlo.",
+      "We couldn't complete this. Refresh and try again.",
     );
   // The contract rejects a proposal unless expected_id is the current next_id.
   // State polls every 20 s, so read it again right before preparing.
@@ -288,9 +323,14 @@ export function ContractVault({
             async (a) =>
               [
                 a.contract,
-                await readContract<bigint>(chain, a.contract, "balance", [
+                // Accrued service fees stay in the vault until claimed and
+                // can't be spent, so show only what payments can use.
+                (await readContract<bigint>(chain, a.contract, "balance", [
                   val.address(address),
-                ]),
+                ])) -
+                  (await readContract<bigint>(chain, address, "fees_owed", [
+                    val.address(a.contract),
+                  ])),
               ] as const,
           ),
         ),
@@ -347,12 +387,20 @@ export function ContractVault({
     title: string,
     details: [string, string][],
     sync = false,
+    extra: Pick<Intent, "technical" | "outcome"> = {},
   ) => {
     if (!signer) throw new Error("SIGN_IN_REQUIRED");
     // A second Testnet wallet may be brand new: give it test XLM for fees.
     await ensureTestFunds(signer, chain);
     const quote = await prepareCall(chain, signer, target, method, args);
-    setIntent({ xdr: quote.xdr, fee: quote.fee, title, details, sync });
+    setIntent({
+      xdr: quote.xdr,
+      fee: quote.fee,
+      title,
+      details,
+      sync,
+      ...extra,
+    });
   };
   const contactAddresses = book.map((c) => c.address).join(",");
   useEffect(() => {
@@ -421,42 +469,140 @@ export function ContractVault({
             t("Importe", "Amount"),
             `${decimal(p.action[3])} ${assets.find((a) => a.contract === p.action[1])?.code || SHORT(p.action[1])}`,
           ],
-          [t("Comisión del servicio", "Service fee"), decimal(p.fee)],
-          [t("Contrato del activo", "Asset contract"), p.action[1]],
+          [t("Comisión de servicio", "Service fee"), decimal(p.fee)],
         ]
       : [
           [
-            t("Firmantes nuevos", "New signers"),
+            t("Personas que aprueban", "People who approve"),
             p.action[1].signers.map(label).join("\n"),
           ],
           [
-            t("Aprobaciones necesarias", "Required approvals"),
-            String(p.action[1].threshold),
+            t("Regla de aprobación", "Approval rule"),
+            t(
+              `${p.action[1].threshold} de ${p.action[1].signers.length} aprobaciones`,
+              `${p.action[1].threshold} of ${p.action[1].signers.length} approvals`,
+            ),
           ],
         ];
-  // Signed in through the app, SoroSafe may pay the network fee (fee-bump).
-  // When it does not (limit, empty sponsor, standalone /contract view), the
-  // same signed transaction is submitted and the signer pays as usual.
+  const technicalFor = (p: ContractProposal): [string, string][] =>
+    p.action[0] === "Pay"
+      ? [
+          [t("Contrato de la moneda", "Currency contract"), p.action[1]],
+          [t("Destinatario", "Recipient"), p.action[2]],
+        ]
+      : [];
+  // Who still has to approve a pending request, by name.
+  const waitingFor = (p: ContractProposal) =>
+    (config?.rules.signers ?? [])
+      .filter((s) => !p.approvals.includes(s))
+      .map(person)
+      .join(", ");
+  const expiresIn = (p: ContractProposal) => {
+    // Measured from the last refresh (every 20 s), not the render clock.
+    const seconds = Number(p.expires) - observedAt;
+    if (seconds <= 0) return "";
+    const hours = Math.floor(seconds / 3600);
+    return hours >= 1
+      ? t(`Caduca en ${hours} h`, `Expires in ${hours} h`)
+      : t(
+          `Caduca en ${Math.max(1, Math.floor(seconds / 60))} min`,
+          `Expires in ${Math.max(1, Math.floor(seconds / 60))} min`,
+        );
+  };
+  const amountText = (p: ContractProposal) =>
+    p.action[0] === "Pay"
+      ? `${decimal(p.action[3])} ${assets.find((a) => a.contract === p.action[1])?.code || SHORT(p.action[1])}`
+      : "";
+  // One sentence that says what just happened and what comes next.
+  // `pending` means the request still waits for other people.
+  const outcomeText = async (
+    outcome?: Outcome,
+  ): Promise<{ text: string; pending?: boolean }> => {
+    if (!outcome)
+      return { text: t("Confirmado en Stellar.", "Confirmed on Stellar.") };
+    if (outcome.kind === "deposit")
+      return {
+        text: t(
+          `Añadiste ${outcome.amount} ${outcome.code} a la bóveda.`,
+          `Added ${outcome.amount} ${outcome.code} to the vault.`,
+        ),
+      };
+    if (outcome.kind === "revoke")
+      return {
+        text: t("Retiraste tu aprobación.", "Your approval was withdrawn."),
+        pending: true,
+      };
+    if (!("id" in outcome))
+      return { text: t("Solicitud cancelada.", "Request cancelled.") };
+    const p = await readContract<ContractProposal>(chain, address, "proposal", [
+      val.u64(outcome.id),
+    ]);
+    if (p.status === 1)
+      return {
+        text:
+          p.action[0] === "Pay"
+            ? t(
+                `Pago enviado: ${amountText(p)} a ${label(p.action[2])}.`,
+                `Paid ${amountText(p)} to ${label(p.action[2])}.`,
+              )
+            : t(
+                `Equipo actualizado: ${p.action[1].threshold} de ${p.action[1].signers.length} aprobaciones.`,
+                `Team updated: ${p.action[1].threshold} of ${p.action[1].signers.length} approvals.`,
+              ),
+      };
+    const needed = config?.rules.threshold ?? 0;
+    const missing = needed - p.approvals.length;
+    if (outcome.kind === "propose")
+      return {
+        pending: true,
+        text:
+          p.action[0] === "Pay"
+            ? t(
+                `Pago solicitado: ${p.approvals.length} de ${needed} aprobaciones. Esperando a ${waitingFor(p)}.`,
+                `Payment requested: ${p.approvals.length} of ${needed} approvals. Waiting for ${waitingFor(p)}.`,
+              )
+            : t(
+                `Cambio de equipo solicitado: ${p.approvals.length} de ${needed} aprobaciones. Esperando a ${waitingFor(p)}.`,
+                `Team change requested: ${p.approvals.length} of ${needed} approvals. Waiting for ${waitingFor(p)}.`,
+              ),
+      };
+    return {
+      pending: true,
+      text:
+        missing <= 0
+          ? t(
+              "Tu aprobación quedó registrada. Ya están todas: añade fondos y completa el pago.",
+              "Your approval is recorded. All approvals are in: add funds and complete the payment.",
+            )
+          : t(
+              `Tu aprobación quedó registrada. ${missing === 1 ? "Falta 1 más" : `Faltan ${missing} más`}.`,
+              `Your approval is recorded. ${missing} more needed.`,
+            ),
+    };
+  };
+  // Signed in through the app, SoroSafe pays the network fee (fee-bump)
+  // when it can. Sponsorship never blocks anything: unless the sponsor
+  // answers 200 { sponsored: true, hash }, for any reason (offline, signed
+  // out, OFF, NOT_ELIGIBLE, LIMIT, FAILED…), the same signed transaction is
+  // submitted normally and the wallet pays a few cents. Only an error from
+  // that final submission reaches the person. After a sponsor FAILED or
+  // UNCERTAIN, it may fail with a sequence error: shown as a normal error.
   const send = async (signed: string) => {
     if (metadataId) {
-      const r = await fetch("/api/junto", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "sponsor", signed }),
-      });
-      const d = (await r.json()) as {
-        sponsored?: boolean;
-        hash?: string;
-        error?: string;
-      };
-      if (r.ok && d.sponsored && d.hash)
-        return { hash: d.hash, sponsored: true };
-      // The sponsor tried and Stellar rejected it: do not submit it twice.
-      if (
-        !r.ok &&
-        !["SIGN_IN_REQUIRED", "EXPIRED_LOGIN"].includes(d.error ?? "")
-      )
-        throw new Error(d.error || "UNAVAILABLE");
+      try {
+        const r = await fetch("/api/junto", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "sponsor", signed }),
+        });
+        if (r.ok) {
+          const d = (await r.json()) as { sponsored?: boolean; hash?: string };
+          if (d.sponsored === true && d.hash)
+            return { hash: d.hash, sponsored: true };
+        }
+      } catch {
+        /* Fall back to a normal submission below. */
+      }
     }
     const { txHash } = await submitContract(chain, signed);
     return { hash: txHash, sponsored: false };
@@ -483,6 +629,7 @@ export function ContractVault({
       if (stock < BigInt(faucet.perClaim) * BigInt(10_000_000))
         throw new Error(
           asset.code === "USDC" ? "FAUCET_EMPTY_USDC" : "FAUCET_EMPTY",
+          { cause: { code: asset.code } },
         );
       // A wallet needs a trustline before it can hold a classic asset.
       const account = await fetch(`${chain.horizon}/accounts/${signer}`).then(
@@ -516,6 +663,77 @@ export function ContractVault({
         ),
       );
     });
+  // A G… recipient must exist and, for anything but XLM, hold the currency
+  // (a trustline). Network trouble never blocks: Stellar checks it anyway.
+  const checkRecipient = async (
+    to: string,
+    asset: { code: string; issuer: string },
+  ) => {
+    if (!StrKey.isValidEd25519PublicKey(to)) return;
+    let account:
+      | { balances?: { asset_code?: string; asset_issuer?: string }[] }
+      | undefined;
+    try {
+      const r = await fetch(`${chain.horizon}/accounts/${to}`);
+      if (r.status === 404)
+        throw new Error("ACCOUNT_MISSING", { cause: { code: asset.code } });
+      if (!r.ok) return;
+      account = await r.json();
+    } catch (e) {
+      if (e instanceof Error && e.message === "ACCOUNT_MISSING") throw e;
+      return;
+    }
+    if (
+      asset.issuer &&
+      Array.isArray(account?.balances) &&
+      !account.balances.some(
+        (b) => b.asset_code === asset.code && b.asset_issuer === asset.issuer,
+      )
+    )
+      throw new Error("TRUSTLINE_REQUIRED", { cause: { code: asset.code } });
+  };
+  const recipientContact = book.find((c) => c.address === recipient);
+  // What the typed amount means, and the most this vault can send (the
+  // service fee comes on top, rounded up like the contract does).
+  const typedValue = (() => {
+    try {
+      return units(normalizeAmount(amount));
+    } catch {
+      return BigInt(0);
+    }
+  })();
+  const chosenBalance = chosen
+    ? (balances[chosen.contract] ?? BigInt(0))
+    : BigInt(0);
+  const maxPay = (() => {
+    if (!config) return BigInt(0);
+    let max =
+      (chosenBalance * BigInt(10000)) / BigInt(10000 + config.protocol.fee_bps);
+    while (max > BigInt(0) && max + fee(max) > chosenBalance) max -= BigInt(1);
+    return max;
+  })();
+  const overBalance =
+    !!chosen &&
+    typedValue > BigInt(0) &&
+    typedValue + fee(typedValue) > chosenBalance;
+  const openPay = (contract: string, to = "") => {
+    setSelected(contract);
+    setRecipient(to);
+    setAmount("");
+    setModal("pay");
+  };
+  const openDeposit = (contract: string) => {
+    setSelected(contract);
+    setAmount("");
+    setModal("deposit");
+  };
+  const openRules = () => {
+    if (!config) return;
+    setNewSigners(config.rules.signers.join("\n"));
+    setThreshold(config.rules.threshold);
+    setDraftSigner("");
+    setModal("rules");
+  };
   const operation = (
     p: ContractProposal,
     method: "approve" | "revoke" | "execute" | "cancel",
@@ -532,6 +750,13 @@ export function ContractVault({
         detailsFor(p),
         (method === "execute" || (method === "approve" && completes(p))) &&
           p.action[0] === "ChangeRules",
+        {
+          technical: technicalFor(p),
+          outcome:
+            method === "revoke" || method === "cancel"
+              ? { kind: method }
+              : { kind: method, id: p.id },
+        },
       );
     });
   return (
@@ -627,29 +852,76 @@ export function ContractVault({
           <div data-product-tour="vault-identity">
             <p className="eyebrow">{t("Bóveda compartida", "Shared vault")}</p>
             <h1>{config?.name || t("Abriendo bóveda…", "Opening vault…")}</h1>
-            <button className="contract-address" onClick={() => copy(address)}>
-              <code>{address}</code>
-              <Copy size={15} />
-            </button>
-            <a
-              className="text-button"
-              target="_blank"
-              rel="noreferrer"
-              href={`${chain.explorer}/contract/${address}`}
-            >
-              {t("Ver contrato en Stellar", "View contract on Stellar")}
-              <ExternalLink size={15} />
-            </a>
+            <div className="vault-address-line">
+              <button
+                className="contract-address"
+                onClick={() => copy(address)}
+                title={address}
+                aria-label={t(
+                  "Copiar la dirección de la bóveda",
+                  "Copy the vault address",
+                )}
+              >
+                <code>{shortAddress(address)}</code>
+                <Copy size={15} />
+              </button>
+              <a
+                className="text-button"
+                target="_blank"
+                rel="noreferrer"
+                href={`${chain.explorer}/contract/${address}`}
+              >
+                {t("Ver en Stellar", "View on Stellar")}
+                <ExternalLink size={15} />
+              </a>
+            </div>
           </div>
           {config && (
-            <div className="contract-rule" data-product-tour="vault-rule">
-              <ShieldCheck size={24} />
-              <strong>
-                {config.rules.threshold} / {config.rules.signers.length}
-              </strong>
-              <span>
-                {t("aprobaciones por operación", "approvals per operation")}
-              </span>
+            <div className="vault-heading-side">
+              <div className="contract-rule" data-product-tour="vault-rule">
+                <ShieldCheck size={24} />
+                <strong>
+                  {t(
+                    `${config.rules.threshold} de ${config.rules.signers.length}`,
+                    `${config.rules.threshold} of ${config.rules.signers.length}`,
+                  )}
+                </strong>
+                <span>
+                  {t(
+                    "aprobaciones necesarias por pago",
+                    "approvals needed per payment",
+                  )}
+                </span>
+              </div>
+              <div className="vault-heading-actions">
+                <button
+                  className="primary"
+                  data-product-tour="vault-send"
+                  disabled={busy || !!error || !member || !funded}
+                  title={
+                    !member
+                      ? undefined
+                      : funded
+                        ? undefined
+                        : t(
+                            "Añade fondos a la bóveda para pagar",
+                            "Add funds to the vault to pay",
+                          )
+                  }
+                  onClick={() => funded && openPay(funded.contract)}
+                >
+                  <ArrowUpRight size={17} />
+                  {t("Enviar", "Send")}
+                </button>
+                <button
+                  className="secondary"
+                  disabled={busy || !!error || !signer || !assets.length}
+                  onClick={() => assets[0] && openDeposit(assets[0].contract)}
+                >
+                  <ArrowDownLeft size={17} />
+                  {t("Añadir fondos", "Add funds")}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -671,12 +943,8 @@ export function ContractVault({
           aria-label={t("Secciones de la bóveda", "Vault sections")}
         >
           {[
-            ["funds", t("Monedas", "Currencies")],
-            [
-              "activity",
-              t("Operaciones", "Operations") +
-                (waiting.length ? ` (${waiting.length})` : ""),
-            ],
+            ["funds", t("Fondos", "Funds")],
+            ["activity", t("Solicitudes", "Requests")],
             ["contacts", t("Contactos", "Contacts")],
             ["team", t("Equipo", "Team")],
           ].map(([id, label]) => (
@@ -686,6 +954,17 @@ export function ContractVault({
               onClick={() => setSection(id)}
             >
               {label}
+              {id === "activity" && waiting.length > 0 && (
+                <span
+                  className="nav-badge"
+                  aria-label={t(
+                    `${waiting.length} esperan tu aprobación`,
+                    `${waiting.length} waiting for your approval`,
+                  )}
+                >
+                  {waiting.length}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -710,12 +989,12 @@ export function ContractVault({
                   <strong>
                     {waiting.length === 1
                       ? t(
-                          "1 operación espera tu aprobación",
-                          "1 operation is waiting for your approval",
+                          "1 solicitud espera tu aprobación",
+                          "1 request is waiting for your approval",
                         )
                       : t(
-                          `${waiting.length} operaciones esperan tu aprobación`,
-                          `${waiting.length} operations are waiting for your approval`,
+                          `${waiting.length} solicitudes esperan tu aprobación`,
+                          `${waiting.length} requests are waiting for your approval`,
                         )}
                   </strong>
                   <span>{t("Revisar", "Review")} →</span>
@@ -723,9 +1002,32 @@ export function ContractVault({
               )}
               {section === "funds" && (
                 <section>
+                  {member && config.rules.signers.length === 1 && (
+                    <div className="solo-card">
+                      <Users size={22} />
+                      <div>
+                        <strong>
+                          {t(
+                            "Solo tú puedes mover estos fondos.",
+                            "Only you can move these funds.",
+                          )}
+                        </strong>
+                        <p>
+                          {t(
+                            "Añade a tus colegas y exige 2 aprobaciones para cada pago.",
+                            "Add colleagues and require 2 approvals for each payment.",
+                          )}
+                        </p>
+                      </div>
+                      <button className="secondary" onClick={openRules}>
+                        <UserPlus size={16} />
+                        {t("Añadir personas", "Add people")}
+                      </button>
+                    </div>
+                  )}
                   <div className="section-heading">
                     <div>
-                      <h2>{t("Monedas de la bóveda", "Vault currencies")}</h2>
+                      <h2>{t("Fondos de la bóveda", "Vault funds")}</h2>
                       <p>
                         {t(
                           "Saldos registrados en Stellar, compartidos por todo el equipo.",
@@ -738,7 +1040,7 @@ export function ContractVault({
                     className="contract-assets"
                     data-product-tour="vault-currencies"
                   >
-                    {assets.map((a, assetIndex) => (
+                    {assets.map((a) => (
                       <article className="contract-asset" key={a.contract}>
                         <AssetMark asset={a} network={chain.id} />
                         <div>
@@ -750,38 +1052,26 @@ export function ContractVault({
                             ? "—"
                             : decimal(balances[a.contract] ?? BigInt(0))}
                         </div>
-                        <div className="contract-actions">
+                        <div className="contract-actions row-actions">
                           <button
-                            className="secondary"
+                            className="text-button"
                             disabled={busy || !!error || !signer}
-                            onClick={() => {
-                              setSelected(a.contract);
-                              setAmount("");
-                              setModal("deposit");
-                            }}
+                            onClick={() => openDeposit(a.contract)}
                           >
-                            <ArrowDownLeft size={16} />
+                            <ArrowDownLeft size={15} />
                             {t("Añadir fondos", "Add funds")}
                           </button>
                           <button
-                            className="secondary"
-                            data-product-tour={
-                              assetIndex === 0 ? "vault-send" : undefined
-                            }
+                            className="text-button"
                             disabled={
                               busy ||
                               !!error ||
                               !member ||
                               (balances[a.contract] ?? BigInt(0)) === BigInt(0)
                             }
-                            onClick={() => {
-                              setSelected(a.contract);
-                              setRecipient("");
-                              setAmount("");
-                              setModal("pay");
-                            }}
+                            onClick={() => openPay(a.contract)}
                           >
-                            <ArrowUpRight size={16} />
+                            <ArrowUpRight size={15} />
                             {t("Enviar", "Send")}
                           </button>
                         </div>
@@ -790,8 +1080,8 @@ export function ContractVault({
                   </div>
                   <p className="footnote">
                     {t(
-                      "Añadir fondos transfiere la moneda elegida desde tu wallet a esta bóveda. Para depósitos externos, el servicio de origen debe admitir direcciones de contrato de Stellar.",
-                      "Add funds transfers the selected currency from your wallet to this vault. For external deposits, the sending service must support Stellar contract addresses.",
+                      "Para recibir de un cliente o un exchange, pide que lo envíen a tu propia wallet y después usa Añadir fondos.",
+                      "To receive from a client or exchange, have it sent to your own wallet, then use Add funds.",
                     )}
                   </p>
                 </section>
@@ -803,7 +1093,7 @@ export function ContractVault({
                     data-product-tour="vault-operations"
                   >
                     <div>
-                      <h2>{t("Operaciones del equipo", "Team operations")}</h2>
+                      <h2>{t("Solicitudes del equipo", "Team requests")}</h2>
                       <p>
                         {t(
                           "Cada aprobación queda registrada en Stellar.",
@@ -813,17 +1103,33 @@ export function ContractVault({
                     </div>
                   </div>
                   {!proposals.length ? (
-                    <div className="empty-large">
-                      {t("Todavía no hay operaciones.", "No operations yet.")}
+                    <div className="empty-large empty-state">
+                      <Inbox size={28} />
+                      <p>
+                        {t(
+                          "Todavía no hay solicitudes de pago.",
+                          "No payment requests yet.",
+                        )}
+                      </p>
+                      {member && (
+                        <button
+                          className="primary"
+                          disabled={busy || !!error || !funded}
+                          onClick={() => funded && openPay(funded.contract)}
+                        >
+                          <ArrowUpRight size={16} />
+                          {t("Enviar un pago", "Send a payment")}
+                        </button>
+                      )}
                     </div>
                   ) : (
                     proposals.map((p) => {
-                      const a =
-                        p.action[0] === "Pay"
-                          ? assets.find((a) => a.contract === p.action[1])
-                          : undefined;
                       const ready = live(p),
                         approved = p.approvals.includes(signer);
+                      const pay = p.action[0] === "Pay";
+                      // Every approval is in, but the vault lacked funds then.
+                      const stuck =
+                        p.approvals.length >= config.rules.threshold;
                       return (
                         <article
                           className="contract-proposal"
@@ -833,24 +1139,33 @@ export function ContractVault({
                             <div>
                               <small>
                                 #{String(p.id + BigInt(1))} ·{" "}
+                                {t("Pedido por ", "Requested by ")}
                                 {person(p.proposer)}
                               </small>
                               <h3>
-                                {p.action[0] === "Pay"
-                                  ? `${decimal(p.action[3])} ${a?.code || SHORT(p.action[1])}`
+                                {pay
+                                  ? amountText(p)
                                   : t("Cambio de equipo", "Team change")}
                               </h3>
                             </div>
                             <span className="network">
                               {p.status === 1
-                                ? t("Completada", "Completed")
+                                ? pay
+                                  ? t("Pagado", "Paid")
+                                  : t("Aplicado", "Applied")
                                 : p.status === 2
                                   ? t("Cancelada", "Cancelled")
                                   : p.epoch !== config.epoch
-                                    ? t("Reglas anteriores", "Previous rules")
+                                    ? t(
+                                        "Ya no es válida: el equipo cambió",
+                                        "No longer valid: the team changed",
+                                      )
                                     : !ready
-                                      ? t("Vencida", "Expired")
-                                      : `${p.approvals.length} / ${config.rules.threshold} ${t("aprobaciones", "approvals")}`}
+                                      ? t("Caducada", "Expired")
+                                      : t(
+                                          `${p.approvals.length} de ${config.rules.threshold} aprobaciones`,
+                                          `${p.approvals.length} of ${config.rules.threshold} approvals`,
+                                        )}
                             </span>
                           </div>
                           <dl className="details">
@@ -865,8 +1180,31 @@ export function ContractVault({
                             {t("Aprobado por: ", "Approved by: ")}
                             {p.approvals.length
                               ? p.approvals.map(person).join(", ")
-                              : t("sin aprobaciones", "no approvals")}
+                              : t("nadie todavía", "no one yet")}
                           </p>
+                          {ready && !stuck && (
+                            <p className="footnote waiting-line">
+                              <strong>
+                                {t("Esperando a: ", "Waiting for: ")}
+                              </strong>
+                              {waitingFor(p)}
+                              {expiresIn(p) ? ` · ${expiresIn(p)}` : ""}
+                            </p>
+                          )}
+                          {ready && stuck && (
+                            <p className="footnote waiting-line">
+                              {pay
+                                ? t(
+                                    "Ya están todas las aprobaciones, pero la bóveda no tenía saldo suficiente. Añade fondos y completa el pago.",
+                                    "All approvals are in, but the vault didn't have enough balance. Add funds and complete the payment.",
+                                  )
+                                : t(
+                                    "Ya están todas las aprobaciones. Completa el cambio para aplicarlo.",
+                                    "All approvals are in. Complete the change to apply it.",
+                                  )}
+                              {expiresIn(p) ? ` · ${expiresIn(p)}` : ""}
+                            </p>
+                          )}
                           {ready && (
                             <div className="contract-actions">
                               {member && !approved && (
@@ -878,22 +1216,31 @@ export function ContractVault({
                                       p,
                                       "approve",
                                       completes(p)
-                                        ? t(
-                                            "Aprobar y completar",
-                                            "Approve and complete",
-                                          )
-                                        : t(
-                                            "Aprobar operación",
-                                            "Approve operation",
-                                          ),
+                                        ? pay
+                                          ? t(
+                                              "Aprobar y pagar",
+                                              "Approve and pay",
+                                            )
+                                          : t(
+                                              "Aprobar y aplicar el cambio",
+                                              "Approve and apply the change",
+                                            )
+                                        : pay
+                                          ? t("Aprobar pago", "Approve payment")
+                                          : t(
+                                              "Aprobar cambio de equipo",
+                                              "Approve team change",
+                                            ),
                                     )
                                   }
                                 >
                                   {completes(p)
-                                    ? t(
-                                        "Aprobar y completar",
-                                        "Approve and complete",
-                                      )
+                                    ? pay
+                                      ? t("Aprobar y pagar", "Approve and pay")
+                                      : t(
+                                          "Aprobar y aplicar",
+                                          "Approve and apply",
+                                        )
                                     : t(
                                         "Revisar y aprobar",
                                         "Review and approve",
@@ -901,47 +1248,53 @@ export function ContractVault({
                                   <Check size={17} />
                                 </button>
                               )}
+                              {stuck && signer && (
+                                <button
+                                  className="primary"
+                                  disabled={busy || !!error}
+                                  onClick={() =>
+                                    operation(
+                                      p,
+                                      "execute",
+                                      pay
+                                        ? t(
+                                            "Completar pago",
+                                            "Complete payment",
+                                          )
+                                        : t(
+                                            "Completar cambio",
+                                            "Complete change",
+                                          ),
+                                    )
+                                  }
+                                >
+                                  {pay
+                                    ? t("Completar pago", "Complete payment")
+                                    : t("Completar cambio", "Complete change")}
+                                  <ArrowUpRight size={17} />
+                                </button>
+                              )}
                               {member && approved && (
                                 <button
-                                  className="secondary"
+                                  className="text-button"
                                   disabled={busy || !!error}
                                   onClick={() =>
                                     operation(
                                       p,
                                       "revoke",
                                       t(
-                                        "Retirar aprobación",
-                                        "Revoke approval",
+                                        "Retirar mi aprobación",
+                                        "Withdraw my approval",
                                       ),
                                     )
                                   }
                                 >
                                   {t(
                                     "Retirar mi aprobación",
-                                    "Revoke my approval",
+                                    "Withdraw my approval",
                                   )}
                                 </button>
                               )}
-                              {p.approvals.length >= config.rules.threshold &&
-                                signer && (
-                                  <button
-                                    className="primary"
-                                    disabled={busy || !!error}
-                                    onClick={() =>
-                                      operation(
-                                        p,
-                                        "execute",
-                                        t(
-                                          "Ejecutar operación",
-                                          "Execute operation",
-                                        ),
-                                      )
-                                    }
-                                  >
-                                    {t("Ejecutar", "Execute")}
-                                    <ArrowUpRight size={17} />
-                                  </button>
-                                )}
                               {p.proposer === signer && (
                                 <button
                                   className="text-button"
@@ -950,14 +1303,11 @@ export function ContractVault({
                                     operation(
                                       p,
                                       "cancel",
-                                      t(
-                                        "Cancelar operación",
-                                        "Cancel operation",
-                                      ),
+                                      t("Cancelar solicitud", "Cancel request"),
                                     )
                                   }
                                 >
-                                  {t("Cancelar", "Cancel")}
+                                  {t("Cancelar solicitud", "Cancel request")}
                                 </button>
                               )}
                             </div>
@@ -1041,13 +1391,9 @@ export function ContractVault({
                                     "Add funds to the vault to pay",
                                   )
                             }
-                            onClick={() => {
-                              if (!funded) return;
-                              setSelected(funded.contract);
-                              setRecipient(c.address);
-                              setAmount("");
-                              setModal("pay");
-                            }}
+                            onClick={() =>
+                              funded && openPay(funded.contract, c.address)
+                            }
                           >
                             <ArrowUpRight size={16} />
                             {t("Pagar", "Pay")}
@@ -1056,16 +1402,32 @@ export function ContractVault({
                       </article>
                     ))
                   ) : (
-                    <div className="empty-large">
-                      {metadataId
-                        ? t(
-                            "Todavía no hay contactos guardados.",
-                            "No saved contacts yet.",
-                          )
-                        : t(
-                            "Puedes operar directamente con las direcciones de tus destinatarios. La libreta compartida está disponible al entrar en SoroSafe.",
-                            "You can operate directly with recipient addresses. The shared address book is available when signed into SoroSafe.",
-                          )}
+                    <div className="empty-large empty-state">
+                      <BookUser size={28} />
+                      <p>
+                        {metadataId
+                          ? t(
+                              "Guarda a quién pagas a menudo para que todo el equipo use la misma dirección.",
+                              "Save who you pay often so the whole team uses the same address.",
+                            )
+                          : t(
+                              "Puedes pagar directamente a una dirección de wallet. Para usar los contactos compartidos, entra en SoroSafe.",
+                              "You can pay a wallet address directly. To use shared contacts, sign in to SoroSafe.",
+                            )}
+                      </p>
+                      {metadataId && member && (
+                        <button
+                          className="primary"
+                          onClick={() => {
+                            setRecipient("");
+                            setContactName("");
+                            setModal("contact");
+                          }}
+                        >
+                          <UserPlus size={16} />
+                          {t("Añadir contacto", "Add contact")}
+                        </button>
+                      )}
                     </div>
                   )}
                 </section>
@@ -1082,20 +1444,13 @@ export function ContractVault({
                       </h2>
                       <p>
                         {t(
-                          "Cambiar el equipo requiere las aprobaciones actuales.",
-                          "Changing the team requires the current approvals.",
+                          "Cambiar el equipo necesita las mismas aprobaciones.",
+                          "Changing the team needs the same approvals.",
                         )}
                       </p>
                     </div>
                     {member && (
-                      <button
-                        className="secondary"
-                        onClick={() => {
-                          setNewSigners(config.rules.signers.join("\n"));
-                          setThreshold(config.rules.threshold);
-                          setModal("rules");
-                        }}
-                      >
+                      <button className="secondary" onClick={openRules}>
                         {t(
                           "Añadir personas o cambiar regla",
                           "Add people or change rule",
@@ -1107,29 +1462,68 @@ export function ContractVault({
                     <div className="review-person" key={s}>
                       <Users size={20} />
                       <span>
-                        <strong>{person(s)}</strong>
-                        <code>{s}</code>
+                        <strong>
+                          {person(s)}
+                          {s === signer ? t(" (tú)", " (you)") : ""}
+                        </strong>
+                        <button
+                          className="address-chip"
+                          title={s}
+                          onClick={() => copy(s)}
+                        >
+                          {shortAddress(s)}
+                          <Copy size={12} />
+                        </button>
                       </span>
                     </div>
                   ))}
                   <dl className="details" data-product-tour="vault-fees">
-                    <dt>{t("Comisión por pago", "Fee per payment")}</dt>
-                    <dd>{config.protocol.fee_bps / 100}%</dd>
-                    <dt>{t("Destino de la comisión", "Fee recipient")}</dt>
-                    <dd className="full-address">
-                      {config.protocol.collector}
+                    <dt>{t("Comisión de servicio", "Service fee")}</dt>
+                    <dd>
+                      {t(
+                        `${config.protocol.fee_bps / 100} % por pago, en la moneda del pago`,
+                        `${config.protocol.fee_bps / 100}% per payment, in the payment currency`,
+                      )}
                     </dd>
-                    <dt>
-                      {t("Identificador del protocolo", "Protocol identifier")}
-                    </dt>
-                    <dd className="full-address">{config.factory}</dd>
+                    <dt>{t("Coste de red", "Network fee")}</dt>
+                    <dd>
+                      {metadataId
+                        ? t(
+                            "Lo cubre SoroSafe cuando puede",
+                            "Covered by SoroSafe when possible",
+                          )
+                        : t(
+                            "Unos céntimos, desde tu wallet",
+                            "A few cents, from your wallet",
+                          )}
+                    </dd>
                   </dl>
                   <p className="footnote">
                     {t(
-                      "La comisión se cobra en la moneda del pago. Las aprobaciones y la ejecución tienen un coste de red en XLM, pagado por quien firma cada transacción.",
-                      "The service fee is charged in the payment currency. Approvals and execution have an XLM network fee, paid by the signer of each transaction.",
+                      "SoroSafe cubre el coste de red cuando puede; si no, tu wallet paga unos céntimos.",
+                      "SoroSafe covers network fees when it can; otherwise your wallet pays a few cents.",
                     )}
                   </p>
+                  <details className="tech-details">
+                    <summary>
+                      {t("Detalles técnicos", "Technical details")}
+                    </summary>
+                    <dl className="details">
+                      <dt>{t("Dirección de la bóveda", "Vault address")}</dt>
+                      <dd className="full-address">{address}</dd>
+                      <dt>{t("Destino de la comisión", "Fee recipient")}</dt>
+                      <dd className="full-address">
+                        {config.protocol.collector}
+                      </dd>
+                      <dt>
+                        {t(
+                          "Identificador del protocolo",
+                          "Protocol identifier",
+                        )}
+                      </dt>
+                      <dd className="full-address">{config.factory}</dd>
+                    </dl>
+                  </details>
                 </section>
               )}
             </>
@@ -1162,16 +1556,16 @@ export function ContractVault({
               (modal === "deposit"
                 ? t("Añadir fondos", "Add funds")
                 : modal === "rules"
-                  ? t("Editar equipo", "Edit team")
+                  ? t("Personas y aprobaciones", "People and approvals")
                   : modal === "contact"
                     ? t("Añadir contacto", "Add contact")
-                    : t("Preparar un pago", "Prepare a payment"))}
+                    : t("Enviar un pago", "Send a payment"))}
           </DialogTitle>
           <DialogDescription className="dialog-description">
             {intent
               ? t(
-                  "Revisa los datos antes de firmar con tu wallet.",
-                  "Review the details before signing with your wallet.",
+                  "Revisa los datos y confírmalo en tu wallet.",
+                  "Review the details, then confirm in your wallet.",
                 )
               : modal === "pay"
                 ? config && config.rules.threshold <= 1
@@ -1180,10 +1574,15 @@ export function ContractVault({
                       "With your signature the payment goes out right away.",
                     )
                   : t(
-                      "El equipo revisará y aprobará este pago.",
-                      "Your team will review and approve this payment.",
+                      "Tu solicitud cuenta como tu aprobación. El pago sale cuando llegue la última aprobación necesaria.",
+                      "Your request counts as your approval. The payment goes out with the last approval needed.",
                     )
-                : ""}
+                : modal === "rules" && config && config.rules.threshold > 1
+                  ? t(
+                      "El cambio se aplica cuando lo aprueben las personas necesarias.",
+                      "The change applies once the people needed approve it.",
+                    )
+                  : ""}
           </DialogDescription>
           {intent ? (
             <div className="modal-body">
@@ -1194,23 +1593,40 @@ export function ContractVault({
                     <dd>{value}</dd>
                   </div>
                 ))}
-                <dt>{t("Coste máximo de red", "Maximum network fee")}</dt>
+                <dt>{t("Coste de red", "Network fee")}</dt>
                 <dd>
-                  {intent.fee} XLM
-                  {metadataId && (
-                    <small className="sponsor-note">
-                      {t(
-                        "SoroSafe lo cubre cuando puede",
-                        "SoroSafe covers it when it can",
+                  {metadataId
+                    ? t(
+                        "Lo cubre SoroSafe cuando puede; si no, unos céntimos desde tu wallet",
+                        "Covered by SoroSafe when possible; otherwise a few cents from your wallet",
+                      )
+                    : t(
+                        "Unos céntimos, desde tu wallet",
+                        "A few cents, from your wallet",
                       )}
-                    </small>
-                  )}
                 </dd>
                 <dt>{t("Tu wallet", "Your wallet")}</dt>
-                <dd className="full-address">{signer}</dd>
+                <dd title={signer}>{shortAddress(signer)}</dd>
                 <dt>{t("Red", "Network")}</dt>
                 <dd>{chain.label}</dd>
               </dl>
+              <details className="tech-details">
+                <summary>{t("Detalles técnicos", "Technical details")}</summary>
+                <dl className="details">
+                  {(intent.technical ?? []).map(([label, value]) => (
+                    <div className="contract-detail" key={label}>
+                      <dt>{label}</dt>
+                      <dd className="full-address">{value}</dd>
+                    </div>
+                  ))}
+                  <dt>{t("Dirección de la bóveda", "Vault address")}</dt>
+                  <dd className="full-address">{address}</dd>
+                  <dt>{t("Tu wallet", "Your wallet")}</dt>
+                  <dd className="full-address">{signer}</dd>
+                  <dt>{t("Coste máximo de red", "Maximum network fee")}</dt>
+                  <dd>{intent.fee} XLM</dd>
+                </dl>
+              </details>
               <button
                 className="primary wide"
                 disabled={busy}
@@ -1234,36 +1650,41 @@ export function ContractVault({
                     )
                       throw new Error("CHANGED_TRANSACTION");
                     const { hash, sponsored } = await send(signed);
-                    const syncTeam = intent.sync;
+                    const syncTeam = intent.sync,
+                      outcome = intent.outcome;
                     setIntent(undefined);
                     setModal("");
                     await load();
                     if (syncTeam) await onMetadataChange?.();
-                    toast.success(
-                      sponsored
+                    const message = await outcomeText(outcome).catch(() => ({
+                      text: t(
+                        "Confirmado en Stellar.",
+                        "Confirmed on Stellar.",
+                      ),
+                      pending: false,
+                    }));
+                    // A request still waiting for others lives in Requests.
+                    if (message.pending) setSection("activity");
+                    toast.success(message.text, {
+                      description: sponsored
                         ? t(
-                            "Operación confirmada en Stellar. SoroSafe cubrió el coste de red.",
-                            "Operation confirmed on Stellar. SoroSafe covered the network fee.",
+                            "SoroSafe cubrió el coste de red.",
+                            "SoroSafe covered the network fee.",
                           )
-                        : t(
-                            "Operación confirmada en Stellar.",
-                            "Operation confirmed on Stellar.",
-                          ),
-                      {
-                        duration: 10000,
-                        action: {
-                          label: t("Ver recibo", "View receipt"),
-                          onClick: () => openExplorer(hash),
-                        },
+                        : undefined,
+                      duration: 10000,
+                      action: {
+                        label: t("Ver recibo", "View receipt"),
+                        onClick: () => openExplorer(hash),
                       },
-                    );
+                    });
                   })
                 }
               >
                 {busy ? (
                   <Loader2 className="spin" />
                 ) : (
-                  t("Firmar y continuar", "Sign and continue")
+                  t("Confirmar en mi wallet", "Confirm in my wallet")
                 )}
               </button>
             </div>
@@ -1299,12 +1720,13 @@ export function ContractVault({
                       signers: newSigners.split(/\s+/).filter(Boolean),
                       threshold,
                     };
+                    const id = await freshNextId();
                     await prepare(
                       address,
                       "propose",
                       [
                         val.address(signer),
-                        val.u64(await freshNextId()),
+                        val.u64(id),
                         actionVal(["ChangeRules", rules]),
                         val.u64(BigInt(Math.floor(Date.now() / 1000) + 86400)),
                       ],
@@ -1316,16 +1738,20 @@ export function ContractVault({
                           ),
                       [
                         [
-                          t("Firmantes nuevos", "New signers"),
+                          t("Personas que aprueban", "People who approve"),
                           rules.signers.map(label).join("\n"),
                         ],
                         [
-                          t("Aprobaciones necesarias", "Required approvals"),
-                          String(threshold),
+                          t("Regla de aprobación", "Approval rule"),
+                          t(
+                            `${threshold} de ${rules.signers.length} aprobaciones`,
+                            `${threshold} of ${rules.signers.length} approvals`,
+                          ),
                         ],
                       ],
                       // With a 1-of-N rule the change applies immediately.
                       config.rules.threshold <= 1,
+                      { outcome: { kind: "propose", id } },
                     );
                     return;
                   }
@@ -1345,8 +1771,25 @@ export function ContractVault({
                       [
                         [t("Moneda", "Currency"), chosen.code],
                         [t("Importe", "Amount"), decimal(value)],
-                        [t("Bóveda de destino", "Destination vault"), address],
+                        [
+                          t("Bóveda de destino", "Destination vault"),
+                          config.name || shortAddress(address),
+                        ],
                       ],
+                      false,
+                      {
+                        technical: [
+                          [
+                            t("Contrato de la moneda", "Currency contract"),
+                            chosen.contract,
+                          ],
+                        ],
+                        outcome: {
+                          kind: "deposit",
+                          amount: decimal(value),
+                          code: chosen.code,
+                        },
+                      },
                     );
                   else {
                     if (!member) throw new Error("NOT_MEMBER");
@@ -1361,18 +1804,21 @@ export function ContractVault({
                       (balances[chosen.contract] ?? BigInt(0))
                     )
                       throw new Error("INSUFFICIENT_FUNDS");
+                    // Stop early if Stellar would refuse the payment anyway.
+                    await checkRecipient(recipient, chosen);
+                    const id = await freshNextId();
                     await prepare(
                       address,
                       "propose",
                       [
                         val.address(signer),
-                        val.u64(await freshNextId()),
+                        val.u64(id),
                         actionVal(["Pay", chosen.contract, recipient, value]),
                         val.u64(BigInt(Math.floor(Date.now() / 1000) + 86400)),
                       ],
                       config.rules.threshold <= 1
                         ? t("Enviar pago", "Send payment")
-                        : t("Solicitar aprobaciones", "Request approvals"),
+                        : t("Solicitar el pago", "Request the payment"),
                       [
                         [t("Destinatario", "Recipient"), named(recipient)],
                         [
@@ -1380,18 +1826,36 @@ export function ContractVault({
                           `${decimal(value)} ${chosen.code}`,
                         ],
                         [
-                          t("Comisión del servicio", "Service fee"),
+                          t("Comisión de servicio", "Service fee"),
                           `${decimal(serviceFee)} ${chosen.code}`,
                         ],
                         [
                           t("Total de la bóveda", "Total from vault"),
                           `${decimal(value + serviceFee)} ${chosen.code}`,
                         ],
-                        [
-                          t("Contrato del activo", "Asset contract"),
-                          chosen.contract,
-                        ],
+                        ...(config.rules.threshold > 1
+                          ? [
+                              [
+                                t("Aprobaciones", "Approvals"),
+                                t(
+                                  `La tuya cuenta: 1 de ${config.rules.threshold}`,
+                                  `Yours counts: 1 of ${config.rules.threshold}`,
+                                ),
+                              ] as [string, string],
+                            ]
+                          : []),
                       ],
+                      false,
+                      {
+                        technical: [
+                          [
+                            t("Contrato de la moneda", "Currency contract"),
+                            chosen.contract,
+                          ],
+                          [t("Destinatario", "Recipient"), recipient],
+                        ],
+                        outcome: { kind: "propose", id },
+                      },
                     );
                   }
                 });
@@ -1423,14 +1887,52 @@ export function ContractVault({
                       </div>
                     ))}
                   </div>
+                  <div className="help-box">
+                    <p>
+                      {t(
+                        `Pide a tu colega que abra ${appHost}, entre, abra el menú de su cuenta → Copiar dirección y te la envíe.`,
+                        `Ask your colleague to open ${appHost}, sign in, open their account menu → Copy address, and send it to you.`,
+                      )}
+                    </p>
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() =>
+                        void navigator.clipboard
+                          .writeText(invitation())
+                          .then(() =>
+                            toast.success(
+                              t(
+                                "Mensaje copiado. Pégalo en un correo o chat.",
+                                "Message copied. Paste it into an email or chat.",
+                              ),
+                            ),
+                          )
+                          .catch(() =>
+                            toast.error(
+                              t(
+                                "No se pudo copiar. Inténtalo otra vez.",
+                                "Couldn't copy. Try again.",
+                              ),
+                            ),
+                          )
+                      }
+                    >
+                      <Copy size={14} />
+                      {t(
+                        "Copiar mensaje de invitación",
+                        "Copy invitation message",
+                      )}
+                    </button>
+                  </div>
                   <label>
                     {t("Añadir a una persona", "Add a person")}
                     <span className="add-signer">
                       <input
                         value={draftSigner}
                         placeholder={t(
-                          "Su dirección de wallet (G…)",
-                          "Their wallet address (G…)",
+                          "Su dirección de wallet (empieza por G)",
+                          "Their wallet address (starts with G)",
                         )}
                         onChange={(e) => setDraftSigner(e.target.value)}
                         onKeyDown={(e) => {
@@ -1506,15 +2008,23 @@ export function ContractVault({
                     </div>
                     <small>
                       {t(
-                        `${threshold} de ${signerList.length} ${signerList.length === 1 ? "persona" : "personas"}`,
-                        `${threshold} of ${signerList.length} ${signerList.length === 1 ? "person" : "people"}`,
+                        `${threshold} de ${signerList.length} aprobaciones`,
+                        `${threshold} of ${signerList.length} approvals`,
                       )}
                     </small>
                   </div>
+                  {signerList.length > 1 && threshold === signerList.length && (
+                    <p className="inline-warning" role="status">
+                      {t(
+                        "Si alguien pierde el acceso a su wallet, nadie podrá mover los fondos.",
+                        "If anyone loses access to their wallet, no one can move the funds.",
+                      )}
+                    </p>
+                  )}
                   <p className="footnote">
                     {t(
-                      "Al aprobar este cambio, las operaciones pendientes con las reglas anteriores dejarán de ser válidas.",
-                      "Once this change executes, pending operations under the old rules will no longer be valid.",
+                      "Cuando se aplique este cambio, las solicitudes pendientes dejarán de ser válidas.",
+                      "Once this change applies, pending requests will no longer be valid.",
                     )}
                   </p>
                 </>
@@ -1533,46 +2043,71 @@ export function ContractVault({
                   )}
                   {(modal === "pay" || modal === "contact") && (
                     <>
-                      {modal === "pay" && book.length > 0 && (
-                        <label>
-                          {t("Libreta compartida", "Shared address book")}
-                          <select
-                            value={
-                              book.find((c) => c.address === recipient)?.id ||
-                              ""
-                            }
-                            onChange={(e) =>
-                              setRecipient(
-                                book.find((c) => c.id === e.target.value)
-                                  ?.address || "",
-                              )
-                            }
+                      {modal === "pay" && recipientContact ? (
+                        <div className="recipient-chip">
+                          <span>
+                            <strong>{recipientContact.name}</strong>
+                            {" · "}
+                            <code title={recipient}>
+                              {shortAddress(recipient)}
+                            </code>
+                          </span>
+                          <button
+                            type="button"
+                            className="text-button"
+                            onClick={() => setRecipient("")}
                           >
-                            <option value="">
-                              {t("Elegir contacto", "Choose contact")}
-                            </option>
-                            {book.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                            {t("Cambiar", "Change")}
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          {modal === "pay" && book.length > 0 && (
+                            <label>
+                              {t("Contactos", "Contacts")}
+                              <select
+                                value=""
+                                onChange={(e) =>
+                                  setRecipient(
+                                    book.find((c) => c.id === e.target.value)
+                                      ?.address || "",
+                                  )
+                                }
+                              >
+                                <option value="">
+                                  {t("Elegir contacto", "Choose contact")}
+                                </option>
+                                {book.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+                          <label>
+                            {t(
+                              "Dirección de wallet (empieza por G)",
+                              "Wallet address (starts with G)",
+                            )}
+                            <input
+                              required
+                              value={recipient}
+                              onChange={(e) =>
+                                setRecipient(e.target.value.trim())
+                              }
+                            />
+                          </label>
+                          {recipient && (
+                            <p className="footnote">
+                              {t(
+                                "Paga a una wallet personal. Todavía no se admiten cuentas de exchange que piden memo.",
+                                "Pay to a personal wallet. Exchange accounts that need a memo aren't supported yet.",
+                              )}
+                            </p>
+                          )}
+                        </>
                       )}
-                      <label>
-                        {t("Dirección de destino", "Recipient address")}
-                        <input
-                          required
-                          value={recipient}
-                          onChange={(e) => setRecipient(e.target.value.trim())}
-                        />
-                      </label>
-                      <p className="footnote">
-                        {t(
-                          "Utiliza una wallet que controles o un destino sin memo. Esta versión no admite pagos a exchanges que requieren memo.",
-                          "Use a wallet you control or a destination without a memo. This version cannot pay exchanges that require a memo.",
-                        )}
-                      </p>
                     </>
                   )}
                   {modal !== "contact" && chosen && (
@@ -1608,17 +2143,36 @@ export function ContractVault({
                       )}
                       <label>
                         {t("Importe", "Amount")}
-                        <input
-                          required
-                          inputMode="decimal"
-                          pattern="[0-9]+(\.[0-9]{1,7})?"
-                          value={amount}
-                          onChange={(e) =>
-                            setAmount(normalizeAmount(e.target.value))
-                          }
-                          placeholder="0.00"
-                        />
+                        <span className="amount-row">
+                          <input
+                            required
+                            inputMode="decimal"
+                            pattern="[0-9]+(\.[0-9]{1,7})?"
+                            value={amount}
+                            onChange={(e) =>
+                              setAmount(normalizeAmount(e.target.value))
+                            }
+                            placeholder="0.00"
+                          />
+                          {modal === "pay" && maxPay > BigInt(0) && (
+                            <button
+                              type="button"
+                              className="text-button"
+                              onClick={() => setAmount(decimal(maxPay))}
+                            >
+                              {t("Máx.", "Max")}
+                            </button>
+                          )}
+                        </span>
                       </label>
+                      {modal === "pay" && overBalance && (
+                        <p className="inline-warning" role="alert">
+                          {t(
+                            `El importe más la comisión de servicio (${decimal(fee(typedValue))} ${chosen.code}) supera el saldo de la bóveda. Puedes enviar hasta ${decimal(maxPay)} ${chosen.code}.`,
+                            `Amount plus the service fee (${decimal(fee(typedValue))} ${chosen.code}) is more than the vault holds. You can send up to ${decimal(maxPay)} ${chosen.code}.`,
+                          )}
+                        </p>
+                      )}
                       {modal === "deposit" && walletBalance !== undefined && (
                         <p className="footnote">
                           {walletBalance === null
@@ -1669,7 +2223,7 @@ export function ContractVault({
                           {t("Saldo: ", "Balance: ")}
                           {decimal(balances[chosen.contract] ?? BigInt(0))}{" "}
                           {chosen.code} ·{" "}
-                          {t("Comisión del servicio: ", "Service fee: ")}
+                          {t("Comisión de servicio: ", "Service fee: ")}
                           {config ? config.protocol.fee_bps / 100 : 0}%
                         </p>
                       )}
@@ -1677,13 +2231,20 @@ export function ContractVault({
                   )}
                 </>
               )}
-              <button className="primary wide" disabled={busy || !!error}>
+              <button
+                className="primary wide"
+                disabled={busy || !!error || (modal === "pay" && overBalance)}
+              >
                 {busy ? (
                   <Loader2 className="spin" />
                 ) : modal === "contact" ? (
                   t("Guardar contacto", "Save contact")
+                ) : modal === "rules" ? (
+                  t("Revisar cambio", "Review change")
+                ) : modal === "deposit" ? (
+                  t("Revisar", "Review")
                 ) : (
-                  t("Revisar operación", "Review operation")
+                  t("Revisar pago", "Review payment")
                 )}
                 <ArrowUpRight size={18} />
               </button>

@@ -73,7 +73,7 @@ import {
 import { VaultAssets, AssetMark } from "@/components/vault-assets";
 import { NETWORKS } from "@/lib/network";
 import { SHORT } from "@/lib/domain";
-import { errors } from "@/lib/messages";
+import { errorWith } from "@/lib/messages";
 import { useVaultTools } from "@/lib/use-vault-tools";
 import {
   assertPayment,
@@ -162,13 +162,16 @@ export default function Home() {
   const v = data.vault,
     me = data.user;
   const configured = !!v && v.size >= 1 && v.threshold >= 1;
+  // A 1-of-1 vault whose creation signature was cancelled: no team setup,
+  // just one more signature to finish it.
+  const unfinished =
+    !!v && v.custody === "soroban" && v.status !== "active" && v.size === 1;
   const tempStatus = me ? temporaryWalletStatus(me.address) : "none",
     temporary = tempStatus === "active",
     lostTemporary = tempStatus === "lost";
   const err = (e: unknown) => {
-    const code = e instanceof Error ? e.message : "";
     return (
-      errors[code]?.[es ? 0 : 1] ||
+      errorWith(e, es) ||
       t(
         "No pudimos completar la acción. Inténtalo de nuevo.",
         "We could not complete this action. Please try again.",
@@ -255,12 +258,12 @@ export default function Home() {
     const saved = localStorage.getItem("junto-language");
     const params = new URLSearchParams(location.search);
     const id = params.get("vault") || "";
-    // Initial hydration fetches external session and vault state; updates follow the response.
+    // No saved choice: follow the browser language (Spanish or English).
+    // Decided here, after hydration, so server and client render the same.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refresh(id).then(() => {
-      if (saved) setEs(saved === "es");
-      setSelected(id);
-    });
+    setEs(saved ? saved === "es" : /^es\b/i.test(navigator.language || ""));
+    // Initial hydration fetches external session and vault state; updates follow the response.
+    void refresh(id).then(() => setSelected(id));
     const token = params.get("invite");
     if (token) {
       fetch("/api/junto?invite=" + encodeURIComponent(token))
@@ -344,35 +347,42 @@ export default function Home() {
     setName("");
     if (!owner) return choose(r.id);
     try {
-      // Deploy the vault right away: the creator is its only signer (1 of 1)
-      // and adds people later from Team. One wallet signature, no waiting.
-      await ensureTestFunds(owner, chain);
-      const quote = await api<Activation>("prepareVault", { vault: r.id });
-      await assertActivation(
-        quote,
-        {
-          custody: "soroban",
-          owner,
-          name: vaultName,
-          threshold: 1,
-        } as Vault,
-        [{ address: owner } as Person],
-        chain,
-        data.factory,
-      );
-      const signed = await signXdr(quote.xdr, owner, chain);
-      await api("activate", { vault: r.id, signed });
-      toast.success(
-        t(
-          "Tu bóveda está lista en Stellar.",
-          "Your vault is ready on Stellar.",
-        ),
-      );
+      await activateSolo(r.id, owner, vaultName);
     } finally {
       // If the signature is rejected, the vault stays ready to activate.
       choose(r.id);
     }
   };
+  // Deploy a new vault: the creator is its only signer (1 of 1) and adds
+  // people later from Team. One wallet signature, no waiting.
+  const activateSolo = async (id: string, owner: string, vaultName: string) => {
+    await ensureTestFunds(owner, chain);
+    const quote = await api<Activation>("prepareVault", { vault: id });
+    await assertActivation(
+      quote,
+      {
+        custody: "soroban",
+        owner,
+        name: vaultName,
+        threshold: 1,
+      } as Vault,
+      [{ address: owner } as Person],
+      chain,
+      data.factory,
+    );
+    const signed = await signXdr(quote.xdr, owner, chain);
+    await api("activate", { vault: id, signed });
+    toast.success(
+      t("Tu bóveda está lista en Stellar.", "Your vault is ready on Stellar."),
+    );
+  };
+  // The creation signature was cancelled: one more signature finishes it.
+  const finishCreation = () =>
+    void work(async () => {
+      if (!v || !me) return;
+      await activateSolo(v.id, me.address, v.name);
+      await refresh(v.id);
+    });
   const join = async () => {
     const r = await api("join", { invite: joinToken });
     setJoinToken("");
@@ -1066,8 +1076,8 @@ export default function Home() {
                 </button>
                 <p className="small-note">
                   {t(
-                    "Tendrás tu propia firma.",
-                    "You’ll have your own signing key.",
+                    "Aprobarás con tu propia wallet.",
+                    "You’ll approve with your own wallet.",
                   )}
                 </p>
               </>
@@ -1210,7 +1220,8 @@ export default function Home() {
                     if (
                       v.status === "draft" &&
                       me?.address === v.owner &&
-                      configured
+                      configured &&
+                      !unfinished
                     )
                       requestInvite();
                     else setTab("team");
@@ -1329,8 +1340,8 @@ export default function Home() {
                       </h2>
                       <p>
                         {t(
-                          "El contrato en Stellar tiene otros firmantes o aprobaciones. No lo uses ni le envíes fondos.",
-                          "The contract on Stellar has other signers or approvals. Do not use it or send it funds.",
+                          "Lo que hay en Stellar tiene otras personas o aprobaciones, así que no envíes fondos ahí. Descártalo y prepara la bóveda otra vez.",
+                          "What's on Stellar has different people or approvals, so don't send funds there. Discard it and prepare the vault again.",
                         )}
                       </p>
                       {v.owner === me?.address ? (
@@ -1343,6 +1354,38 @@ export default function Home() {
                             "Descartar y volver a preparar",
                             "Discard and prepare again",
                           )}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : unfinished ? (
+                    <>
+                      <div className="round-icon">
+                        <Wallet size={22} />
+                      </div>
+                      <h2>
+                        {t(
+                          "Termina de crear tu bóveda",
+                          "Finish creating your vault",
+                        )}
+                      </h2>
+                      <p>
+                        {t(
+                          "Falta una firma en tu wallet. Después podrás añadir fondos e invitar a tu equipo.",
+                          "One signature in your wallet is left. Then you can add funds and invite your team.",
+                        )}
+                      </p>
+                      {v.owner === me?.address ? (
+                        <button
+                          className="primary"
+                          disabled={busy}
+                          onClick={finishCreation}
+                        >
+                          {busy ? (
+                            <Loader2 className="spin" size={17} />
+                          ) : (
+                            <Wallet size={17} />
+                          )}
+                          {t("Firmar en mi wallet", "Sign in my wallet")}
                         </button>
                       ) : null}
                     </>
@@ -1375,7 +1418,7 @@ export default function Home() {
                             )
                           : data.people.length === v.size
                             ? t(
-                                "Revisen las personas y la regla de aprobación antes de activar los fondos compartidos.",
+                                "Revisa las personas y la regla de aprobación antes de activar los fondos compartidos.",
                                 "Review the people and approval rule before activating your shared funds.",
                               )
                             : t(
@@ -1693,6 +1736,7 @@ export default function Home() {
                     </p>
                   </div>
                   {configured &&
+                  !unfinished &&
                   v.status === "draft" &&
                   v.owner === me?.address ? (
                     <button className="primary" onClick={requestInvite}>
@@ -1718,8 +1762,8 @@ export default function Home() {
                     <p>
                       {configured
                         ? t(
-                            "La misma regla protege los cambios de control de la cuenta.",
-                            "The same rule protects changes to account control.",
+                            "Cambiar el equipo necesita las mismas aprobaciones.",
+                            "Changing the team needs the same approvals.",
                           )
                         : t(
                             "Elige el tamaño del equipo y las aprobaciones antes de invitarlo.",
@@ -1727,7 +1771,9 @@ export default function Home() {
                           )}
                     </p>
                   </div>
-                  {v.status === "draft" && v.owner === me?.address ? (
+                  {v.status === "draft" &&
+                  !unfinished &&
+                  v.owner === me?.address ? (
                     <button className="secondary" onClick={configure}>
                       <Settings2 size={17} />
                       {t("Configuración", "Settings")}
@@ -1790,6 +1836,18 @@ export default function Home() {
                       "Descartar y volver a preparar",
                       "Discard and prepare again",
                     )}
+                  </button>
+                ) : unfinished && v.owner === me?.address ? (
+                  <button
+                    className="primary"
+                    disabled={busy}
+                    onClick={finishCreation}
+                  >
+                    {t(
+                      "Terminar de crear: una firma en tu wallet",
+                      "Finish creating: one signature in your wallet",
+                    )}
+                    <ArrowUpRight size={18} />
                   </button>
                 ) : v.status !== "active" &&
                   v.owner === me?.address &&
@@ -1978,6 +2036,12 @@ export default function Home() {
           </DialogDescription>
           {modal === "connect" ? (
             <div className="modal-body">
+              <p className="footnote">
+                {t(
+                  "Freighter es una extensión gratuita del navegador que guarda tu clave de firma, como el token de seguridad de tu banco. SoroSafe nunca la ve.",
+                  "Freighter is a free browser extension that keeps your signing key, like a bank security token. SoroSafe never sees it.",
+                )}
+              </p>
               <button
                 className="primary wide"
                 disabled={busy}
@@ -2001,20 +2065,28 @@ export default function Home() {
                 <ExternalLink size={14} />
               </a>
               <p className="footnote">
-                {t(
-                  "No necesitas otra contraseña. Necesitas Freighter instalado en este navegador.",
-                  "No extra password needed. Freighter must be installed in this browser.",
-                )}
+                {chain.id === "testnet"
+                  ? t(
+                      "No necesitas otra contraseña. En Freighter, toca el nombre de la red y elige Test Net.",
+                      "No extra password needed. In Freighter, tap the network name and choose Test Net.",
+                    )
+                  : t(
+                      "No necesitas otra contraseña. Necesitas Freighter instalado en este navegador.",
+                      "No extra password needed. Freighter must be installed in this browser.",
+                    )}
               </p>
               {chain.id === "testnet" ? (
                 <div className="test-wallet">
                   <strong>
-                    {t("¿Solo quieres probar?", "Just trying it out?")}
+                    {t(
+                      "¿Solo estás explorando? Empieza en 1 clic",
+                      "Just exploring? Start in 1 click",
+                    )}
                   </strong>
                   <p>
                     {t(
-                      "Crea una wallet temporal de Testnet al instante, sin instalar nada. Su clave se borra al cerrar esta pestaña.",
-                      "Create a temporary Testnet wallet instantly, nothing to install. Its key is discarded when you close this tab.",
+                      "Creamos una wallet de prueba temporal, sin instalar nada. Su clave se borra al cerrar esta pestaña.",
+                      "We create a temporary test wallet, nothing to install. Its key is discarded when you close this tab.",
                     )}
                   </p>
                   <button
@@ -2022,7 +2094,7 @@ export default function Home() {
                     disabled={busy}
                     onClick={() => void connect(true)}
                   >
-                    {t("Usar wallet temporal", "Use a temporary wallet")}
+                    {t("Empezar sin instalar nada", "Start without installing")}
                     <ArrowUpRight size={17} />
                   </button>
                 </div>
@@ -2346,10 +2418,7 @@ export default function Home() {
                   )}
                 </strong>
                 <span>
-                  {t(
-                    "para aprobar cada operación",
-                    "to approve every operation",
-                  )}
+                  {t("para aprobar cada pago", "to approve every payment")}
                 </span>
               </div>
               {data.people.map((p) => (
@@ -2601,7 +2670,7 @@ export default function Home() {
                       />
                     </label>
                     <div>
-                      <label>{t("Moneda", "Asset")}</label>
+                      <label>{t("Moneda", "Currency")}</label>
                       {assetLocked ? (
                         <div
                           className="locked-asset"
@@ -2864,8 +2933,8 @@ export default function Home() {
               {payment.status !== "paid" ? (
                 <p className="footnote">
                   {t(
-                    "Las firmas confirman exactamente esta operación. Vence el",
-                    "Signatures confirm this exact operation. Expires",
+                    "Las aprobaciones confirman exactamente este pago. Caduca el",
+                    "Approvals confirm this exact payment. Expires",
                   )}{" "}
                   {new Date(payment.expires * 1000).toLocaleString(
                     es ? "es-ES" : "en-US",
