@@ -205,12 +205,24 @@ ok(
     10_000_000n,
 );
 ok(
-  "Fee arrived atomically in the same token",
+  "Fee is owed in the vault, not pushed to the collector",
+  (await readContract(chain, vault, "fees_owed", [val.address(xlm)])) ===
+    25_000n &&
+    (await readContract(chain, xlm, "balance", [
+      val.address(keys[4].publicKey()),
+    ])) === beforeFee,
+);
+// Anyone can sweep owed fees to the collector; payments never depend on it.
+await call(keys[3], vault, "claim_fees", [val.address(xlm)]);
+ok(
+  "claim_fees pays the collector in the same token",
   (await readContract(chain, xlm, "balance", [
     val.address(keys[4].publicKey()),
   ])) -
     beforeFee ===
-    25_000n,
+    25_000n &&
+    (await readContract(chain, vault, "fees_owed", [val.address(xlm)])) ===
+      0n,
 );
 await assert.rejects(() => call(keys[0], vault, "execute", [val.u64(0n)]));
 ok("Executed proposal cannot be replayed", true);

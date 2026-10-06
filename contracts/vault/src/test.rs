@@ -1,7 +1,7 @@
 extern crate std;
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
+    testutils::{Address as _, IssuerFlags, Ledger},
     vec, xdr, TryFromVal,
 };
 use std::rc::Rc;
@@ -42,13 +42,45 @@ struct Fixture {
     collector: Address,
     to: Address,
 }
+struct Opts {
+    count: u32,
+    threshold: u32,
+    funds: i128,
+    fee_bps: u32,
+    trust_collector: bool,
+}
+impl Default for Opts {
+    fn default() -> Self {
+        Self {
+            count: 3,
+            threshold: 2,
+            funds: 1_000_000,
+            fee_bps: 25,
+            trust_collector: true,
+        }
+    }
+}
 impl Fixture {
     fn new() -> Self {
-        Self::with_rule(3, 2)
+        Self::build(Opts::default())
     }
-    /// The first `count` accounts sign with `threshold`; all four are kept in
-    /// `signers` so tests can add the others later.
     fn with_rule(count: u32, threshold: u32) -> Self {
+        Self::build(Opts {
+            count,
+            threshold,
+            ..Opts::default()
+        })
+    }
+    /// The first `count` accounts sign with `threshold`; all three are kept in
+    /// `signers` so tests can add the others later.
+    fn build(o: Opts) -> Self {
+        let Opts {
+            count,
+            threshold,
+            funds,
+            fee_bps,
+            trust_collector,
+        } = o;
         let e = Env::default();
         e.ledger().with_mut(|l| {
             l.timestamp = 1_000;
@@ -59,8 +91,13 @@ impl Fixture {
         let collector = account(&e, 4);
         let to = account(&e, 5);
         let admin = Address::generate(&e);
-        let asset = e.register_stellar_asset_contract_v2(admin).address();
-        token::StellarAssetClient::new(&e, &asset).trust(&collector);
+        let sac = e.register_stellar_asset_contract_v2(admin);
+        // Lets tests freeze the collector's trustline like a real issuer can.
+        sac.issuer().set_flag(IssuerFlags::RevocableFlag);
+        let asset = sac.address();
+        if trust_collector {
+            token::StellarAssetClient::new(&e, &asset).trust(&collector);
+        }
         token::StellarAssetClient::new(&e, &asset).trust(&to);
         let id = e.register(
             Vault,
@@ -73,12 +110,14 @@ impl Fixture {
                 },
                 Protocol {
                     collector: collector.clone(),
-                    fee_bps: 25,
+                    fee_bps,
                     assets: vec![&e, asset.clone()],
                 },
             ),
         );
-        token::StellarAssetClient::new(&e, &asset).mint(&id, &1_000_000);
+        if funds > 0 {
+            token::StellarAssetClient::new(&e, &asset).mint(&id, &funds);
+        }
         Self {
             e,
             id,
@@ -87,6 +126,12 @@ impl Fixture {
             collector,
             to,
         }
+    }
+    fn token(&self) -> token::Client<'_> {
+        token::Client::new(&self.e, &self.asset)
+    }
+    fn mint(&self, amount: i128) {
+        token::StellarAssetClient::new(&self.e, &self.asset).mint(&self.id, &amount);
     }
     fn client(&self) -> VaultClient<'_> {
         VaultClient::new(&self.e, &self.id)
@@ -118,16 +163,24 @@ impl Fixture {
 /// More than the fixture vault holds (1_000_000), so approvals stay pending.
 const UNFUNDED: i128 = 2_000_000;
 #[test]
-fn transfers_and_fee_are_atomic_and_exact() {
+fn payment_transfers_amount_and_accrues_exact_fee_until_claimed() {
     let f = Fixture::new();
     let c = f.client();
     let id = f.pay(100_001);
     // The approval that completes the quorum executes the payment.
     f.approve(id);
-    let t = token::Client::new(&f.e, &f.asset);
+    let t = f.token();
     assert_eq!(t.balance(&f.to), 100_001);
+    // The fee stays in the vault, owed to the collector.
+    assert_eq!(t.balance(&f.collector), 0);
+    assert_eq!(c.fees_owed(&f.asset), 251);
+    assert_eq!(t.balance(&f.id), 899_999);
+    assert_eq!(c.claim_fees(&f.asset), 251);
     assert_eq!(t.balance(&f.collector), 251);
     assert_eq!(t.balance(&f.id), 899_748);
+    assert_eq!(c.fees_owed(&f.asset), 0);
+    // Nothing left to claim: a no-op, not an error.
+    assert_eq!(c.claim_fees(&f.asset), 0);
     assert_eq!(c.proposal(&id).status, 1);
     assert_eq!(c.payments_to(&f.to), 1);
     assert_eq!(c.payments_to(&f.collector), 0);
@@ -313,18 +366,48 @@ fn fees_cannot_overflow_and_round_up_without_floating_point() {
     assert_eq!(c.quote(&401), 2);
     assert_eq!(c.try_quote(&0), Err(Ok(Error::InvalidAmount.into())));
     assert_eq!(c.try_quote(&-1), Err(Ok(Error::InvalidAmount.into())));
-    assert_eq!(c.try_quote(&i128::MAX), Err(Ok(Error::Overflow.into())));
-    let large = i128::MAX / 2;
-    assert!(c.quote(&large) > 0);
+    // A Stellar Asset Contract moves at most i64::MAX, fee included.
+    assert_eq!(
+        c.try_quote(&i128::MAX),
+        Err(Ok(Error::InvalidAmount.into()))
+    );
+    let max = i64::MAX as i128;
+    assert_eq!(c.try_quote(&max), Err(Ok(Error::InvalidAmount.into())));
+    let largest = max * 400 / 401;
+    assert!(largest + c.quote(&largest) <= max);
+    assert_eq!(
+        c.try_quote(&(largest + 2)),
+        Err(Ok(Error::InvalidAmount.into()))
+    );
 }
 #[test]
-fn failed_fee_rolls_back_recipient_transfer_and_execution_state() {
+fn propose_rejects_amount_plus_fee_above_i64() {
     let f = Fixture::new();
     let c = f.client();
+    let a = f.signers.get(0).unwrap();
+    let max = i64::MAX as i128;
+    for amount in [max, max - 1, i128::MAX] {
+        assert_eq!(
+            c.try_propose(
+                &a,
+                &0,
+                &Action::Pay(f.asset.clone(), f.to.clone(), amount),
+                &2_000
+            ),
+            Err(Ok(Error::InvalidAmount.into()))
+        );
+    }
+}
+#[test]
+fn payment_that_cannot_cover_its_fee_stays_pending() {
+    let f = Fixture::new();
+    let c = f.client();
+    // The vault holds exactly the amount but not the fee on top.
     let id = f.pay(1_000_000);
     f.approve(id);
-    assert!(c.try_execute(&id).is_err());
-    let t = token::Client::new(&f.e, &f.asset);
+    assert_eq!(c.proposal(&id).approvals.len(), 2);
+    assert_eq!(c.try_execute(&id), Err(Ok(Error::InsufficientFunds.into())));
+    let t = f.token();
     assert_eq!(t.balance(&f.to), 0);
     assert_eq!(t.balance(&f.id), 1_000_000);
     assert_eq!(c.proposal(&id).status, 0);
@@ -434,4 +517,248 @@ fn unfunded_approval_is_recorded_and_executes_later() {
     token::StellarAssetClient::new(&f.e, &f.asset).mint(&f.id, &UNFUNDED);
     c.execute(&id);
     assert_eq!(c.proposal(&id).status, 1);
+}
+#[test]
+fn unfunded_solo_proposal_stays_pending_and_executes_after_funding() {
+    let f = Fixture::build(Opts {
+        count: 1,
+        threshold: 1,
+        funds: 0,
+        ..Opts::default()
+    });
+    let c = f.client();
+    let id = f.pay(1_000);
+    let p = c.proposal(&id);
+    assert_eq!(p.status, 0);
+    assert_eq!(p.approvals.len(), 1);
+    assert_eq!(c.try_execute(&id), Err(Ok(Error::InsufficientFunds.into())));
+    f.mint(1_003);
+    c.execute(&id);
+    assert_eq!(c.proposal(&id).status, 1);
+    assert_eq!(f.token().balance(&f.to), 1_000);
+    assert_eq!(c.fees_owed(&f.asset), 3);
+}
+#[test]
+fn funding_boundary_includes_the_fee_and_owed_fees_are_never_spent() {
+    // 400_000 pays a 1_000 fee at 25 bps: the vault needs 401_000.
+    let f = Fixture::build(Opts {
+        count: 1,
+        threshold: 1,
+        funds: 400_999,
+        ..Opts::default()
+    });
+    let c = f.client();
+    let t = f.token();
+    let id = f.pay(400_000);
+    assert_eq!(c.proposal(&id).status, 0);
+    assert_eq!(c.try_execute(&id), Err(Ok(Error::InsufficientFunds.into())));
+    f.mint(1);
+    c.execute(&id);
+    assert_eq!(c.proposal(&id).status, 1);
+    assert_eq!(t.balance(&f.to), 400_000);
+    assert_eq!(t.balance(&f.collector), 0);
+    assert_eq!(t.balance(&f.id), 1_000);
+    assert_eq!(c.fees_owed(&f.asset), 1_000);
+    // The remaining balance is all owed fees: a new payment cannot use it.
+    let next = f.pay(1);
+    assert_eq!(c.proposal(&next).status, 0);
+    assert_eq!(
+        c.try_execute(&next),
+        Err(Ok(Error::InsufficientFunds.into()))
+    );
+    // One short of amount + fee + owed fees still fails; exactly that is enough.
+    f.mint(1);
+    assert_eq!(
+        c.try_execute(&next),
+        Err(Ok(Error::InsufficientFunds.into()))
+    );
+    f.mint(1);
+    c.execute(&next);
+    assert_eq!(c.fees_owed(&f.asset), 1_001);
+    assert_eq!(t.balance(&f.id), 1_001);
+    assert_eq!(c.claim_fees(&f.asset), 1_001);
+    assert_eq!(t.balance(&f.collector), 1_001);
+    assert_eq!(t.balance(&f.id), 0);
+    assert_eq!(c.fees_owed(&f.asset), 0);
+}
+#[test]
+fn frozen_collector_blocks_only_fee_claims() {
+    let f = Fixture::with_rule(1, 1);
+    let c = f.client();
+    let sac = token::StellarAssetClient::new(&f.e, &f.asset);
+    sac.set_authorized(&f.collector, &false);
+    let first = f.pay(400);
+    let second = f.pay(800);
+    assert_eq!(c.proposal(&first).status, 1);
+    assert_eq!(c.proposal(&second).status, 1);
+    assert_eq!(f.token().balance(&f.to), 1_200);
+    assert_eq!(c.fees_owed(&f.asset), 3);
+    assert!(c.try_claim_fees(&f.asset).is_err());
+    assert_eq!(c.fees_owed(&f.asset), 3);
+    sac.set_authorized(&f.collector, &true);
+    assert_eq!(c.claim_fees(&f.asset), 3);
+    assert_eq!(f.token().balance(&f.collector), 3);
+}
+#[test]
+fn collector_without_trustline_blocks_only_fee_claims() {
+    let f = Fixture::build(Opts {
+        count: 1,
+        threshold: 1,
+        trust_collector: false,
+        ..Opts::default()
+    });
+    let c = f.client();
+    let id = f.pay(400);
+    assert_eq!(c.proposal(&id).status, 1);
+    assert_eq!(f.token().balance(&f.to), 400);
+    assert!(c.try_claim_fees(&f.asset).is_err());
+    assert_eq!(c.fees_owed(&f.asset), 1);
+}
+#[test]
+fn zero_fee_vault_owes_nothing() {
+    let f = Fixture::build(Opts {
+        count: 1,
+        threshold: 1,
+        fee_bps: 0,
+        ..Opts::default()
+    });
+    let c = f.client();
+    assert_eq!(c.quote(&1_000_000), 0);
+    let id = f.pay(1_000_000);
+    assert_eq!(c.proposal(&id).status, 1);
+    assert_eq!(c.proposal(&id).fee, 0);
+    assert_eq!(c.fees_owed(&f.asset), 0);
+    assert_eq!(c.claim_fees(&f.asset), 0);
+    assert_eq!(f.token().balance(&f.id), 0);
+}
+#[test]
+fn revoke_without_approval_is_rejected() {
+    let f = Fixture::new();
+    let c = f.client();
+    let id = f.pay(UNFUNDED);
+    assert_eq!(
+        c.try_revoke(&f.signers.get(1).unwrap(), &id),
+        Err(Ok(Error::NotApproved.into()))
+    );
+    c.revoke(&f.signers.get(0).unwrap(), &id);
+    assert_eq!(
+        c.try_revoke(&f.signers.get(0).unwrap(), &id),
+        Err(Ok(Error::NotApproved.into()))
+    );
+}
+#[test]
+fn expiry_may_be_exactly_seven_days_away() {
+    let f = Fixture::new();
+    let c = f.client();
+    let a = f.signers.get(0).unwrap();
+    let pay = Action::Pay(f.asset.clone(), f.to.clone(), UNFUNDED);
+    let limit = 1_000 + 7 * 24 * 60 * 60;
+    assert_eq!(
+        c.try_propose(&a, &0, &pay, &(limit + 1)),
+        Err(Ok(Error::InvalidExpiry.into()))
+    );
+    assert_eq!(c.propose(&a, &0, &pay, &limit), 0);
+}
+#[test]
+fn rules_accept_twenty_signers_and_reject_twenty_one() {
+    let f = Fixture::new();
+    let c = f.client();
+    let a = f.signers.get(0).unwrap();
+    let mut signers = vec![&f.e, a.clone()];
+    for n in 10..29u8 {
+        signers.push_back(account(&f.e, n));
+    }
+    assert_eq!(signers.len(), 20);
+    let mut too_many = signers.clone();
+    too_many.push_back(account(&f.e, 29));
+    assert_eq!(
+        c.try_propose(
+            &a,
+            &0,
+            &Action::ChangeRules(Rules {
+                signers: too_many,
+                threshold: 2
+            }),
+            &2_000
+        ),
+        Err(Ok(Error::InvalidRules.into()))
+    );
+    let rules = Rules {
+        signers,
+        threshold: 20,
+    };
+    let id = c.propose(&a, &0, &Action::ChangeRules(rules.clone()), &2_000);
+    f.approve(id);
+    assert_eq!(c.config().rules, rules);
+}
+#[test]
+fn protocol_settings_are_validated() {
+    let f = Fixture::new();
+    let e = &f.e;
+    let other = e
+        .register_stellar_asset_contract_v2(Address::generate(e))
+        .address();
+    let protocol = |fee_bps: u32, assets: Vec<Address>| Protocol {
+        collector: f.collector.clone(),
+        fee_bps,
+        assets,
+    };
+    let check = |p: Protocol| e.try_as_contract::<(), Error>(&f.id, || validate_protocol(e, &p));
+    assert_eq!(check(protocol(1_000, vec![e, f.asset.clone()])), Ok(()));
+    assert_eq!(
+        check(protocol(1_001, vec![e, f.asset.clone()])),
+        Err(Ok(Error::InvalidFee))
+    );
+    assert_eq!(
+        check(protocol(25, vec![e, f.asset.clone(), f.asset.clone()])),
+        Err(Ok(Error::InvalidAsset))
+    );
+    assert_eq!(
+        check(protocol(25, Vec::new(e))),
+        Err(Ok(Error::InvalidAsset))
+    );
+    assert_eq!(
+        check(protocol(25, vec![e, f.to.clone()])),
+        Err(Ok(Error::InvalidAsset))
+    );
+    let mut many = Vec::new(e);
+    for _ in 0..16 {
+        many.push_back(
+            e.register_stellar_asset_contract_v2(Address::generate(e))
+                .address(),
+        );
+    }
+    assert_eq!(check(protocol(0, many.clone())), Ok(()));
+    many.push_back(other.clone());
+    assert_eq!(check(protocol(0, many)), Err(Ok(Error::InvalidAsset)));
+    // The factory's deployment check: the collector must hold every fee asset,
+    // unless there is no fee to collect.
+    let receives = |p: Protocol| {
+        e.try_as_contract::<(), Error>(&f.id, || junto_types::check_collector_receives(e, &p))
+    };
+    assert_eq!(receives(protocol(25, vec![e, f.asset.clone()])), Ok(()));
+    assert!(receives(protocol(25, vec![e, other.clone()])).is_err());
+    assert_eq!(receives(protocol(0, vec![e, other])), Ok(()));
+}
+#[test]
+fn vault_names_must_have_one_to_eighty_bytes() {
+    let f = Fixture::new();
+    let e = &f.e;
+    let c = f.client().config();
+    let long = "x".repeat(81);
+    let build = |name: &str| {
+        let name = String::from_str(e, name);
+        e.try_as_contract::<(), Error>(&f.id, || {
+            Vault::__constructor(
+                e.clone(),
+                c.factory.clone(),
+                name,
+                c.rules.clone(),
+                c.protocol.clone(),
+            )
+        })
+    };
+    assert_eq!(build(""), Err(Ok(Error::InvalidName)));
+    assert_eq!(build(&long), Err(Ok(Error::InvalidName)));
+    assert_eq!(build(&long[..80]), Ok(()));
 }

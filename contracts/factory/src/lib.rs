@@ -1,5 +1,7 @@
 #![no_std]
-use junto_types::{validate_protocol, validate_rules, Error, Protocol, Rules};
+use junto_types::{
+    check_collector_receives, validate_protocol, validate_rules, Error, Protocol, Rules,
+};
 use soroban_sdk::{
     auth::{ContractContext, InvokerContractAuthEntry, SubContractInvocation},
     contract, contractevent, contractimpl, contracttype, panic_with_error, vec,
@@ -34,6 +36,7 @@ fn config(e: &Env) -> Config {
 impl Factory {
     pub fn __constructor(e: Env, wasm_hash: BytesN<32>, protocol: Protocol) {
         validate_protocol(&e, &protocol);
+        check_collector_receives(&e, &protocol);
         e.storage().instance().set(
             &Key::Config,
             &Config {
