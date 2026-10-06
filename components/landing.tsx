@@ -5,6 +5,7 @@ import {
   BookUser,
   Check,
   ChevronDown,
+  Eye,
   Fingerprint,
   Globe2,
   KeyRound,
@@ -17,8 +18,8 @@ import type { NetworkConfig } from "@/lib/network";
 import { BrandWordmark } from "./brand-wordmark";
 import "./landing.css";
 
-// Preserve the existing monochrome brand. Design variance 5, motion 3, density 3.
-// This is marketing content, never an example wallet or a simulated balance.
+// Monochrome brand kit v1: ink, paper, graphite; Inter only.
+// Marketing content. The hero card is a labelled illustration, never live data.
 export function LandingLayout({
   marketing,
   es,
@@ -36,12 +37,12 @@ export function LandingLayout({
     {
       name: "Soroban",
       label: t(
-        "Las reglas viven en el contrato",
-        "The rules live in the contract",
+        "Cada bóveda, un contrato verificado",
+        "Every vault, a verified contract",
       ),
       body: t(
-        "Cada bóveda es un smart contract con dirección propia. Una factory registra su origen y la app verifica el código antes de operar.",
-        "Every vault is a smart contract with its own address. A factory records its origin, and the app verifies the code before operating.",
+        "Cada bóveda tiene su propia dirección en Stellar, y SoroSafe comprueba que es una versión auténtica antes de abrirla.",
+        "Each vault has its own address on Stellar, and SoroSafe checks it's a genuine version before opening it.",
       ),
       href: "https://developers.stellar.org/docs/build/smart-contracts/overview",
       icon: Layers3,
@@ -53,8 +54,8 @@ export function LandingLayout({
         "Your wallet stays in your hands",
       ),
       body: t(
-        "Conecta tu wallet y revisa cada operación antes de firmar. Las claves privadas permanecen contigo; SoroSafe no te pide tu frase de recuperación.",
-        "Connect your wallet and review every operation before signing. Your private keys stay with you; SoroSafe never asks for your recovery phrase.",
+        "Revisas cada operación en tu wallet antes de firmar. Tus claves se quedan contigo; SoroSafe nunca te pide tu frase de recuperación.",
+        "You review every operation in your wallet before signing. Your keys stay with you; SoroSafe never asks for your recovery phrase.",
       ),
       href: "https://www.freighter.app/",
       icon: KeyRound,
@@ -62,12 +63,12 @@ export function LandingLayout({
     {
       name: "SEP-10",
       label: t(
-        "Acceso sin otra contraseña",
+        "Entra sin otra contraseña",
         "Sign in without another password",
       ),
       body: t(
-        "La autenticación estándar de Stellar permite demostrar que controlas tu wallet. Entrar a SoroSafe y autorizar un pago son acciones separadas.",
-        "Stellar's standard authentication proves that you control your wallet. Signing into SoroSafe and authorizing a payment are separate actions.",
+        "Entras confirmando en tu wallet. Iniciar sesión nunca mueve dinero.",
+        "Sign in by confirming in your wallet. Signing in never moves money.",
       ),
       href: "https://developers.stellar.org/docs/build/apps/wallet/sep10",
       icon: Fingerprint,
@@ -75,12 +76,12 @@ export function LandingLayout({
     {
       name: "Stellar Asset Contracts",
       label: t(
-        "Cada moneda tiene identidad propia",
-        "Every currency has its own identity",
+        "La moneda exacta, siempre",
+        "The exact currency, every time",
       ),
       body: t(
-        "Los activos se identifican por su contrato, código y emisor. El pago conserva la moneda elegida desde que lo preparas hasta que firmas.",
-        "Assets are identified by their contract, code, and issuer. A payment keeps your selected currency from preparation through signing.",
+        "SoroSafe comprueba la moneda exacta, así que un token que se le parezca no puede colarse en un pago.",
+        "SoroSafe checks the exact currency, so a look-alike token can't slip into a payment.",
       ),
       href: "https://developers.stellar.org/docs/tokens/stellar-asset-contract",
       icon: ShieldCheck,
@@ -92,8 +93,8 @@ export function LandingLayout({
         "Information you can verify",
       ),
       body: t(
-        "Saldos, firmantes y aprobaciones se consultan directamente en Stellar. Al confirmar una operación, puedes abrir su recibo en Stellar Expert.",
-        "Balances, signers, and approvals are read directly from Stellar. When an operation is confirmed, you can open its receipt in Stellar Expert.",
+        "Saldos, firmantes y aprobaciones se leen directamente de Stellar. Cada operación confirmada tiene su recibo en Stellar Expert.",
+        "Balances, signers, and approvals are read directly from Stellar. Every confirmed operation has its receipt on Stellar Expert.",
       ),
       href: "https://developers.stellar.org/docs/data/apis/rpc",
       icon: Globe2,
@@ -106,18 +107,8 @@ export function LandingLayout({
         "Why a contract if Stellar already has multisig?",
       ),
       body: t(
-        "La multifirma nativa de Stellar también protege mediante umbrales. Nuestro contrato añade una dirección propia para la bóveda, solicitudes y aprobaciones en cadena, reglas para cambiar el equipo y comisiones programadas. SoroSafe une esa base con una experiencia de trabajo compartida.",
-        "Stellar's native multisig also protects funds through thresholds. Our contract adds a dedicated vault address, on-chain requests and approvals, rules for team changes, and programmed fees. SoroSafe combines that foundation with a shared working experience.",
-      ),
-    },
-    {
-      title: t(
-        "¿Qué pasa si se expone la clave de una persona?",
-        "What if someone's private key is exposed?",
-      ),
-      body: t(
-        "Si la regla exige más de una firma, una sola clave no basta para autorizar un pago. Con una regla de 1 de 1, la seguridad depende del único firmante. Esta protección por umbral existe tanto en nuestro contrato como en una multifirma nativa bien configurada.",
-        "If the rule requires more than one signature, a single key cannot authorize a payment. With a 1-of-1 rule, security depends on the only signer. Threshold protection exists in both our contract and a correctly configured native multisig.",
+        "La multifirma nativa de Stellar también protege con umbrales. El contrato añade una dirección propia para la bóveda, solicitudes y aprobaciones en cadena y reglas para cambiar el equipo. SoroSafe lo convierte en un espacio de trabajo compartido.",
+        "Stellar's native multisig also protects funds with thresholds. The contract adds a dedicated vault address, on-chain requests and approvals, and rules for team changes. SoroSafe turns that into a shared workspace.",
       ),
     },
     {
@@ -126,8 +117,8 @@ export function LandingLayout({
         "Can SoroSafe move my money?",
       ),
       body: t(
-        "SoroSafe no tiene una clave de retiro ni un administrador con acceso a los fondos. Los pagos y cambios de firmantes deben cumplir la regla de la bóveda. Los contratos actuales no se pueden actualizar.",
-        "SoroSafe has no withdrawal key or administrator with access to the funds. Payments and signer changes must meet the vault's approval rule. The current contracts cannot be upgraded.",
+        "No. SoroSafe no tiene una clave de retiro ni un administrador con acceso a los fondos. Los pagos y los cambios de equipo deben cumplir la regla de la bóveda, y los contratos actuales no se pueden actualizar.",
+        "No. SoroSafe has no withdrawal key and no administrator with access to the funds. Payments and team changes must meet the vault's rule, and the current contracts cannot be upgraded.",
       ),
     },
     {
@@ -136,8 +127,8 @@ export function LandingLayout({
         "What depends on SoroSafe's servers?",
       ),
       body: t(
-        "Los nombres, contactos compartidos e invitaciones necesitan nuestros servicios. Los fondos, reglas y aprobaciones viven en Stellar. La vista directa del contrato permite operar sin el backend de SoroSafe, usando una interfaz compatible y acceso a la red.",
-        "Names, shared contacts, and invitations use our services. Funds, rules, and approvals live on Stellar. The direct contract view lets you operate without SoroSafe's backend, using a compatible interface and access to the network.",
+        "Los nombres, los contactos compartidos y las invitaciones. Los fondos, las reglas y las aprobaciones viven en Stellar, y la vista directa del contrato permite operar sin el backend de SoroSafe.",
+        "Names, shared contacts, and invitations. Funds, rules, and approvals live on Stellar, and the direct contract view lets you operate without SoroSafe's backend.",
       ),
     },
     {
@@ -146,23 +137,97 @@ export function LandingLayout({
         "Do I need XLM to use SoroSafe?",
       ),
       body: t(
-        "Para el día a día, no. SoroSafe paga la comisión de red de propuestas, aprobaciones y depósitos mediante fee-bump, con un límite diario por cuenta. Crear la bóveda sí la paga quien la crea, porque despliega un contrato. Si el patrocinio no está disponible, tu wallet paga la comisión, como en cualquier operación de Stellar.",
-        "Not for everyday use. SoroSafe pays the network fee for proposals, approvals, and deposits through fee-bump, within a daily limit per account. Creating a vault is paid by its creator, because it deploys a contract. If sponsorship is unavailable, your wallet pays the fee, like any Stellar operation.",
+        "Para el día a día, no. SoroSafe cubre las comisiones de red de solicitudes, aprobaciones y depósitos cuando puede (hasta un límite diario). Crear una bóveda tiene una pequeña comisión que paga quien la crea.",
+        "Not for daily use. SoroSafe covers network fees for requests, approvals and deposits when it can (up to a daily limit). Creating a vault has a small fee paid by whoever creates it.",
+      ),
+    },
+    chain.id === "testnet"
+      ? {
+          title: t(
+            "¿Las monedas de prueba son reales?",
+            "Are the test currencies real?",
+          ),
+          body: t(
+            "No tienen valor. USDT0 aún no existe en Testnet, así que el USDT0 de prueba lo emite SoroSafe con un suministro fijo. Mainnet, con USDC y USDT0 oficiales, es el siguiente paso.",
+            "They have no value. USDT0 isn't on Testnet yet, so the test USDT0 is issued by SoroSafe with a fixed supply. Mainnet, with official USDC and USDT0, is the next step.",
+          ),
+        }
+      : {
+          title: t(
+            "¿Qué monedas puedo usar?",
+            "Which currencies can I use?",
+          ),
+          body: t(
+            "Las que admite el contrato de tu bóveda; las verás con su saldo dentro de ella. Un símbolo de moneda por sí solo no identifica un activo.",
+            "The ones your vault's contract supports; you'll see them with their balances inside it. A currency symbol alone does not identify an asset.",
+          ),
+        },
+  ];
+  const steps = [
+    {
+      title: t("Ponle nombre y firma una vez", "Name it and sign once"),
+      body: t(
+        "Elige un nombre y confirma en tu wallet. La bóveda recibe su propia dirección en Stellar.",
+        "Pick a name and confirm in your wallet. The vault gets its own address on Stellar.",
       ),
     },
     {
-      title: t("¿Qué puedo probar hoy?", "What can I try today?"),
-      body:
-        chain.id === "testnet"
-          ? t(
-              "La demo funciona en Testnet con XLM, USDC y USDT0 de prueba. SoroSafe consigue XLM de Friendbot por ti, y un botón te da USDT0 de prueba. USDT0 aún no existe en Testnet, así que este es un token de prueba emitido por SoroSafe con suministro fijo. Mainnet, con USDC y USDT0 oficiales, es el siguiente paso. El contrato todavía no cuenta con una auditoría independiente.",
-              "The demo runs on Testnet with test XLM, USDC, and USDT0. SoroSafe gets XLM from Friendbot for you, and one button gives you test USDT0. USDT0 has no Testnet deployment yet, so this is a fixed-supply test token issued by SoroSafe. Mainnet, with official USDC and USDT0, is the next step. The contract has not yet been independently audited.",
-            )
-          : t(
-              "Consulta las monedas admitidas y sus saldos dentro de tu bóveda. La compatibilidad depende de los activos permitidos por su contrato; un símbolo de moneda por sí solo no identifica un activo.",
-              "Check supported currencies and their balances inside your vault. Compatibility depends on the assets allowed by its contract; a currency symbol alone does not identify an asset.",
-            ),
+      title: t(
+        "Añade personas y elige la regla",
+        "Add people and choose the rule",
+      ),
+      body: t(
+        "Invita a quienes aprueban pagos y decide cuántas aprobaciones hacen falta, por ejemplo 2 de 3.",
+        "Invite the people who approve payments and decide how many approvals it takes, like 2 of 3.",
+      ),
     },
+    {
+      title: t("Solicitud → aprobación → pagado", "Request → approve → paid"),
+      body: t(
+        "Alguien pide un pago y el resto lo revisa. Con las aprobaciones suficientes, se paga automáticamente si hay saldo.",
+        "Someone requests a payment and the others review it. Once enough people approve, it's paid automatically if funds are there.",
+      ),
+    },
+  ];
+  const features = [
+    {
+      icon: BookUser,
+      title: t(
+        "Los contactos\nson del equipo.",
+        "Contacts belong\nto the team.",
+      ),
+      body: t(
+        "Una misma libreta para todos. Ves quién añadió cada dirección y si ya recibió pagos de la bóveda.",
+        "One address book for everyone. See who added an address and whether it has received payments from the vault.",
+      ),
+    },
+    {
+      icon: Eye,
+      title: t(
+        "Todo a la vista\nantes de firmar.",
+        "The full picture\nbefore signing.",
+      ),
+      body: t(
+        "Destinatario, moneda, importe y comisiones, antes de confirmar. Nadie aprueba a ciegas.",
+        "Recipient, currency, amount, and fees, before you confirm. Nobody approves blind.",
+      ),
+    },
+    {
+      icon: Zap,
+      title: t(
+        "Sin comisiones de red,\nnormalmente.",
+        "No network fees,\nusually.",
+      ),
+      body: t(
+        "SoroSafe las paga con un fee-bump de Stellar cuando puede; si no, tu wallet paga unos céntimos y todo sigue funcionando.",
+        "SoroSafe pays them with a Stellar fee-bump when it can; if not, your wallet pays a few cents and everything still works.",
+      ),
+    },
+  ];
+  const approvers = [
+    { initial: "M", name: "Marta", approved: true },
+    { initial: "J", name: "Javier", approved: true },
+    { initial: "A", name: "Ana", approved: false },
   ];
   return (
     <main className="landing" lang={es ? "es" : "en"} id="landing-main">
@@ -170,19 +235,19 @@ export function LandingLayout({
         <div className="landing-hero-copy" data-product-tour="intro-story">
           <p className="landing-kicker">
             {t(
-              "Bóvedas multifirma sobre Stellar",
-              "Multisig vaults built on Stellar",
+              "Dinero de empresa compartido, sobre Stellar",
+              "Shared company money on Stellar",
             )}
           </p>
           <h1>
-            {t("Multifirma.", "Multisig.")}
+            {t("Dinero compartido.", "Shared money.")}
             <br />
-            <span>{t("Para tu equipo.", "For your team.")}</span>
+            <span>{t("Aprobado en equipo.", "Approved together.")}</span>
           </h1>
           <p className="landing-lead">
             {t(
-              "Comparte el control del dinero. Tu equipo elige quién firma y cuántas aprobaciones necesita cada pago. El contrato hace cumplir esa regla.",
-              "Share control of your funds. Your team chooses who signs and how many approvals each payment needs. The contract enforces that rule.",
+              "Una bóveda para el dinero de tu empresa. Tu equipo elige quién aprueba y cuántas aprobaciones necesita cada pago. Ningún pago sale sin esas aprobaciones.",
+              "One vault for your company's money. Your team chooses who approves and how many approvals each payment needs. No payment leaves without those approvals.",
             )}
           </p>
           <div className="landing-cta-row">
@@ -204,14 +269,14 @@ export function LandingLayout({
                 <ArrowUpRight size={19} aria-hidden="true" />
               </span>
             </a>
-            <a className="landing-text-link" href="#why">
-              {t("Conocer SoroSafe", "Explore SoroSafe")}
+            <a className="landing-text-link" href="#how">
+              {t("Ver cómo funciona", "See how it works")}
               <ArrowDownRight size={18} aria-hidden="true" />
             </a>
           </div>
         </div>
         <div className="landing-hero-art">
-          {/* Optimized local image. Decorative metaphor, never a product simulation. */}
+          {/* Decorative texture behind an illustrative card, never live data. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/shared-control.webp"
@@ -220,172 +285,75 @@ export function LandingLayout({
             fetchPriority="high"
             alt=""
           />
-        </div>
-      </section>
-
-      <section
-        className="landing-stellar landing-width"
-        id="stellar"
-        aria-labelledby="stellar-title"
-      >
-        <div className="landing-stellar-title">
-          <div className="landing-stellar-signature">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/xlm.svg" alt="" width="38" height="38" />
-            <span>Stellar</span>
-          </div>
-          <h2 id="stellar-title">
-            {t(
-              "Una red hecha para mover dinero.",
-              "A network built to move money.",
+          <div
+            className="hero-vault-card"
+            role="img"
+            aria-label={t(
+              "Ilustración de una bóveda: regla de 2 de 3 aprobaciones y un pago esperando a Ana.",
+              "Illustration of a vault: a 2-of-3 approval rule and a payment waiting for Ana.",
             )}
-          </h2>
-          <p>
-            {t(
-              "Pagos rápidos, costes de red bajos y activos digitales. La base para que compartir dinero sea una tarea cotidiana.",
-              "Fast payments, low network costs, and digital assets. The foundation for making shared money an everyday experience.",
-            )}
-          </p>
-          <a
-            className="landing-text-link"
-            href="https://stellar.org/learn/intro-to-stellar"
-            target="_blank"
-            rel="noreferrer"
           >
-            {t("Conoce Stellar", "Discover Stellar")}
-            <ArrowUpRight size={17} aria-hidden="true" />
-          </a>
-        </div>
-        <div className="landing-network-benefits">
-          {[
-            {
-              icon: Zap,
-              title: t("Decisiones que avanzan", "Decisions that move forward"),
-              body: t(
-                "Una red orientada a pagos, con confirmaciones rápidas y costes que puedes revisar antes de firmar.",
-                "A payment-focused network, with fast confirmation and costs you can review before signing.",
-              ),
-            },
-            {
-              icon: Globe2,
-              title: t(
-                "El equipo puede estar en cualquier lugar",
-                "Your team can be anywhere",
-              ),
-              body: t(
-                "Una dirección compartida, acceso a la red a cualquier hora y un registro que todos pueden comprobar.",
-                "One shared address, around-the-clock network access, and a record everyone can verify.",
-              ),
-            },
-            {
-              icon: Layers3,
-              title: t(
-                "Dinero con reglas programables",
-                "Money with programmable rules",
-              ),
-              body: t(
-                "Soroban aplica las decisiones del equipo. Los Stellar Asset Contracts permiten operar con los activos admitidos por la bóveda.",
-                "Soroban enforces your team's decisions. Stellar Asset Contracts let you use the assets your vault supports.",
-              ),
-            },
-          ].map(({ icon: Icon, title, body }) => (
-            <article key={title}>
-              <Icon size={23} strokeWidth={1.5} aria-hidden="true" />
+            <div className="hero-vault-top">
+              <span className="hero-vault-name">
+                {t("Tesorería", "Treasury")}
+              </span>
+              <span className="hero-vault-example">
+                {t("Ejemplo", "Example")}
+              </span>
+            </div>
+            <div className="hero-vault-balance">
+              {es ? "12.480,00" : "12,480.00"}
+              <span>USDC</span>
+            </div>
+            <div className="hero-vault-rule">
+              <span className="hero-avatars" aria-hidden="true">
+                {approvers.map(({ initial }) => (
+                  <span key={initial}>{initial}</span>
+                ))}
+              </span>
+              <span className="hero-vault-chip">
+                <ShieldCheck size={13} aria-hidden="true" />
+                {t("2 de 3 aprobaciones", "2 of 3 approvals")}
+              </span>
+            </div>
+            <div className="hero-vault-request">
               <div>
-                <h3>{title}</h3>
-                <p>{body}</p>
+                <strong>{t("Pago a Estudio Norte", "Pay Northwind Studio")}</strong>
+                <span>{es ? "1.200,00 USDC" : "1,200.00 USDC"}</span>
               </div>
-            </article>
-          ))}
+              <div className="hero-vault-status">
+                <span className="hero-vault-progress" aria-hidden="true">
+                  <span />
+                </span>
+                {t("1 de 2 · Esperando a Ana", "1 of 2 · Waiting for Ana")}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       <section
-        className="landing-integrations landing-width"
-        aria-labelledby="integrations-title"
+        className="landing-how landing-width"
+        id="how"
+        aria-labelledby="how-title"
       >
-        <div className="landing-illustrated-heading">
-          <div className="landing-section-heading">
-            <h2 id="integrations-title">
-              {t(
-                "Stellar, detrás de cada firma.",
-                "Stellar, behind every signature.",
-              )}
-            </h2>
-            <p>
-              {t(
-                "Herramientas del ecosistema, conectadas para que tú puedas concentrarte en tu equipo.",
-                "Ecosystem tools, connected so you can focus on your team.",
-              )}
-            </p>
-          </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            className="landing-section-art"
-            src="/brand/stellar-orbits.webp"
-            width="768"
-            height="576"
-            loading="lazy"
-            decoding="async"
-            alt=""
-            aria-hidden="true"
-          />
+        <div className="landing-section-heading">
+          <p className="landing-kicker">{t("Cómo funciona", "How it works")}</p>
+          <h2 id="how-title">
+            {t("Tres pasos, sin sorpresas.", "Three steps, no surprises.")}
+          </h2>
         </div>
-        <div className="landing-integration-list">
-          {integrations.map(
-            ({ name, label, body, href, icon: Icon }, index) => (
-              <details
-                key={name}
-                open={index === 0}
-                name="stellar-integrations"
-              >
-                <summary>
-                  <Icon size={21} strokeWidth={1.5} aria-hidden="true" />
-                  <span className="integration-name">{name}</span>
-                  <span className="integration-label">{label}</span>
-                  <ChevronDown
-                    size={18}
-                    className="disclosure-icon"
-                    aria-hidden="true"
-                  />
-                </summary>
-                <div className="integration-detail">
-                  <p>{body}</p>
-                  <a href={href} target="_blank" rel="noreferrer">
-                    {t("Documentación oficial", "Official documentation")}
-                    <ArrowUpRight size={15} aria-hidden="true" />
-                  </a>
-                </div>
-              </details>
-            ),
-          )}
-        </div>
-        {chain.id === "testnet" && (
-          <div className="landing-assets">
-            <div className="landing-asset-logos" aria-hidden="true">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/assets/xlm.svg" width="40" height="40" alt="" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/assets/usdc.svg" width="40" height="40" alt="" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/assets/usdt0.svg" width="40" height="40" alt="" />
-            </div>
-            <div>
-              <h3>
-                {t(
-                  "XLM, USDC y USDT0, para probar el flujo.",
-                  "XLM, USDC, and USDT0, to try the flow.",
-                )}
-              </h3>
-              <p>
-                {t(
-                  "Los dos stablecoins con su logo oficial, más XLM. Consigue USDT0 de prueba con un botón (emitido por SoroSafe, porque USDT0 aún no existe en Testnet) y USDC de Circle. Fondos sin valor real; Mainnet es el siguiente paso.",
-                  "Both stablecoins with their official logos, plus XLM. Get test USDT0 with one button (issued by SoroSafe, since USDT0 isn't on Testnet yet) and Circle's USDC. No real value; Mainnet is the next step.",
-                )}
-              </p>
-            </div>
-          </div>
-        )}
+        <ol className="landing-steps">
+          {steps.map(({ title, body }, index) => (
+            <li key={title}>
+              <span className="landing-step-number" aria-hidden="true">
+                {index + 1}
+              </span>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section className="landing-why" id="why" aria-labelledby="why-title">
@@ -393,18 +361,18 @@ export function LandingLayout({
           <div className="landing-illustrated-heading">
             <div className="landing-section-heading">
               <p className="landing-kicker">
-                {t("Por qué existe SoroSafe", "Why SoroSafe exists")}
+                {t("Por qué SoroSafe", "Why SoroSafe")}
               </p>
               <h2 id="why-title">
                 {t(
-                  "La multifirma\ndebería ser sencilla.",
-                  "Multisig\nshould feel simple.",
+                  "Control compartido,\nsin complicaciones.",
+                  "Shared control,\nwithout the complexity.",
                 )}
               </h2>
               <p>
                 {t(
-                  "Controlar el dinero entre varias personas no debería complicar cada pago. SoroSafe reúne firmantes, contactos y aprobaciones en una misma bóveda.",
-                  "Sharing control of funds should not complicate every payment. SoroSafe brings signers, contacts, and approvals together in one vault.",
+                  "Para equipos que gestionan dinero juntos: todos ven la misma bóveda, los mismos contactos y las mismas solicitudes.",
+                  "For teams that manage money together: everyone sees the same vault, the same contacts, and the same requests.",
                 )}
               </p>
             </div>
@@ -422,66 +390,60 @@ export function LandingLayout({
           </div>
           <div className="landing-features">
             <article className="landing-feature-main">
-              <BookUser size={32} strokeWidth={1.4} aria-hidden="true" />
+              <Users size={30} strokeWidth={1.4} aria-hidden="true" />
               <h3>
                 {t(
-                  "Los contactos\nson del equipo.",
-                  "Contacts belong\nto the team.",
+                  "Varias personas.\nUna misma bóveda.",
+                  "Multiple people.\nOne shared vault.",
                 )}
               </h3>
               <p>
                 {t(
-                  "La misma libreta para todos. Conoce quién añadió cada dirección y si ya recibió pagos de la bóveda.",
-                  "One address book for everyone. See who added an address and whether it has received payments from the vault.",
+                  "Empieza con tu wallet, añade a tu equipo y decide cuántas aprobaciones autorizan un pago. La dirección de la bóveda no cambia.",
+                  "Start with your wallet, add your team, and decide how many approvals authorize a payment. The vault address stays the same.",
                 )}
               </p>
-              <div className="feature-principle">
-                <Users size={19} aria-hidden="true" />
-                {t("El contexto se comparte.", "Context is shared.")}
+              <div
+                className="approval-visual"
+                role="img"
+                aria-label={t(
+                  "Ejemplo de regla 2 de 3: dos personas ya aprobaron.",
+                  "Example 2-of-3 rule: two people have approved.",
+                )}
+              >
+                <div className="approval-people" aria-hidden="true">
+                  {approvers.map(({ initial, name, approved }) => (
+                    <div
+                      key={initial}
+                      className={approved ? "is-approved" : undefined}
+                    >
+                      <span className="approval-avatar">
+                        {initial}
+                        {approved && (
+                          <span className="approval-check">
+                            <Check size={11} strokeWidth={3} />
+                          </span>
+                        )}
+                      </span>
+                      <small>{name}</small>
+                    </div>
+                  ))}
+                </div>
+                <div className="approval-result" aria-hidden="true">
+                  <strong>{t("2 de 3", "2 of 3")}</strong>
+                  <span>{t("Aprobado · pagado", "Approved · paid")}</span>
+                </div>
               </div>
             </article>
-            <article className="landing-feature">
-              <h3>
-                {t(
-                  "Varios firmantes.\nUna misma bóveda.",
-                  "Multiple signers.\nOne shared vault.",
-                )}
-              </h3>
-              <p>
-                {t(
-                  "Empieza con tu wallet. Añade firmantes y define cuántas firmas autorizan un pago, sin cambiar la dirección de la bóveda.",
-                  "Start with your wallet. Add signers and set how many signatures authorize a payment, keeping the same vault address.",
-                )}
-              </p>
-            </article>
-            <article className="landing-feature">
-              <h3>
-                {t(
-                  "Firma con\nel contexto completo.",
-                  "Sign with\nthe full picture.",
-                )}
-              </h3>
-              <p>
-                {t(
-                  "Destinatario, moneda, importe y comisiones, antes de confirmar. La aprobación que completa la regla también completa el pago, si hay saldo.",
-                  "Recipient, currency, amount, and fees, before confirming. The approval that meets the rule also completes the payment when funds are available.",
-                )}
-              </p>
-            </article>
-            <article className="landing-feature">
-              <h3>
-                {t(
-                  "Sin gas.\nLa red corre por nuestra cuenta.",
-                  "No gas.\nThe network is on us.",
-                )}
-              </h3>
-              <p>
-                {t(
-                  "SoroSafe paga en XLM la comisión de red de pagos, aprobaciones y depósitos con una transacción fee-bump de Stellar. Tu firma no cambia y, si alguna vez no podemos cubrirla, la operación sigue igual.",
-                  "SoroSafe pays the XLM network fee for payments, approvals, and deposits with a Stellar fee-bump transaction. Your signature stays the same, and if we ever can't cover it, the operation still goes through.",
-                )}
-              </p>
-            </article>
+            {features.map(({ icon: Icon, title, body }) => (
+              <article className="landing-feature" key={title}>
+                <Icon size={22} strokeWidth={1.5} aria-hidden="true" />
+                <div>
+                  <h3>{title}</h3>
+                  <p>{body}</p>
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -492,6 +454,9 @@ export function LandingLayout({
         aria-labelledby="security-title"
       >
         <div className="landing-section-heading">
+          <p className="landing-kicker">
+            {t("Seguridad y custodia", "Security & custody")}
+          </p>
           <h2 id="security-title">
             {t(
               "El contrato guarda el dinero.\nTu equipo decide.",
@@ -500,8 +465,8 @@ export function LandingLayout({
           </h2>
           <p>
             {t(
-              "Tu bóveda multifirma tiene su propia dirección en Stellar. El contrato exige las aprobaciones acordadas para pagar o cambiar el equipo.",
-              "Your multisig vault has its own address on Stellar. The contract requires the agreed approvals for payments and team changes.",
+              "Tu bóveda tiene su propia dirección en Stellar. El contrato exige las aprobaciones acordadas para pagar o cambiar el equipo.",
+              "Your vault has its own address on Stellar. The contract requires the agreed approvals for payments and team changes.",
             )}
           </p>
         </div>
@@ -547,7 +512,7 @@ export function LandingLayout({
                   "No SoroSafe withdrawal key",
                 ),
                 t(
-                  "El creador de la app no tiene acceso privilegiado a los fondos. El contrato exige la regla de tu equipo.",
+                  "Quien creó la app no tiene acceso privilegiado a los fondos. El contrato exige la regla de tu equipo.",
                   "The app's creator has no privileged access to the funds. The contract enforces your team's rule.",
                 ),
               ],
@@ -563,12 +528,12 @@ export function LandingLayout({
               ],
               [
                 t(
-                  "Una sola firma no basta si tu regla exige más",
-                  "One signature is not enough when your rule requires more",
+                  "Una sola clave no basta si tu regla exige más",
+                  "One key is not enough when your rule requires more",
                 ),
                 t(
-                  "Configura un umbral de varias firmas para compartir el control. Una bóveda 1 de 1 depende de su único firmante.",
-                  "Set a threshold of multiple signatures to share control. A 1-of-1 vault depends on its only signer.",
+                  "Con una regla de varias aprobaciones, una clave expuesta no puede autorizar un pago. Una bóveda 1 de 1 depende de su único firmante.",
+                  "With a multi-approval rule, one exposed key cannot authorize a payment. A 1-of-1 vault depends on its only signer.",
                 ),
               ],
             ].map(([title, body]) => (
@@ -591,12 +556,126 @@ export function LandingLayout({
       </section>
 
       <section
+        className="landing-stellar landing-width"
+        id="stellar"
+        aria-labelledby="stellar-title"
+      >
+        <div className="landing-stellar-intro">
+          <div className="landing-stellar-title">
+            <div className="landing-stellar-signature">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/xlm.svg" alt="" width="34" height="34" />
+              <span>Stellar</span>
+            </div>
+            <h2 id="stellar-title">
+              {t(
+                "Una red hecha para mover dinero.",
+                "A network built to move money.",
+              )}
+            </h2>
+            <p>
+              {t(
+                "Pagos rápidos, costes de red bajos y activos digitales. La base para que compartir dinero sea una tarea cotidiana.",
+                "Fast payments, low network costs, and digital assets. The foundation for making shared money an everyday experience.",
+              )}
+            </p>
+            <a
+              className="landing-text-link"
+              href="https://stellar.org/learn/intro-to-stellar"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("Conoce Stellar", "Discover Stellar")}
+              <ArrowUpRight size={17} aria-hidden="true" />
+            </a>
+          </div>
+          <div className="landing-network-benefits">
+            {[
+              {
+                icon: Zap,
+                title: t(
+                  "Decisiones que avanzan",
+                  "Decisions that move forward",
+                ),
+                body: t(
+                  "Una red pensada para pagos, con confirmaciones en segundos y costes que revisas antes de firmar.",
+                  "A network built for payments, with confirmations in seconds and costs you review before signing.",
+                ),
+              },
+              {
+                icon: Globe2,
+                title: t(
+                  "Tu equipo, en cualquier lugar",
+                  "Your team, anywhere",
+                ),
+                body: t(
+                  "Una dirección compartida, acceso a cualquier hora y un registro que todos pueden comprobar.",
+                  "One shared address, around-the-clock access, and a record everyone can check.",
+                ),
+              },
+            ].map(({ icon: Icon, title, body }) => (
+              <article key={title}>
+                <Icon size={22} strokeWidth={1.5} aria-hidden="true" />
+                <div>
+                  <h3>{title}</h3>
+                  <p>{body}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+        <h3 className="landing-integrations-title">
+          {t(
+            "Stellar, detrás de cada firma",
+            "Stellar, behind every signature",
+          )}
+        </h3>
+        <div className="landing-integration-list">
+          {integrations.map(
+            ({ name, label, body, href, icon: Icon }, index) => (
+              <details
+                key={name}
+                open={index === 0}
+                name="stellar-integrations"
+              >
+                <summary>
+                  <Icon size={21} strokeWidth={1.5} aria-hidden="true" />
+                  <span className="integration-text">
+                    <span className="integration-name">{name}</span>
+                    <span className="integration-label">{label}</span>
+                  </span>
+                  <ChevronDown
+                    size={18}
+                    className="disclosure-icon"
+                    aria-hidden="true"
+                  />
+                </summary>
+                <div className="integration-detail">
+                  <p>{body}</p>
+                  <a href={href} target="_blank" rel="noreferrer">
+                    {t("Documentación oficial", "Official documentation")}
+                    <ArrowUpRight size={15} aria-hidden="true" />
+                  </a>
+                </div>
+              </details>
+            ),
+          )}
+        </div>
+      </section>
+
+      <section
         className="landing-questions landing-width"
+        id="faq"
         aria-labelledby="questions-title"
       >
-        <h2 id="questions-title">
-          {t("Antes de empezar.", "Before you start.")}
-        </h2>
+        <div>
+          <p className="landing-kicker">
+            {t("Preguntas frecuentes", "FAQ")}
+          </p>
+          <h2 id="questions-title">
+            {t("Antes de empezar.", "Before you start.")}
+          </h2>
+        </div>
         <div>
           {questions.map(({ title, body }) => (
             <details key={title}>
@@ -613,6 +692,41 @@ export function LandingLayout({
           ))}
         </div>
       </section>
+      {chain.id === "testnet" && (
+        <div
+          className="landing-try landing-width"
+          aria-labelledby="try-title"
+          role="region"
+        >
+          <div className="landing-assets">
+            <div className="landing-asset-logos" aria-hidden="true">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/xlm.svg" width="40" height="40" alt="" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/usdc.svg" width="40" height="40" alt="" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/usdt0.svg" width="40" height="40" alt="" />
+            </div>
+            <div>
+              <p className="landing-kicker">
+                {t("Pruébalo en Testnet", "Try it on Testnet")}
+              </p>
+              <h3 id="try-title">
+                {t(
+                  "XLM, USDC y USDT0, listos para probar.",
+                  "XLM, USDC, and USDT0, ready to test.",
+                )}
+              </h3>
+              <p>
+                {t(
+                  "Pruébalo con dólares de prueba (USDC, USDT0) y XLM. Un botón te da fondos de prueba. Sin dinero real.",
+                  "Try it with test dollars (USDC, USDT0) and XLM. One button gets you test funds. No real money involved.",
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <section
         className="onboarding landing-create"
         id="create-vault"
@@ -645,10 +759,20 @@ export function LandingFooter({ es }: { es: boolean }) {
               ? "Proyecto independiente del ecosistema Stellar."
               : "An independent project in the Stellar ecosystem."}
           </span>
-          <a href="/brand/sorosafe-logo.svg" download>
-            {es ? "Descargar logo" : "Download logo"}
-            <ArrowUpRight size={14} aria-hidden="true" />
-          </a>
+          <div className="landing-footer-links">
+            <a href="/brand/sorosafe-logo.svg" download>
+              {es ? "Descargar logo" : "Download logo"}
+              <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+            <a
+              href="https://github.com/ffarinas/sorosafe"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {es ? "Código fuente" : "Source code"}
+              <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+          </div>
         </div>
       </div>
     </footer>

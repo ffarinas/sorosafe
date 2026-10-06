@@ -11,14 +11,10 @@
 .brand-wordmark.has-mark {
   width: calc(var(--brand-wordmark-width, 146px) * 1.394);
 }
-/* Phones: the lockup is wider than the name alone, so give the header room. */
+/* Phones: 156px is the brand guide's minimum for the horizontal lockup.
+   Narrow screens make room by tightening the header, never the logo. */
 @media (max-width: 480px) {
   .brand-wordmark.has-mark {
     width: 156px;
-  }
-}
-@media (max-width: 370px) {
-  .brand-wordmark.has-mark {
-    width: 136px;
   }
 }

@@ -6,7 +6,7 @@
   padding: 10px 16px;
   min-height: 42px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--background);
   color: var(--foreground);
   font-size: 13px;
@@ -55,10 +55,10 @@
   display: flex;
   flex-direction: column;
   max-height: calc(100dvh - 32px);
-  background: #161616;
+  background: var(--ink);
   color: #faf9f6;
   border: 1px solid #393939;
-  border-radius: 20px;
+  border-radius: var(--r-panel);
   box-shadow: 0 16px 64px rgb(0 0 0 / 30%);
   outline: none;
   font-family: var(--font-body);
@@ -70,7 +70,7 @@
   position: absolute;
   width: 14px;
   height: 14px;
-  background: #161616;
+  background: var(--ink);
   transform: rotate(45deg);
   z-index: -1;
 }
@@ -145,7 +145,7 @@
   margin: 0 0 14px;
   font-family: var(--font-display);
   font-size: 27px;
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.035em;
   color: #faf9f6;
@@ -202,7 +202,7 @@
   height: 42px;
   background: transparent;
   color: #fff;
-  border: 1px solid #666;
+  border: 1px solid #8a8a8a;
   border-radius: 50%;
 }
 .product-tour-back:disabled {
@@ -214,11 +214,11 @@
   justify-content: space-between;
   gap: 16px;
   background: #faf9f6;
-  color: #161616;
+  color: var(--ink);
   padding: 7px 8px 7px 18px;
   min-height: 42px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-size: 13px;
   font-weight: 500;
 }
@@ -229,7 +229,7 @@
   height: 28px;
   border-radius: 50%;
   color: #faf9f6;
-  background: #161616;
+  background: var(--ink);
 }
 .product-tour-next:hover {
   background: #deddd9;
