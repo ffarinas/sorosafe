@@ -41,8 +41,11 @@ test("the explanation follows the actual quorum, currency list and fee", () => {
     );
     assert.match(
       step(steps, "operations").body,
-      language === "es" ? /Ejecutar/ : /Execute/,
+      language === "es"
+        ? /última aprobación necesaria envía el pago/
+        : /last approval needed sends the payment/,
     );
+    assert.doesNotMatch(step(steps, "operations").body, /Execute|Ejecutar/);
     assert.match(
       step(steps, "payment").note,
       language === "es" ? /primera aprobación/ : /first approval/,

@@ -13,6 +13,7 @@ import {
   actionVal,
   val,
   contractAssets,
+  sacId,
 } from "../qa/contracts.mjs";
 const chain = {
   id: "mainnet",
@@ -65,16 +66,31 @@ assert.throws(
     ]),
   /CHANGED_TRANSACTION/,
 );
-assert.throws(
-  () => rulesVal({ signers: [signer, signer], threshold: 2 }),
-  /INVALID_RULE/,
-);
-assert.throws(
-  () => rulesVal({ signers: [signer, other], threshold: 1 }),
-  /INVALID_RULE/,
-);
+// Rules: 1 to 20 distinct signers, threshold from 1 up to the team size.
+for (const accepted of [
+  { signers: [signer], threshold: 1 },
+  { signers: [signer, other], threshold: 1 },
+  { signers: [signer, other], threshold: 2 },
+  {
+    signers: Array.from({ length: 20 }, () => Keypair.random().publicKey()),
+    threshold: 20,
+  },
+])
+  assert.deepEqual(scValToNative(rulesVal(accepted)), accepted);
+for (const rejected of [
+  { signers: [signer, other], threshold: 0 },
+  { signers: [signer, other], threshold: 3 },
+  { signers: [signer], threshold: 1.5 },
+  { signers: [], threshold: 1 },
+  {
+    signers: Array.from({ length: 21 }, () => Keypair.random().publicKey()),
+    threshold: 1,
+  },
+  { signers: [signer, signer], threshold: 1 },
+  { signers: [signer, vault], threshold: 1 },
+])
+  assert.throws(() => rulesVal(rejected), /INVALID_RULE/);
 const rule = { signers: [signer, other], threshold: 2 };
-assert.deepEqual(scValToNative(rulesVal(rule)), rule);
 assert.throws(
   () => createArgs(signer, new Uint8Array(31), "Vault", rule),
   /INVALID_INPUT/,
@@ -83,6 +99,12 @@ assert.notEqual(
   currencies.find((a) => a.code === "USDT0").contract,
   usdc.contract,
 );
+// Assets are identified by contract and issuer, never by ticker: a token with
+// the same code from another issuer is a different contract.
+const imposter = sacId(chain, "USDC", Keypair.random().publicKey());
+assert.notEqual(imposter, usdc.contract);
+assert.equal(sacId(chain, "USDC", usdc.issuer), usdc.contract);
+assert(!currencies.some((a) => a.contract === imposter));
 console.log(
-  "10 contract-client checks passed: exact token, recipient, source, method, rules and constructor encoding.",
+  "contract-client checks passed: exact token, recipient, source, method, rules (1..20 signers, threshold 1..N), constructor encoding and asset identity.",
 );

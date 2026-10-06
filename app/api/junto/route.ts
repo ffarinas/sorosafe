@@ -4,9 +4,9 @@ import {
   contractAssets,
   createArgs,
   describeCall,
-  submitFeeBump,
   prepareCall,
   readContract,
+  server,
   submitContract,
   verifiedConfig,
   verifyCode,
@@ -16,36 +16,14 @@ import {
 import {
   StrKey,
   Keypair,
-  Operation,
+  Transaction,
   TransactionBuilder,
-  Account,
 } from "@stellar/stellar-sdk";
 import { Buffer } from "node:buffer";
 import { all, db, digest, one, run, token } from "@/lib/store";
-import {
-  chain,
-  NETWORK,
-  account,
-  accountBalances,
-  networkRules,
-  checkPolicy,
-  combine,
-  decode,
-  paymentXdr,
-  receipt,
-  setupXdr,
-  signedBy,
-  submit,
-} from "@/lib/stellar";
-import type { Contact, Payment, Person, Vault, State } from "@/lib/domain";
-import {
-  canSpend,
-  decimal,
-  sameAsset,
-  units,
-  assetCatalog,
-  TRUST_LIMIT,
-} from "@/lib/assets";
+import { chain, NETWORK, signedBy } from "@/lib/stellar";
+import type { Contact, Person, Vault, State } from "@/lib/domain";
+import { assetCatalog } from "@/lib/assets";
 export const dynamic = "force-dynamic";
 const now = () => Math.floor(Date.now() / 1000);
 const vaultFields =
@@ -55,18 +33,6 @@ type InternalVault = Vault & {
   attempt: number;
   contract?: ContractConfig;
 };
-function activationDetails(encoded: string) {
-  const tx = decode(encoded);
-  const first = tx.operations[0];
-  if (first.type !== "createAccount") fail("INVALID_TRANSACTION");
-  return {
-    xdr: encoded,
-    address: first.destination,
-    funding: first.startingBalance,
-    fee: decimal(BigInt(tx.fee)),
-    expires: Number(tx.timeBounds?.maxTime),
-  };
-}
 function fail(code: string): never {
   throw new Error(code);
 }
@@ -128,7 +94,10 @@ async function user(req: Request) {
 async function membership(id: string, address: string) {
   const v = await one<InternalVault>("SELECT * FROM vaults WHERE id=?", id);
   if (v && v.network !== chain.id) fail("NETWORK_MISMATCH");
-  if (v?.custody === "soroban" && v.status === "active" && v.address) {
+  // Vaults are Soroban contracts only. Rows left by the retired classic
+  // multisig flow can never be opened again.
+  if (v && v.custody !== "soroban") fail("UNVERIFIED_CONTRACT");
+  if (v?.status === "active" && v.address) {
     const recorded = await one(
       "SELECT 1 FROM members WHERE vault=? AND address=?",
       id,
@@ -241,6 +210,51 @@ async function sponsorable(call: ReturnType<typeof describeCall>) {
     )
   );
 }
+/**
+ * Pays the network fee of a user-signed call with a fee-bump. The sponsor
+ * signs only the outer envelope: it cannot change the call or authorize
+ * anything in a vault. Never throws; the reason tells the route whether the
+ * sponsor may have paid:
+ * - REJECTED: never accepted for a ledger (the sponsor paid nothing).
+ * - FAILED: included in a ledger and failed (the sponsor paid the fee).
+ * - UNCERTAIN: possibly accepted, no final result yet (it may still land).
+ */
+async function sponsorFeeBump(
+  signed: string,
+  sponsor: Keypair,
+): Promise<{ hash: string } | { reason: "REJECTED" | "FAILED" | "UNCERTAIN" }> {
+  let bump, s;
+  try {
+    const inner = TransactionBuilder.fromXDR(signed, chain.passphrase);
+    if (!(inner instanceof Transaction)) return { reason: "REJECTED" };
+    bump = TransactionBuilder.buildFeeBumpTransaction(
+      sponsor,
+      (BigInt(inner.fee) + BigInt(100)).toString(),
+      inner,
+      chain.passphrase,
+    );
+    bump.sign(sponsor);
+    s = await server(chain);
+  } catch {
+    return { reason: "REJECTED" };
+  }
+  let sent;
+  try {
+    sent = await s.sendTransaction(bump);
+  } catch {
+    // The RPC may have received it before the connection failed.
+    return { reason: "UNCERTAIN" };
+  }
+  // ERROR, TRY_AGAIN_LATER and DUPLICATE: this envelope was not accepted.
+  if (sent.status !== "PENDING") return { reason: "REJECTED" };
+  for (let n = 0; n < 15; n++) {
+    const result = await s.getTransaction(sent.hash).catch(() => null);
+    if (result?.status === "SUCCESS") return { hash: sent.hash };
+    if (result?.status === "FAILED") return { reason: "FAILED" };
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  return { reason: "UNCERTAIN" };
+}
 // The on-chain rules must be exactly the team and threshold agreed in the draft.
 function matchesTeam(
   rules: { signers: string[]; threshold: number },
@@ -267,85 +281,6 @@ function teamSnapshot(id: string, people: Person[]) {
     args: [id, people.length, id, ...people.map((p) => p.address)],
   };
 }
-async function ensurePolicy(v: Vault) {
-  if (!v.address || v.status !== "active") fail("VAULT_NOT_ACTIVE");
-  const [a, m] = await Promise.all([account(v.address), team(v.id)]);
-  if (
-    !checkPolicy(
-      a,
-      m.map((x) => x.address),
-      v.threshold,
-    )
-  )
-    fail("POLICY_CHANGED");
-  return a;
-}
-async function settle(p: Payment) {
-  const r = await receipt(p.hash);
-  if (r) {
-    await run(
-      "UPDATE payments SET status=? WHERE id=?",
-      r.successful ? "paid" : "failed",
-      p.id,
-    );
-    return r.successful ? "paid" : "failed";
-  }
-  if (p.expires < now()) {
-    await run("UPDATE payments SET status='expired' WHERE id=?", p.id);
-    return "expired";
-  }
-  return p.status;
-}
-async function broadcast(p: Payment, v: Vault) {
-  const existing = await settle(p);
-  if (existing === "paid") return;
-  if (existing === "failed" || existing === "expired") fail("PAYMENT_EXPIRED");
-  await ensurePolicy(v);
-  const sigs = await all<{ address: string; signature: string }>(
-    "SELECT address,signature FROM signatures WHERE payment=? ORDER BY created,address",
-    p.id,
-  );
-  if (sigs.length < v.threshold) return;
-  const claimed = await run(
-    "UPDATE payments SET status='submitting' WHERE id=? AND status='pending'",
-    p.id,
-  );
-  if (!claimed.meta.changes && p.status !== "submitting") return;
-  try {
-    await submit(
-      combine(
-        p.xdr,
-        sigs.map((s) => s.signature),
-        v.threshold,
-      ),
-    );
-    const r = await receipt(p.hash);
-    if (r)
-      await run(
-        "UPDATE payments SET status=? WHERE id=?",
-        r.successful ? "paid" : "failed",
-        p.id,
-      );
-  } catch (e) {
-    const found = await receipt(p.hash).catch(() => null);
-    if (found) {
-      await run(
-        "UPDATE payments SET status=? WHERE id=?",
-        found.successful ? "paid" : "failed",
-        p.id,
-      );
-      return;
-    }
-    const msg = e instanceof Error ? e.message : "SUBMISSION_UNCERTAIN";
-    if (
-      ["STALE_PAYMENT", "INSUFFICIENT_FUNDS", "TRUSTLINE_REQUIRED"].includes(
-        msg,
-      )
-    )
-      await run("UPDATE payments SET status='failed' WHERE id=?", p.id);
-    throw e;
-  }
-}
 function error(e: unknown) {
   const code = errorCode(e);
   return json(
@@ -370,35 +305,22 @@ function errorCode(e: unknown) {
     "INVALID_INPUT",
     "INVALID_RULE",
     "INVALID_ADDRESS",
-    "INVALID_AMOUNT",
     "INVALID_TRANSACTION",
     "CHANGED_TRANSACTION",
     "INVALID_SIGNATURE",
-    "ACCOUNT_MISSING",
     "NETWORK_UNAVAILABLE",
     "NOT_MEMBER",
     "SIGN_IN_REQUIRED",
     "EXPIRED_LOGIN",
-    "VAULT_NOT_ACTIVE",
     "POLICY_CHANGED",
-    "PAYMENT_EXPIRED",
-    "STALE_PAYMENT",
-    "INSUFFICIENT_FUNDS",
-    "ASSET_UNAVAILABLE",
     "NETWORK_MISMATCH",
-    "ASSET_ENABLED",
-    "ACTIVATION_EXPIRED",
-    "TRUSTLINE_REQUIRED",
     "SUBMISSION_UNCERTAIN",
     "INVITE_CLOSED",
     "NOT_OWNER",
     "TEAM_INCOMPLETE",
-    "PAYMENT_PENDING",
     "CONTACT_EXISTS",
-    "MEMO_TOO_LONG",
     "INVALID_ORIGIN",
     "STORAGE_UNAVAILABLE",
-    "INSUFFICIENT_SIGNATURES",
     "ALREADY_ACTIVE",
     "RATE_LIMITED",
     "CONFIGURATION_REQUIRED",
@@ -445,7 +367,7 @@ export async function GET(req: Request) {
       ? [requested]
       : (
           await all<{ id: string }>(
-            `SELECT v.id FROM vaults v JOIN members m ON v.id=m.vault WHERE m.address=? AND v.network=? ORDER BY v.created DESC`,
+            `SELECT v.id FROM vaults v JOIN members m ON v.id=m.vault WHERE m.address=? AND v.network=? AND v.custody='soroban' ORDER BY v.created DESC`,
             me.address,
             chain.id,
           )
@@ -469,33 +391,13 @@ export async function GET(req: Request) {
       }
     }
     state.vaults = await all<Vault>(
-      `SELECT ${vaultFields} FROM vaults v JOIN members m ON v.id=m.vault WHERE m.address=? AND v.network=? ORDER BY v.created DESC`,
+      `SELECT ${vaultFields} FROM vaults v JOIN members m ON v.id=m.vault WHERE m.address=? AND v.network=? AND v.custody='soroban' ORDER BY v.created DESC`,
       me.address,
       chain.id,
     );
     if (!v) return json(state);
     const people = await team(id);
     state.people = people;
-    if (v.custody !== "soroban" && v.status === "activating" && v.address) {
-      try {
-        const a = await account(v.address);
-        if (
-          checkPolicy(
-            a,
-            people.map((p) => p.address),
-            v.threshold,
-          )
-        ) {
-          await run(
-            "UPDATE vaults SET status='active',setup=NULL,invite_hash=NULL WHERE id=?",
-            v.id,
-          );
-          v.status = "active";
-        }
-      } catch {
-        /* A pending activation stays pending until the ledger confirms it. */
-      }
-    }
     state.vault = {
       custody: v.custody,
       network: v.network,
@@ -508,106 +410,42 @@ export async function GET(req: Request) {
       address: v.address,
       created: v.created,
     };
-    if (v.custody === "soroban") {
-      if (v.address && v.status !== "draft") {
-        try {
-          const c =
-            v.contract ??
-            (await verifiedConfig(chain, v.address, env.JUNTO_FACTORY));
-          // A contract deployed outside the agreed draft never activates it.
-          if (
-            v.status !== "active" &&
-            !matchesTeam(c.rules, v.threshold, people)
-          )
-            throw new Error("POLICY_CHANGED");
-          state.vault.status = "active";
-          state.vault.size = c.rules.signers.length;
-          state.vault.threshold = c.rules.threshold;
-          state.people = c.rules.signers.map(
-            (address) =>
-              people.find((p) => p.address === address) || {
-                address,
-                name: address,
-                joined: 0,
-              },
-          );
-          if (v.status !== "active")
-            await run(
-              "UPDATE vaults SET status='active',setup=NULL,invite_hash=NULL WHERE id=?",
-              id,
-            );
-        } catch (e) {
-          // Keep the app usable: the team sees the vault list and the creator
-          // can discard this activation instead of every load failing.
-          if (e instanceof Error && e.message === "POLICY_CHANGED")
-            state.policyMismatch = true;
-          else if (v.status === "active") state.chainError = true;
-        }
-      }
-      state.contacts = await all<Contact>(
-        "SELECT c.id,c.name,c.address,c.memo,c.created_by as createdBy,p.name as creatorName,c.created,NULL as paidCount FROM contacts c JOIN people p ON c.created_by=p.address WHERE c.vault=? ORDER BY c.name",
-        id,
-      );
-      return json(state);
-    }
-    const pending = await all<Payment>(
-      "SELECT * FROM payments WHERE vault=? AND status in ('pending','submitting')",
-      id,
-    );
-    await Promise.all(
-      pending.map((p) =>
-        settle(p).catch(() => {
-          state.chainError = true;
-        }),
-      ),
-    );
-    [state.contacts, state.payments] = await Promise.all([
-      all<Contact>(
-        "SELECT c.id,c.name,c.address,c.memo,c.created_by as createdBy,p.name as creatorName,c.created,(SELECT count(*) FROM payments t WHERE t.vault=c.vault AND t.destination=c.address AND t.memo=c.memo AND t.status='paid') as paidCount FROM contacts c JOIN people p ON c.created_by=p.address WHERE c.vault=? ORDER BY c.name",
-        id,
-      ),
-      all<Payment>(
-        "SELECT t.*,p.name as proposerName FROM payments t JOIN people p ON p.address=t.proposer WHERE t.vault=? ORDER BY t.created DESC LIMIT 100",
-        id,
-      ),
-    ]);
-    const signatures = await all<{
-      payment: string;
-      address: string;
-      name: string;
-    }>(
-      "SELECT s.payment,s.address,p.name FROM signatures s JOIN people p ON p.address=s.address JOIN payments t ON t.id=s.payment WHERE t.vault=?",
-      id,
-    );
-    for (const p of state.payments) {
-      p.fee = decimal(BigInt(decode(p.xdr).fee));
-      p.approvals = signatures
-        .filter((s) => s.payment === p.id)
-        .map((s) => ({ address: s.address, name: s.name }));
-    }
-    if (v.status === "active" && v.address) {
+    if (v.address && v.status !== "draft") {
       try {
-        const [a, rules] = await Promise.all([
-          account(v.address),
-          networkRules(),
-        ]);
-        state.paymentFee = decimal(rules.fee);
-        state.baseReserve = decimal(rules.reserve);
-        for (const p of state.payments)
-          if (p.kind === "enable") p.reserve = decimal(rules.reserve);
-        state.balances = accountBalances(a, rules, state.payments);
-        if (
-          !checkPolicy(
-            a,
-            people.map((x) => x.address),
-            v.threshold,
-          )
-        )
-          state.chainError = true;
-      } catch {
-        state.chainError = true;
+        const c =
+          v.contract ??
+          (await verifiedConfig(chain, v.address, env.JUNTO_FACTORY));
+        // A contract deployed outside the agreed draft never activates it.
+        if (v.status !== "active" && !matchesTeam(c.rules, v.threshold, people))
+          throw new Error("POLICY_CHANGED");
+        state.vault.status = "active";
+        state.vault.size = c.rules.signers.length;
+        state.vault.threshold = c.rules.threshold;
+        state.people = c.rules.signers.map(
+          (address) =>
+            people.find((p) => p.address === address) || {
+              address,
+              name: address,
+              joined: 0,
+            },
+        );
+        if (v.status !== "active")
+          await run(
+            "UPDATE vaults SET status='active',setup=NULL,invite_hash=NULL WHERE id=?",
+            id,
+          );
+      } catch (e) {
+        // Keep the app usable: the team sees the vault list and the creator
+        // can discard this activation instead of every load failing.
+        if (e instanceof Error && e.message === "POLICY_CHANGED")
+          state.policyMismatch = true;
+        else if (v.status === "active") state.chainError = true;
       }
     }
+    state.contacts = await all<Contact>(
+      "SELECT c.id,c.name,c.address,c.memo,c.created_by as createdBy,p.name as creatorName,c.created,NULL as paidCount FROM contacts c JOIN people p ON c.created_by=p.address WHERE c.vault=? ORDER BY c.name",
+      id,
+    );
     return json(state);
   } catch (e) {
     return error(e);
@@ -642,11 +480,15 @@ export async function POST(req: Request) {
       });
     }
     if (action === "sponsor") {
-      // Gas sponsorship is a perk, never a dependency: every "no" here makes
-      // the client submit the same signed transaction and pay the fee itself.
+      // Gas sponsorship is a perk, never a dependency. Every outcome other than
+      // { sponsored: true } answers 200 with a reason, and the client then
+      // submits the same signed transaction paying the fee itself. That is
+      // always safe: the inner transaction has one sequence number, so at most
+      // one of the two submissions can ever execute.
       const no = (reason: string) => json({ sponsored: false, reason });
       if (!env.SPONSOR_SECRET) return no("OFF");
-      const signed = str(b, "signed", 40000);
+      const signed = typeof b.signed === "string" ? b.signed : "";
+      if (!signed || signed.length > 40000) return no("NOT_ELIGIBLE");
       let call: ReturnType<typeof describeCall>;
       try {
         call = describeCall(signed, chain);
@@ -656,7 +498,12 @@ export async function POST(req: Request) {
       if (call.source !== me.address || call.fee > SPONSOR_MAX_FEE)
         return no("NOT_ELIGIBLE");
       if (!(await sponsorable(call))) return no("NOT_ELIGIBLE");
-      const key = Keypair.fromSecret(env.SPONSOR_SECRET);
+      let key: Keypair;
+      try {
+        key = Keypair.fromSecret(env.SPONSOR_SECRET);
+      } catch {
+        return no("OFF");
+      }
       const sponsor = await fetch(
         `${chain.horizon}/accounts/${key.publicKey()}`,
       )
@@ -669,18 +516,33 @@ export async function POST(req: Request) {
         )
         .catch(() => null);
       const xlm = Number(
-        sponsor?.balances.find((x) => x.asset_type === "native")?.balance ?? 0,
+        sponsor?.balances?.find((x) => x.asset_type === "native")?.balance ?? 0,
       );
       if (xlm < SPONSOR_MIN_BALANCE) return no("EMPTY");
+      const day = Math.floor(now() / 86400);
+      // Reserve one of today's sponsored transactions before submitting, so
+      // parallel requests cannot exceed the limit.
       const counted = await run(
         "INSERT INTO sponsorships(address,day,count) VALUES(?,?,1) ON CONFLICT(address,day) DO UPDATE SET count=sponsorships.count+1 WHERE sponsorships.count<?",
         me.address,
-        Math.floor(now() / 86400),
+        day,
         SPONSOR_DAILY_LIMIT,
-      );
+      ).catch(() => null);
+      if (!counted) return no("UNAVAILABLE");
       if (!counted.meta.changes) return no("LIMIT");
-      const result = await submitFeeBump(chain, signed, key);
-      return json({ sponsored: true, hash: result.txHash });
+      const outcome = await sponsorFeeBump(signed, key);
+      if ("hash" in outcome)
+        return json({ sponsored: true, hash: outcome.hash });
+      // Nothing reached the ledger, so the sponsor paid nothing: give the
+      // reservation back. A fee-bump that failed on the ledger or may still
+      // land was paid for (or may be) and keeps counting.
+      if (outcome.reason === "REJECTED")
+        await run(
+          "UPDATE sponsorships SET count=count-1 WHERE address=? AND day=? AND count>0",
+          me.address,
+          day,
+        ).catch(() => null);
+      return no(outcome.reason);
     }
     if (action === "profile") {
       await run(
@@ -764,9 +626,9 @@ export async function POST(req: Request) {
     if (action === "configure") {
       if (v.owner !== me.address) fail("NOT_OWNER");
       if (v.status !== "draft") fail("ALREADY_ACTIVE");
-      const size = integer(b, "size", 2, 20),
-        threshold = integer(b, "threshold", 2, 20);
-      if (threshold > size) fail("INVALID_RULE");
+      // Any team of 1 to 20 signers; any threshold from 1 up to the team size.
+      const size = integer(b, "size", 1, 20),
+        threshold = integer(b, "threshold", 1, size);
       // Check membership in the same statement: a concurrent join must not
       // leave more signers than the chosen team size.
       const saved = await run(
@@ -783,7 +645,8 @@ export async function POST(req: Request) {
     if (action === "invite") {
       if (v.owner !== me.address) fail("NOT_OWNER");
       if (v.status !== "draft") fail("INVITE_CLOSED");
-      if (v.size < 2 || v.threshold < 2) fail("CONFIGURATION_REQUIRED");
+      // A team of one has nobody to invite (1-of-1 activates directly).
+      if (v.size < 2) fail("CONFIGURATION_REQUIRED");
       const invite = token();
       const saved = await run(
         "UPDATE vaults SET invite_hash=? WHERE id=? AND status='draft' AND size=? AND threshold=?",
@@ -795,7 +658,7 @@ export async function POST(req: Request) {
       if (!saved.meta.changes) fail("CONFIGURATION_CHANGED");
       return json({ invite });
     }
-    if (v.custody === "soroban" && action === "prepareVault") {
+    if (action === "prepareVault") {
       if (v.owner !== me.address) fail("NOT_OWNER");
       if (v.status === "active") fail("ALREADY_ACTIVE");
       if (!env.JUNTO_FACTORY || !StrKey.isValidContract(env.JUNTO_FACTORY))
@@ -856,7 +719,7 @@ export async function POST(req: Request) {
         collector: protocol.protocol.collector,
       });
     }
-    if (v.custody === "soroban" && action === "discardActivation") {
+    if (action === "discardActivation") {
       if (v.owner !== me.address) fail("NOT_OWNER");
       if (v.status !== "activating" || !v.address) fail("INVALID_TRANSACTION");
       // Only a contract confirmed on Stellar with other rules can be dropped.
@@ -872,7 +735,7 @@ export async function POST(req: Request) {
       if (!reset.meta.changes) fail("CONFIGURATION_CHANGED");
       return json({ ok: true });
     }
-    if (v.custody === "soroban" && action === "activate") {
+    if (action === "activate") {
       if (v.owner !== me.address) fail("NOT_OWNER");
       if (!v.setup || !v.address || v.status !== "activating")
         fail("INVALID_TRANSACTION");
@@ -888,169 +751,12 @@ export async function POST(req: Request) {
       );
       return json({ ok: true });
     }
-    if (v.custody === "soroban" && !["contact"].includes(action))
-      fail("INVALID_INPUT");
-    if (action === "prepareVault") {
-      if (v.owner !== me.address) fail("NOT_OWNER");
-      if (v.status === "active") fail("ALREADY_ACTIVE");
-      if (v.size < 2 || v.threshold < 2) fail("CONFIGURATION_REQUIRED");
-      const people = await team(id);
-      if (people.length !== v.size) fail("TEAM_INCOMPLETE");
-      const rules = await networkRules();
-      if (v.setup) {
-        const details = activationDetails(v.setup);
-        const previous = await receipt(
-          Buffer.from(decode(v.setup).hash()).toString("hex"),
-        );
-        if (previous?.successful) fail("ALREADY_ACTIVE");
-        if (!previous && details.expires > now()) return json(details);
-        // Failed transactions consumed their sequence. Otherwise wait for the
-        // ledger to pass the old timeout before creating a different account.
-        if (
-          !previous &&
-          (!Number.isFinite(rules.closedAt) ||
-            rules.closedAt <= details.expires)
-        )
-          fail("ACTIVATION_EXPIRED");
-      }
-      const source = await account(me.address);
-      const key = Keypair.random();
-      const count = assetCatalog(chain.id).length;
-      const funding = decimal(
-        BigInt(2 + people.length + count) * rules.reserve +
-          BigInt(count + 1) * rules.fee,
-      );
-      const operationCount = people.length + 2;
-      const required = units(funding) + BigInt(operationCount) * rules.fee;
-      const balance = accountBalances(source, rules).find((b) => !b.issuer);
-      if (
-        !balance ||
-        units(balance.balance) -
-          units(balance.reserve) -
-          units(balance.liabilities) <
-          required
-      )
-        fail("INSUFFICIENT_FUNDS");
-      let builder = new TransactionBuilder(
-        new Account(source.id, source.sequence),
-        { fee: rules.fee.toString(), networkPassphrase: NETWORK },
-      ).addOperation(
-        Operation.createAccount({
-          destination: key.publicKey(),
-          startingBalance: funding,
-        }),
-      );
-      for (const member of people)
-        builder = builder.addOperation(
-          Operation.setOptions({
-            source: key.publicKey(),
-            signer: { ed25519PublicKey: member.address, weight: 1 },
-          }),
-        );
-      const tx = builder
-        .addOperation(
-          Operation.setOptions({
-            source: key.publicKey(),
-            masterWeight: 0,
-            lowThreshold: v.threshold,
-            medThreshold: v.threshold,
-            highThreshold: v.threshold,
-          }),
-        )
-        .setTimeout(600)
-        .build();
-      // Only the bootstrap signature is retained. The master key is disabled
-      // in the same atomic transaction; the owner's wallet must also sign.
-      tx.sign(key);
-      const encoded = tx.toXDR();
-      const snapshot = teamSnapshot(id, people);
-      const saved = await run(
-        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status=? AND COALESCE(setup,'')=? AND size=? AND threshold=?" +
-          snapshot.sql,
-        key.publicKey(),
-        encoded,
-        id,
-        v.status,
-        v.setup || "",
-        v.size,
-        v.threshold,
-        ...snapshot.args,
-      );
-      if (!saved.meta.changes) fail("CONFIGURATION_CHANGED");
-      return json(activationDetails(encoded));
-    }
-    if (action === "prepareActivation") {
-      if (chain.id !== "testnet") fail("INVALID_INPUT");
-      if (v.owner !== me.address) fail("NOT_OWNER");
-      if (v.status !== "draft") fail("ALREADY_ACTIVE");
-      if (v.size < 2 || v.threshold < 2) fail("CONFIGURATION_REQUIRED");
-      const people = await team(id);
-      if (people.length !== v.size) fail("TEAM_INCOMPLETE");
-      const address = addr(str(b, "address", 56));
-      if (people.some((p) => p.address === address)) fail("INVALID_ADDRESS");
-      const a = await account(address);
-      if (
-        a.signers.length !== 1 ||
-        a.signers[0].key !== address ||
-        a.signers[0].weight !== 1
-      )
-        fail("INVALID_TRANSACTION");
-      const xdr = setupXdr(
-        a,
-        people.map((p) => p.address),
-        v.threshold,
-      );
-      const snapshot = teamSnapshot(id, people);
-      const result = await run(
-        "UPDATE vaults SET address=?,setup=?,status='activating',invite_hash=NULL WHERE id=? AND status='draft' AND size=? AND threshold=?" +
-          snapshot.sql,
-        address,
-        xdr,
-        id,
-        v.size,
-        v.threshold,
-        ...snapshot.args,
-      );
-      if (!result.meta.changes) fail("CONFIGURATION_CHANGED");
-      return json({ xdr });
-    }
-    if (action === "activate") {
-      if (v.owner !== me.address) fail("NOT_OWNER");
-      if (v.status !== "activating" || !v.setup || !v.address)
-        fail("INVALID_TRANSACTION");
-      const signed = str(b, "signed", 40000);
-      const setup = decode(v.setup);
-      let encoded = signed;
-      if (setup.operations[0].type === "createAccount") {
-        if (setup.source !== v.owner) fail("INVALID_TRANSACTION");
-        const ownerSignature = signedBy(v.setup, signed, v.owner);
-        signedBy(v.setup, v.setup, v.address);
-        encoded = combine(v.setup, [ownerSignature], 1);
-      } else {
-        if (chain.id !== "testnet") fail("INVALID_TRANSACTION");
-        signedBy(v.setup, signed, v.address);
-      }
-      const found = await receipt(Buffer.from(setup.hash()).toString("hex"));
-      if (!found) await submit(encoded);
-      const a = await account(v.address),
-        people = await team(id);
-      if (
-        !checkPolicy(
-          a,
-          people.map((p) => p.address),
-          v.threshold,
-        )
-      )
-        fail("POLICY_CHANGED");
-      await run("UPDATE vaults SET status='active',setup=NULL WHERE id=?", id);
-      return json({ ok: true });
-    }
     if (action === "contact") {
       const name = str(b, "name", 80),
         address = addr(str(b, "address", 56)),
         memo = str(b, "memo", 80, true);
-      if (Buffer.byteLength(memo) > 28) fail("MEMO_TOO_LONG");
-      if (v.custody === "soroban" && memo) fail("CONTRACT_MEMO_UNSUPPORTED");
+      // Contract payments carry no memo.
+      if (memo) fail("CONTRACT_MEMO_UNSUPPORTED");
       if (
         await one(
           "SELECT id FROM contacts WHERE vault=? AND address=? AND memo=?",
@@ -1075,182 +781,6 @@ export async function POST(req: Request) {
         me.address,
         now(),
       );
-      return json({ ok: true });
-    }
-    if (action === "enableAsset") {
-      const a = await ensurePolicy(v);
-      const existing = await one<Payment>(
-        "SELECT * FROM payments WHERE vault=? AND status in ('pending','submitting')",
-        id,
-      );
-      if (
-        existing &&
-        ["pending", "submitting"].includes(await settle(existing))
-      )
-        fail("PAYMENT_PENDING");
-      const asset = assetCatalog(chain.id).find(
-        (asset) => asset.code === b.code && asset.issuer === b.issuer,
-      );
-      if (!asset) fail("ASSET_UNAVAILABLE");
-      if (
-        a.balances.some(
-          (balance) =>
-            balance.asset_code === asset.code &&
-            balance.asset_issuer === asset.issuer,
-        )
-      )
-        fail("ASSET_ENABLED");
-      const rules = await networkRules();
-      const native = accountBalances(a, rules).find(
-        (balance) => !balance.issuer,
-      );
-      if (!native || units(native.available) < rules.reserve)
-        fail("INSUFFICIENT_FUNDS");
-      const { Asset } = await import("@stellar/stellar-sdk");
-      const expires = now() + 86400;
-      const tx = new TransactionBuilder(new Account(a.id, a.sequence), {
-        fee: rules.fee.toString(),
-        networkPassphrase: NETWORK,
-        timebounds: { minTime: 0, maxTime: expires },
-      })
-        .addOperation(
-          Operation.changeTrust({
-            asset: new Asset(asset.code, asset.issuer),
-            limit: TRUST_LIMIT,
-          }),
-        )
-        .build();
-      const paymentId = crypto.randomUUID();
-      await run(
-        "INSERT INTO payments(id,vault,contact,recipient,destination,memo,amount,code,issuer,note,proposer,xdr,hash,expires,status,created,kind) VALUES(?,?,?,?,?,?,'0',?,?,?,?,?,?,?,'pending',?,'enable')",
-        paymentId,
-        id,
-        "",
-        asset.code,
-        a.id,
-        "",
-        asset.code,
-        asset.issuer,
-        "",
-        me.address,
-        tx.toXDR(),
-        Buffer.from(tx.hash()).toString("hex"),
-        expires,
-        now(),
-      );
-      return json({ id: paymentId });
-    }
-    if (action === "payment") {
-      const a = await ensurePolicy(v);
-      const current = await one<Payment>(
-        "SELECT * FROM payments WHERE vault=? AND status in ('pending','submitting')",
-        id,
-      );
-      if (current) {
-        const status = await settle(current);
-        if (status === "pending" || status === "submitting")
-          fail("PAYMENT_PENDING");
-      }
-      const c = await one<Contact>(
-        "SELECT * FROM contacts WHERE id=? AND vault=?",
-        str(b, "contact", 60),
-        id,
-      );
-      if (!c) fail("INVALID_INPUT");
-      const amount = str(b, "amount", 25),
-        code = str(b, "code", 12),
-        issuer = str(b, "issuer", 56, true),
-        note = str(b, "note", 160);
-      if (!issuer && code !== "XLM") fail("INVALID_INPUT");
-      if (issuer) addr(issuer);
-      const rules = await networkRules();
-      const balances = accountBalances(a, rules);
-      const chosen = balances.find((balance) =>
-        sameAsset(balance, { code, issuer }),
-      );
-      if (!chosen) fail("ASSET_UNAVAILABLE");
-      if (!canSpend(chosen, amount)) fail("INSUFFICIENT_FUNDS");
-      const native = balances.find((balance) => !balance.issuer);
-      if (
-        !native ||
-        units(native.balance) <
-          units(native.reserve) + units(native.liabilities) + rules.fee
-      )
-        fail("INSUFFICIENT_FUNDS");
-      if (
-        !a.balances.some((x) =>
-          issuer
-            ? x.asset_code === code && x.asset_issuer === issuer
-            : x.asset_type === "native",
-        )
-      )
-        fail("INVALID_INPUT");
-      const dest = await account(c.address);
-      if (
-        issuer &&
-        !dest.balances.some(
-          (x) =>
-            x.asset_code === code &&
-            x.asset_issuer === issuer &&
-            x.is_authorized !== false,
-        )
-      )
-        fail("TRUSTLINE_REQUIRED");
-      const expires = now() + 86400,
-        xdr = paymentXdr(
-          a,
-          c.address,
-          amount,
-          code,
-          issuer,
-          c.memo,
-          expires,
-          rules.fee.toString(),
-        );
-      const hash = Buffer.from(decode(xdr).hash()).toString("hex");
-      await run(
-        "INSERT INTO payments(id,vault,contact,recipient,destination,memo,amount,code,issuer,note,proposer,xdr,hash,expires,status,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?)",
-        crypto.randomUUID(),
-        id,
-        c.id,
-        c.name,
-        c.address,
-        c.memo,
-        amount,
-        code,
-        issuer,
-        note,
-        me.address,
-        xdr,
-        hash,
-        expires,
-        now(),
-      );
-      return json({ ok: true });
-    }
-    if (action === "approve" || action === "retry") {
-      const p = await one<Payment>(
-        "SELECT * FROM payments WHERE id=? AND vault=?",
-        str(b, "payment", 60),
-        id,
-      );
-      if (!p) fail("INVALID_INPUT");
-      if (p.status === "paid") return json({ ok: true });
-      if (p.expires < now()) fail("PAYMENT_EXPIRED");
-      if (!["pending", "submitting"].includes(p.status))
-        fail("INVALID_TRANSACTION");
-      await ensurePolicy(v);
-      if (action === "approve") {
-        const sig = signedBy(p.xdr, str(b, "signed", 40000), me.address);
-        await run(
-          "INSERT OR IGNORE INTO signatures(payment,address,signature,created) VALUES(?,?,?,?)",
-          p.id,
-          me.address,
-          sig,
-          now(),
-        );
-      }
-      await broadcast(p, v);
       return json({ ok: true });
     }
     fail("INVALID_INPUT");

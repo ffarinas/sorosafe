@@ -7,8 +7,10 @@ import { mkdir, readFile, rm } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { build } from "esbuild";
 import {
+  Account,
   Keypair,
   Networks,
+  Operation,
   StrKey,
   TransactionBuilder,
 } from "@stellar/stellar-sdk";
@@ -75,6 +77,23 @@ globalThis.__juntoAuditTests = {
     return structuredClone(config);
   },
   bumps: 0,
+  assets: [],
+  // Stellar RPC as seen by the fee-bump: what sendTransaction answers (a
+  // status, or an Error to throw) and the final getTransaction status.
+  send: "PENDING",
+  landed: "SUCCESS",
+  rpc: {
+    async sendTransaction(tx) {
+      const t = globalThis.__juntoAuditTests;
+      t.bumps++;
+      assert.equal(tx.feeSource, sponsorKey.publicKey());
+      if (t.send instanceof Error) throw t.send;
+      return { status: t.send, hash: "bumped" };
+    },
+    async getTransaction() {
+      return { status: globalThis.__juntoAuditTests.landed };
+    },
+  },
   call() {
     if (sponsorCall instanceof Error) throw sponsorCall;
     return sponsorCall;
@@ -107,47 +126,54 @@ const migrations = await Promise.all(
     readFile(new URL(`../drizzle/${tag}.sql`, import.meta.url), "utf8"),
   ),
 );
-await build({
-  absWorkingDir: root,
-  entryPoints: ["app/api/junto/route.ts", "lib/auth.ts"],
-  outdir: output.pathname,
-  outbase: root,
-  bundle: true,
-  packages: "external",
-  platform: "node",
-  format: "esm",
-  outExtension: { ".js": ".mjs" },
-  plugins: [
-    {
-      name: "test-boundaries",
-      setup(b) {
-        b.onResolve({ filter: /^cloudflare:workers$/ }, () => ({
-          path: "env",
-          namespace: "fixture",
-        }));
-        b.onResolve({ filter: /^@\/lib\/contracts$/ }, () => ({
-          path: "rpc",
-          namespace: "fixture",
-        }));
-        b.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path }) => ({
-          contents:
-            path === "env"
-              ? "export const env = globalThis.__juntoAuditTests.env;"
-              : `export const verifiedConfig = async () => globalThis.__juntoAuditTests.config();
+const bundle = (entryPoints, outdir) =>
+  build({
+    absWorkingDir: root,
+    entryPoints,
+    outdir,
+    outbase: root,
+    bundle: true,
+    packages: "external",
+    platform: "node",
+    format: "esm",
+    outExtension: { ".js": ".mjs" },
+    plugins: [
+      {
+        name: "test-boundaries",
+        setup(b) {
+          b.onResolve({ filter: /^cloudflare:workers$/ }, () => ({
+            path: "env",
+            namespace: "fixture",
+          }));
+          b.onResolve({ filter: /^@\/lib\/contracts$/ }, () => ({
+            path: "rpc",
+            namespace: "fixture",
+          }));
+          b.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path }) => ({
+            contents:
+              path === "env"
+                ? "export const env = globalThis.__juntoAuditTests.env;"
+                : `export const verifiedConfig = async () => globalThis.__juntoAuditTests.config();
          export const createArgs = (...args) => args;
          export const prepareCall = async () => globalThis.__juntoAuditTests.prepare();
          export const readContract = async () => ({ protocol: globalThis.__juntoAuditTests.config().protocol });
          export const verifyCode = async () => {};
          export const submitContract = async () => { throw Error('Unexpected submission'); };
-         export const contractAssets = () => [];
+         export const contractAssets = () => globalThis.__juntoAuditTests.assets;
          export const describeCall = () => globalThis.__juntoAuditTests.call();
-         export const submitFeeBump = async () => { globalThis.__juntoAuditTests.bumps++; return { txHash: 'bumped' }; };`,
-        }));
+         export const server = async () => globalThis.__juntoAuditTests.rpc;`,
+          }));
+        },
       },
-    },
-  ],
-});
+    ],
+  });
+await bundle(["app/api/junto/route.ts", "lib/auth.ts"], output.pathname);
+// The network is fixed when the module loads: a second copy runs as Mainnet.
+await bundle(["app/api/junto/route.ts"], new URL("mainnet/", output).pathname);
 const { GET, POST } = await import(new URL("app/api/junto/route.mjs", output));
+env.JUNTO_NETWORK = "mainnet";
+const mainnet = await import(new URL("mainnet/app/api/junto/route.mjs", output));
+env.JUNTO_NETWORK = "testnet";
 const { challenge, authenticate } = await import(
   new URL("lib/auth.mjs", output)
 );
@@ -167,6 +193,15 @@ function reset(status = "activating") {
       .run(
         createHash("sha256")
           .update(`${Networks.TESTNET}:token${i}`)
+          .digest("hex"),
+        address,
+        9999999999,
+      );
+    database
+      .prepare("INSERT INTO sessions VALUES(?,?,?)")
+      .run(
+        createHash("sha256")
+          .update(`${Networks.PUBLIC}:token${i}`)
           .digest("hex"),
         address,
         9999999999,
@@ -484,7 +519,28 @@ test("forwarded IP spoofing cannot change the trusted client budget", async () =
 });
 
 // Gas sponsorship: only everyday operations on verified vaults, within limits.
-function sponsorship(over = {}) {
+// The call is decoded by a fixture; the signed XDR is a real transaction so the
+// route builds a real fee-bump around it.
+const testnetTokens = JSON.parse(
+  await readFile(new URL("../lib/testnet-tokens.json", import.meta.url)),
+);
+const signedXdr = (() => {
+  const tx = new TransactionBuilder(new Account(addresses[0], "1"), {
+    fee: "50000",
+    networkPassphrase: Networks.TESTNET,
+  })
+    .addOperation(Operation.bumpSequence({ bumpTo: "2" }))
+    .setTimeout(300)
+    .build();
+  tx.sign(keys[0]);
+  return tx.toXDR();
+})();
+const catalogUsdc = {
+  code: "USDC",
+  issuer: testnetTokens.USDC.issuer,
+  contract: testnetTokens.USDC.contract,
+};
+function sponsorship(over = {}, route = POST) {
   sponsorCall = {
     source: addresses[0],
     fee: 50_000n,
@@ -493,7 +549,33 @@ function sponsorship(over = {}) {
     args: [addresses[0], 0n],
     ...over,
   };
-  return request("sponsor", { signed: "signed-xdr" });
+  if (route === POST) return request("sponsor", { signed: signedXdr });
+  return route(
+    new Request("http://localhost/api/junto", {
+      method: "POST",
+      headers: {
+        Origin: "http://localhost",
+        Authorization: "Bearer token0",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action: "sponsor", signed: signedXdr }),
+    }),
+  ).then(async (r) => ({ status: r.status, data: await r.json() }));
+}
+const sponsoredToday = () =>
+  database
+    .prepare("SELECT count FROM sponsorships WHERE address=?")
+    .get(addresses[0])?.count ?? 0;
+function sponsorReady() {
+  reset("active");
+  env.SPONSOR_SECRET = sponsorKey.secret();
+  sponsorXlm = 100;
+  Object.assign(globalThis.__juntoAuditTests, {
+    bumps: 0,
+    assets: [catalogUsdc],
+    send: "PENDING",
+    landed: "SUCCESS",
+  });
 }
 test("sponsorship is off without a sponsor key", async () => {
   reset("active");
@@ -503,10 +585,7 @@ test("sponsorship is off without a sponsor key", async () => {
   assert.equal(r.data.reason, "OFF");
 });
 test("sponsors an approval on a verified vault and caps it per day", async () => {
-  reset("active");
-  env.SPONSOR_SECRET = sponsorKey.secret();
-  sponsorXlm = 100;
-  globalThis.__juntoAuditTests.bumps = 0;
+  sponsorReady();
   const first = await sponsorship();
   assert.equal(first.data.sponsored, true);
   assert.equal(first.data.hash, "bumped");
@@ -516,10 +595,7 @@ test("sponsors an approval on a verified vault and caps it per day", async () =>
   assert.equal(globalThis.__juntoAuditTests.bumps, 20);
 });
 test("never sponsors vault creation, other sources, big fees or unverified contracts", async () => {
-  reset("active");
-  env.SPONSOR_SECRET = sponsorKey.secret();
-  sponsorXlm = 100;
-  globalThis.__juntoAuditTests.bumps = 0;
+  sponsorReady();
   for (const over of [
     { method: "create", contract: factory },
     { source: addresses[1] },
@@ -536,11 +612,142 @@ test("never sponsors vault creation, other sources, big fees or unverified contr
   );
   assert.equal(globalThis.__juntoAuditTests.bumps, 0);
 });
-test("an empty sponsor falls back instead of failing", async () => {
-  reset("active");
-  env.SPONSOR_SECRET = sponsorKey.secret();
+test("the 1 XLM fee cap is inclusive", async () => {
+  sponsorReady();
+  assert.equal((await sponsorship({ fee: 10_000_000n })).data.sponsored, true);
+  const over = await sponsorship({ fee: 10_000_001n });
+  assert.equal(over.data.sponsored, false);
+  assert.equal(over.data.reason, "NOT_ELIGIBLE");
+  assert.equal(globalThis.__juntoAuditTests.bumps, 1);
+});
+test("sponsors a catalog token deposit into a verified vault only", async () => {
+  sponsorReady();
+  const deposit = (args, token = catalogUsdc.contract) =>
+    sponsorship({ method: "transfer", contract: token, args });
+  assert.equal(
+    (await deposit([addresses[0], contract, 1_000_000n])).data.sponsored,
+    true,
+  );
+  // To a person, from someone else, or a same-ticker token of another issuer.
+  const imposter = StrKey.encodeContract(Buffer.alloc(32, 9));
+  for (const r of [
+    await deposit([addresses[0], addresses[3], 1_000_000n]),
+    await deposit([addresses[1], contract, 1_000_000n]),
+    await deposit([addresses[0], contract, 1_000_000n], imposter),
+  ])
+    assert.equal(r.data.reason, "NOT_ELIGIBLE");
+  // A contract that is not a verified SoroSafe vault.
+  config = Error("UNVERIFIED_CONTRACT");
+  assert.equal(
+    (await deposit([addresses[0], factory, 1_000_000n])).data.reason,
+    "NOT_ELIGIBLE",
+  );
+  assert.equal(globalThis.__juntoAuditTests.bumps, 1);
+});
+test("sponsors the Testnet faucets, never a Mainnet claim", async () => {
+  sponsorReady();
+  const claim = { method: "claim", args: [addresses[0]] };
+  for (const faucet of [testnetTokens.USDC.faucet, testnetTokens.USDT0.faucet])
+    assert.equal(
+      (await sponsorship({ ...claim, contract: faucet })).data.sponsored,
+      true,
+    );
+  assert.equal(
+    (await sponsorship({ ...claim, contract: factory })).data.reason,
+    "NOT_ELIGIBLE",
+  );
+  const onMainnet = await sponsorship(
+    { ...claim, contract: testnetTokens.USDC.faucet },
+    mainnet.POST,
+  );
+  assert.equal(onMainnet.status, 200);
+  assert.equal(onMainnet.data.reason, "NOT_ELIGIBLE");
+  assert.equal(globalThis.__juntoAuditTests.bumps, 2);
+});
+test("a fee-bump rejected before the ledger gives the allowance back", async () => {
+  sponsorReady();
+  for (const send of ["ERROR", "TRY_AGAIN_LATER"]) {
+    globalThis.__juntoAuditTests.send = send;
+    const r = await sponsorship();
+    assert.equal(r.status, 200);
+    assert.equal(r.data.sponsored, false);
+    assert.equal(r.data.reason, "REJECTED");
+    assert.equal(sponsoredToday(), 0);
+  }
+  // The full daily allowance is still there.
+  globalThis.__juntoAuditTests.send = "PENDING";
+  for (let n = 0; n < 20; n++)
+    assert.equal((await sponsorship()).data.sponsored, true);
+  assert.equal((await sponsorship()).data.reason, "LIMIT");
+});
+test("a fee-bump the sponsor paid for keeps counting but never blocks", async () => {
+  sponsorReady();
+  globalThis.__juntoAuditTests.landed = "FAILED";
+  const failed = await sponsorship();
+  assert.equal(failed.status, 200);
+  assert.deepEqual(failed.data, { sponsored: false, reason: "FAILED" });
+  assert.equal(sponsoredToday(), 1);
+  globalThis.__juntoAuditTests.send = Error("socket hang up");
+  const uncertain = await sponsorship();
+  assert.equal(uncertain.status, 200);
+  assert.deepEqual(uncertain.data, { sponsored: false, reason: "UNCERTAIN" });
+  assert.equal(sponsoredToday(), 2);
+});
+test("an empty or unreachable sponsor falls back instead of failing", async () => {
+  sponsorReady();
   sponsorXlm = 5;
   const r = await sponsorship();
   assert.equal(r.status, 200);
   assert.equal(r.data.reason, "EMPTY");
+  assert.equal(globalThis.__juntoAuditTests.bumps, 0);
+});
+
+// Rules are 1 to 20 signers with any threshold from 1 to the team size.
+test("a draft accepts any threshold from 1 to the team size", async () => {
+  reset("draft");
+  const configure = (body) => request("configure", body);
+  assert.equal((await configure({ size: 3, threshold: 1 })).status, 200);
+  assert.equal(stored().size, 3);
+  assert.equal(stored().threshold, 1);
+  assert.equal((await request("invite")).status, 200);
+  for (const body of [
+    { size: 3, threshold: 0 },
+    { size: 3, threshold: 4 },
+    { size: 21, threshold: 2 },
+    { size: 0, threshold: 0 },
+    { size: 3, threshold: 1.5 },
+  ])
+    assert.equal((await configure(body)).data.error, "INVALID_RULE");
+  // Fewer seats than members already joined.
+  assert.equal(
+    (await configure({ size: 2, threshold: 1 })).data.error,
+    "CONFIGURATION_CHANGED",
+  );
+});
+test("a 1-of-1 draft prepares directly and has nobody to invite", async () => {
+  reset("draft");
+  database.prepare("DELETE FROM members WHERE address!=?").run(addresses[0]);
+  assert.equal(
+    (await request("configure", { size: 1, threshold: 1 })).status,
+    200,
+  );
+  assert.equal((await request("invite")).data.error, "CONFIGURATION_REQUIRED");
+  assert.equal((await request("prepareVault")).status, 200);
+  assert.equal(stored().status, "activating");
+});
+test("the retired classic flow is gone", async () => {
+  reset("active");
+  for (const action of [
+    "payment",
+    "approve",
+    "enableAsset",
+    "prepareActivation",
+  ])
+    assert.equal((await request(action)).data.error, "INVALID_INPUT");
+  // A vault row left by the classic multisig version never opens or lists.
+  database.prepare("UPDATE vaults SET custody='classic'").run();
+  const loaded = await request();
+  assert.equal(loaded.data.vaultError, "UNVERIFIED_CONTRACT");
+  assert.deepEqual(loaded.data.vaults, []);
+  assert.equal((await contact()).data.error, "UNVERIFIED_CONTRACT");
 });
