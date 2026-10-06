@@ -19,13 +19,13 @@ Narration in English (~330 words, about 2:20 at a calm pace, leaving room for pa
 
 **Pantalla:** "Create vault" → nombre "Team trip 2026" → Freighter (A) → una firma → la bóveda abierta con su dirección C… y "View contract on Stellar".
 
-> "I name the vault and sign once. That deployed a Soroban smart contract just for us, from a verified factory — no admin keys, nobody can withdraw alone. I start as the only signer, so it works right away."
+> "I name the vault and sign once. That deployed a Soroban smart contract just for us, from a verified factory — no admin keys, no backdoor: only the vault's signers can move its money. I start as the only signer, so it works right away."
 
 ## 0:45 – 1:15 · Fund and pay, gas on us
 
 **Pantalla:** fila USDT0 (logo oficial) → "Add funds" → "Get 1000 test USDT0" → depositar 500. Luego "Send" 50 USDT0 a un contacto; revisión (recipient, amount, fee, total, "SoroSafe covers it") → firmar → aviso "SoroSafe covered the network fee" → "View receipt".
 
-> "Stablecoins are first-class: USDC and USDT0, each identified by its issuer, never by ticker. I add funds and send a payment. Before my wallet signs, SoroSafe shows exactly what will happen and checks the transaction byte by byte. As a one-of-one vault, it executes immediately — and I didn't spend any XLM: SoroSafe paid the network fee with a Stellar fee-bump."
+> "Stablecoins are first-class: USDC and USDT0, each identified by its issuer, never by ticker. I add funds and send a payment. Before my wallet signs, SoroSafe shows exactly what will happen and checks the transaction byte by byte. As a one-of-one vault, it executes immediately — and I didn't spend any XLM: SoroSafe paid the network fee with a Stellar fee-bump, as it does whenever it can."
 
 ## 1:15 – 1:40 · Grow the team
 
@@ -49,7 +49,7 @@ Narration in English (~330 words, about 2:20 at a calm pace, leaving room for pa
 
 **Pantalla:** footer con el wordmark grande y la URL.
 
-> "SoroSafe: start alone, grow into a team, sign once, and leave the gas to us. Live today on Stellar Testnet at sorosafe.app — Mainnet with USDC and USDT0 is next."
+> "SoroSafe: start alone, grow into a team, sign once, and let SoroSafe cover the gas whenever it can. Live today on Stellar Testnet at sorosafe.app — Mainnet with USDC and USDT0 is next."
 
 ## Edición
 

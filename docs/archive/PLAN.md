@@ -1,3 +1,5 @@
+> Historical planning notes; superseded by [the README](../../README.md).
+
 # SoroSafe — una wallet multifirma para humanos
 
 ## Producto
