@@ -87,3 +87,17 @@ export function assetCatalog(network: NetworkId): CatalogAsset[] {
 export function officialAsset(asset: AssetIdentity, network: NetworkId) {
   return assetCatalog(network).find((entry) => sameAsset(entry, asset));
 }
+
+// Testnet faucets (XLM, Circle's USDC, SoroSafe's test USDT0). Any other
+// network gets none: no faucet address, button or sponsorship can exist there.
+const faucets = [
+  { code: "XLM", ...testnetTokens.XLM },
+  { code: "USDC", ...testnetTokens.USDC },
+  { code: "USDT0", ...testnetTokens.USDT0 },
+];
+export const testnetFaucet = (network: NetworkId, asset?: AssetIdentity) =>
+  network === "testnet" && asset
+    ? faucets.find((f) => sameAsset(f, asset))
+    : undefined;
+export const testnetFaucetContracts = (network: NetworkId) =>
+  network === "testnet" ? faucets.map((f) => f.faucet) : [];

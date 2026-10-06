@@ -32,7 +32,8 @@
     "test:contracts-onboarding": "node tests/contracts-onboarding.mjs",
     "contracts:deploy-testnet-tokens": "npm run contracts:client && node scripts/deploy-testnet-tokens.mjs",
     "contracts:deploy-testnet": "npm run contracts:client && node scripts/deploy-testnet-demo.mjs",
-    "deploy:testnet": "npm run build && node scripts/deploy-cloudflare.mjs"
+    "deploy:testnet": "npm run build && node scripts/deploy-cloudflare.mjs",
+    "test:testnet-faucets": "node --test tests/testnet-faucets.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

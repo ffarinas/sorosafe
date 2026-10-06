@@ -647,7 +647,12 @@ test("sponsors a catalog token deposit into a verified vault only", async () => 
 test("sponsors the Testnet faucets, never a Mainnet claim", async () => {
   sponsorReady();
   const claim = { method: "claim", args: [addresses[0]] };
-  for (const faucet of [testnetTokens.USDC.faucet, testnetTokens.USDT0.faucet])
+  const faucets = [
+    testnetTokens.XLM.faucet,
+    testnetTokens.USDC.faucet,
+    testnetTokens.USDT0.faucet,
+  ];
+  for (const faucet of faucets)
     assert.equal(
       (await sponsorship({ ...claim, contract: faucet })).data.sponsored,
       true,
@@ -662,7 +667,13 @@ test("sponsors the Testnet faucets, never a Mainnet claim", async () => {
   );
   assert.equal(onMainnet.status, 200);
   assert.equal(onMainnet.data.reason, "NOT_ELIGIBLE");
-  assert.equal(globalThis.__juntoAuditTests.bumps, 2);
+  for (const faucet of faucets)
+    assert.equal(
+      (await sponsorship({ ...claim, contract: faucet }, mainnet.POST)).data
+        .reason,
+      "NOT_ELIGIBLE",
+    );
+  assert.equal(globalThis.__juntoAuditTests.bumps, 3);
 });
 test("a fee-bump rejected before the ledger gives the allowance back", async () => {
   sponsorReady();

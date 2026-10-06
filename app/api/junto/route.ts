@@ -1,5 +1,4 @@
 import { env } from "cloudflare:workers";
-import testnetTokens from "@/lib/testnet-tokens.json";
 import {
   contractAssets,
   createArgs,
@@ -23,7 +22,7 @@ import { Buffer } from "node:buffer";
 import { all, db, digest, one, run, token } from "@/lib/store";
 import { chain, NETWORK, signedBy } from "@/lib/stellar";
 import type { Contact, Person, Vault, State } from "@/lib/domain";
-import { assetCatalog } from "@/lib/assets";
+import { assetCatalog, testnetFaucetContracts } from "@/lib/assets";
 export const dynamic = "force-dynamic";
 const now = () => Math.floor(Date.now() / 1000);
 const vaultFields =
@@ -205,9 +204,7 @@ async function sponsorable(call: ReturnType<typeof describeCall>) {
   return (
     chain.id === "testnet" &&
     call.method === "claim" &&
-    [testnetTokens.USDT0.faucet, testnetTokens.USDC.faucet].includes(
-      call.contract,
-    )
+    testnetFaucetContracts(chain.id).includes(call.contract)
   );
 }
 /**

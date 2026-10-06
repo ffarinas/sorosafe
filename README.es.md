@@ -116,14 +116,17 @@ Todas las direcciones enlazan a [stellar.expert](https://stellar.expert/explorer
 | SHA-256 del WASM de la bóveda | `7c95b9a72fdc9fd242d7b44214ab53f46018e62e28ff68500b71e1b1af2d023d` |
 | SHA-256 del WASM de la fábrica | `8b78a84b1186e59e31e94f9352ff2fd1e8ffa1ea31ca43099a0fca949e9477ca` |
 | XLM (SAC) | [`CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`](https://stellar.expert/explorer/testnet/contract/CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC) |
+| Faucet de XLM | [`CAHDSZQMAG43HPFXUSQ5QS7ZXB3IMXEBEEEJO22RPIWJWWRZC4OOVLNG`](https://stellar.expert/explorer/testnet/contract/CAHDSZQMAG43HPFXUSQ5QS7ZXB3IMXEBEEEJO22RPIWJWWRZC4OOVLNG) (100 XLM por cuenta y día) |
 | USDC (Testnet de Circle, SAC) | [`CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA), emisor [`GBBD47IF…LFLA5`](https://stellar.expert/explorer/testnet/account/GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5) |
-| Faucet de USDC | [`CAHA4GQU75Y7QJX64AYUTYBP6GPGTS7LGWKI3DIKQ57JFUIE2F6Y7SKD`](https://stellar.expert/explorer/testnet/contract/CAHA4GQU75Y7QJX64AYUTYBP6GPGTS7LGWKI3DIKQ57JFUIE2F6Y7SKD) (si está vacío, usa [el faucet de Circle](https://faucet.circle.com/)) |
+| Faucet de USDC | [`CAHA4GQU75Y7QJX64AYUTYBP6GPGTS7LGWKI3DIKQ57JFUIE2F6Y7SKD`](https://stellar.expert/explorer/testnet/contract/CAHA4GQU75Y7QJX64AYUTYBP6GPGTS7LGWKI3DIKQ57JFUIE2F6Y7SKD) (se recarga con `node scripts/fund-testnet-faucets.mjs` o con [el faucet de Circle](https://faucet.circle.com/)) |
 | USDT0 (de prueba de SoroSafe, SAC) | [`CCQOQVXDBJXRP52V34GYSD7XTTJXY27NUQDNBW2MHRZG6TEF2HCSUMKP`](https://stellar.expert/explorer/testnet/contract/CCQOQVXDBJXRP52V34GYSD7XTTJXY27NUQDNBW2MHRZG6TEF2HCSUMKP), emisor [`GCCYRCUZ…J5S4`](https://stellar.expert/explorer/testnet/account/GCCYRCUZU36KZCHRJX7AFWHRTE7ZRJ3VKRBMTQC5VNIZ3KZ5T77PJ5S4) |
 | Faucet de USDT0 | [`CAVLWTDJCALTUZY47ECCAOOCBGF6R4S7I3NI637SZX33VDI6FZNERVXZ`](https://stellar.expert/explorer/testnet/contract/CAVLWTDJCALTUZY47ECCAOOCBGF6R4S7I3NI637SZX33VDI6FZNERVXZ) |
 | Patrocinador de gas | [`GCREJ6HQVT4TR4AV3FDGQVXB7BEI4KDAI2UFCT7CJYWJOE7N3NPJD2FQ`](https://stellar.expert/explorer/testnet/account/GCREJ6HQVT4TR4AV3FDGQVXB7BEI4KDAI2UFCT7CJYWJOE7N3NPJD2FQ) |
 | Recaudador de comisiones | [`GDZGXG7Y3FYOZ7AFUDO6GLQCIUMWIMBHANYM7FAVORP46VOU572YNIG7`](https://stellar.expert/explorer/testnet/account/GDZGXG7Y3FYOZ7AFUDO6GLQCIUMWIMBHANYM7FAVORP46VOU572YNIG7) |
 
 La app comprueba on-chain ambos hashes WASM y el registro en la fábrica antes de operar una bóveda.
+
+**Fondos de prueba en un clic.** En Testnet, **Añadir fondos** muestra un botón para cada moneda: **Conseguir 100 XLM de prueba**, **Conseguir 10 USDC de prueba** y **Conseguir 1000 USDT0 de prueba** (una vez al día por cuenta; el botón añade la trustline si hace falta). Estos botones y faucets existen solo en Testnet; la app nunca los muestra en Mainnet.
 
 **Sobre USDT0 en Testnet.** USDT0 no tiene un despliegue oficial en Testnet, así que SoroSafe emitió un USDT0 de prueba con suministro fijo (emisor bloqueado tras acuñar) que guarda un contrato faucet: **Añadir fondos → Conseguir 1000 USDT0 de prueba** añade la trustline y lo reclama (una vez al día por cuenta). En Mainnet se usarán los emisores oficiales de USDC y USDT0.
 

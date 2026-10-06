@@ -23,7 +23,6 @@ import { toast, Toaster } from "sonner";
 import { StrKey, TransactionBuilder, type xdr } from "@stellar/stellar-sdk";
 import { AssetMark } from "./vault-assets";
 import { NetworkBanner } from "./network-banner";
-import testnetTokens from "@/lib/testnet-tokens.json";
 import { VaultTour } from "./product-tour/tour-guide";
 import { BrandWordmark } from "./brand-wordmark";
 import type { TourStep } from "./product-tour/types";
@@ -51,7 +50,13 @@ import {
   signXdr,
   temporaryWalletStatus,
 } from "@/lib/client-wallet";
-import { decimal as exact, normalizeAmount, units } from "@/lib/assets";
+import {
+  type AssetIdentity,
+  decimal as exact,
+  normalizeAmount,
+  testnetFaucet,
+  units,
+} from "@/lib/assets";
 // Readable amounts: 90.475 rather than 90.4750000. Parsing stays exact.
 const decimal = (value: bigint) => exact(value).replace(/\.?0+$/, "");
 import { errorWith } from "@/lib/messages";
@@ -149,17 +154,8 @@ export function ContractVault({
   const [amount, setAmount] = useState(""),
     [recipient, setRecipient] = useState("");
   const [draftSigner, setDraftSigner] = useState("");
-  // Testnet faucets: SoroSafe's test USDT0 and Circle's Testnet USDC.
-  const faucetFor = (asset?: { code: string; issuer: string }) => {
-    if (chain.id !== "testnet" || !asset) return undefined;
-    const entry =
-      asset.code === "USDT0"
-        ? testnetTokens.USDT0
-        : asset.code === "USDC"
-          ? testnetTokens.USDC
-          : undefined;
-    return entry && entry.issuer === asset.issuer ? entry : undefined;
-  };
+  // Testnet faucets only; on any other network this is always undefined.
+  const faucetFor = (asset?: AssetIdentity) => testnetFaucet(chain.id, asset);
   // What the connected wallet holds, shown when adding funds.
   const [walletBalance, setWalletBalance] = useState<string | null>();
   const [walletTick, setWalletTick] = useState(0);
@@ -631,14 +627,18 @@ export function ContractVault({
           asset.code === "USDC" ? "FAUCET_EMPTY_USDC" : "FAUCET_EMPTY",
           { cause: { code: asset.code } },
         );
-      // A wallet needs a trustline before it can hold a classic asset.
-      const account = await fetch(`${chain.horizon}/accounts/${signer}`).then(
-        (r) =>
-          r.json() as Promise<{
-            balances?: { asset_code?: string; asset_issuer?: string }[];
-          }>,
-      );
+      // A wallet needs a trustline before it can hold a classic asset (XLM
+      // is native and needs none).
+      const account = asset.issuer
+        ? await fetch(`${chain.horizon}/accounts/${signer}`).then(
+            (r) =>
+              r.json() as Promise<{
+                balances?: { asset_code?: string; asset_issuer?: string }[];
+              }>,
+          )
+        : undefined;
       if (
+        account &&
         !account.balances?.some(
           (b) => b.asset_code === asset.code && b.asset_issuer === asset.issuer,
         )
