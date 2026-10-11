@@ -6,11 +6,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://testnet.sorosafe.app"),
   title: "SoroSafe | Multisig for your team. Built on Stellar.",
   description:
-    "A multisig smart contract wallet on Stellar. Choose your signers and approval rule, share contacts, and manage your team's money together.",
+    "A multisig vault for teams on Stellar. Share contacts and payment requests, review every payment, and approve together under rules enforced by a Soroban contract.",
   openGraph: {
     title: "SoroSafe | Multisig. For your team.",
     description:
-      "One vault, shared control. Multisig smart contracts built on Stellar, with your team's signers and approval rules.",
+      "Shared contacts, clear payment requests and team approvals. A multisig vault on Stellar with rules enforced by a Soroban contract.",
     type: "website",
     images: [
       {

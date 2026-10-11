@@ -9,7 +9,7 @@
 
 English · [Español](README.es.md)
 
-**Shared approval of company money, on Stellar.** One vault address for the team's funds, rules everybody can see, and payments people understand before they sign.
+**A multisig vault for teams, on Stellar.** One address for shared funds, one address book for the team, and payments people understand before they approve.
 
 **[Live demo (Testnet)](https://testnet.sorosafe.app)** · **[Contracts on stellar.expert](https://stellar.expert/explorer/testnet/contract/CDPSLPJELYXX33QRHLKHSEFY7ROSWYZ46I7DMSZNG3OGMVX6WURJRSSW)**
 
@@ -17,32 +17,38 @@ English · [Español](README.es.md)
 
 ## The problem
 
-Small companies, teams and associations that share money usually trust one person's wallet or bank login and a spreadsheet. A finance lead wants "two people must approve every payment", but existing multisig tools are built for engineers: everyone has to be set up before you can start, you sign twice to propose one payment, you need crypto for gas at every step, and nothing tells you who the recipient really is.
+Managing team money involves more than collecting signatures. Someone adds a supplier, another person prepares the payment, and teammates check it before funds move. When addresses, payment requests and approvals are scattered across personal address books and chats, the team has to reconstruct that context every time.
+
+SoroSafe brings that work into one shared vault: the same recipients, visible approval rules and a payment history everyone on the team can check.
 
 ## What SoroSafe does
 
-- **Start alone, grow later.** Creating a vault takes a name and one wallet signature. You start as the only signer (1 of 1) and can use it right away. Add people and raise the rule (for example 2 of 3) whenever the team is ready: up to 20 signers, any threshold from 1 to N, and the vault keeps the same address.
-- **One signature per decision.** Proposing a payment already counts as your approval, and the approval that completes the rule sends the payment in that same transaction. Nobody signs twice, and there is no separate "execute" step.
-- **Readable before signing.** Every request shows recipient, amount, service fee, total and asset contract. The app rebuilds each transaction locally and checks contract, function and arguments byte for byte before asking your wallet to sign.
-- **Shared contacts.** The team keeps one address book with who added each contact and how many confirmed payments it has received on-chain.
+- **A shared payment workflow.** One teammate saves a recipient, another prepares a payment, and the required signers review and approve it from their own wallets. Everyone works with the same vault and contacts.
+- **Shared contacts with context.** The address book shows who added each contact and how many confirmed payments that address has received from this vault on-chain. A saved name is a team label, not identity verification.
+- **Team-controlled approval rules.** Choose from 1 to 20 signers and any threshold from 1 to N. Changing signers or the threshold requires the current quorum and preserves the vault address. Its creator has no special withdrawal power.
+- **One signature per decision.** Proposing a payment counts as your approval. When the vault can cover the payment and fee, the approval that reaches the threshold also executes it. An unfunded request stays pending and can be completed after funding; transfers remain subject to the token's rules and current network state.
+- **Readable before signing.** Every request shows recipient, amount, service fee, total and asset contract. The app rebuilds each transaction locally and checks contract, function and arguments before asking your wallet to sign. Recipient checks reduce avoidable failures but cannot guarantee later execution.
+- **Simple setup.** Creating a vault takes a name and one wallet signature. It starts as 1 of 1; add teammates and raise the threshold before using it for shared approval.
 - **Verifiable receipts.** Every confirmed operation links to the transaction and the vault contract on stellar.expert.
 - **Bilingual.** Spanish and English throughout, including errors and confirmations.
 
 ## Why Stellar
 
-- **Stablecoins are native.** USDC and USDT0 are Stellar assets with their own issuers; Stellar Asset Contracts (SACs) let a Soroban vault hold and move them without wrapping or bridges.
+- **Assets work with contracts.** Stellar Asset Contracts (SACs) let a Soroban vault hold and transfer XLM and issuer-backed assets. The demo uses Testnet XLM, Circle Testnet USDC and a SoroSafe-issued test USDT0; official Mainnet issuers are planned for launch.
 - **Signatures are built in.** Soroban's `require_auth` binds every approval to the exact contract, function and arguments, so SoroSafe does not invent its own signature scheme.
 - **Fees are tiny, and someone else can pay them.** A Stellar fee-bump lets SoroSafe pay the network fee for a transaction the user signed, without being able to change it.
-- **Fast finality.** A payment is final in about five seconds, so "approve and send" feels like one step.
+- **Fast finality.** Stellar typically closes a ledger in about five seconds. Actual submission time depends on the network and transaction; a successful final approval and payment settle together.
 
-## Try it in 2 minutes
+## Try a shared payment
 
-1. Open **https://testnet.sorosafe.app**. Sign in with [Freighter](https://www.freighter.app/) switched to **Test Net**, or press **Use a temporary wallet** (nothing to install; its key is discarded when you close the tab). New Testnet accounts are funded with test XLM from Friendbot.
-2. **Create a vault**: type a name and sign once. You are its only signer (1 of 1).
-3. **Add funds**: move some test XLM into the vault. For USDT0, open *Add funds* on the USDT0 row and press **Get 1000 test USDT0** first.
-4. **Send a payment**: as a 1-of-1 vault it goes out immediately. Open the receipt on stellar.expert.
-5. **Add a second signer** (another Freighter account or a temporary wallet in a second browser profile) and set the rule to 2 of 2.
-6. **Send another payment**: now it waits ("1 operation is waiting for your approval" on the other side). Open SoroSafe as the second signer and choose **Approve and complete**: one signature approves and sends the payment.
+1. **Prepare two Testnet wallets.** Open **https://testnet.sorosafe.app** in two separate browser profiles. Use [Freighter](https://www.freighter.app/) on **Test Net**, or **Use a temporary wallet** in each profile. Temporary wallets sign real Testnet transactions; they need no extension, and their keys remain in the tab's session storage until it closes. Keep both tabs open. Friendbot funds new accounts with test XLM.
+2. **Create and configure the shared vault.** With the first wallet, create a vault, then open **Team**, add the second wallet's address and set **2 of 2** approvals. Sign the rule change under the initial 1-of-1 rule. Open the same vault URL in the second profile; both signers use this vault, rather than creating another one.
+3. **Fund the vault and save a recipient.** Deposit test XLM, leaving some in your wallet for unsponsored network fees. Add a shared contact for a funded Testnet address you control; the first wallet's address can be used for this test payment.
+4. **Prepare the payment as the second signer.** Open the shared contact and check who added it. Request a payment the vault can cover, including its 0.25% service fee. This signature records the first approval; funds remain in the vault while a second approval is needed.
+5. **Review and complete as the first signer.** Check the recipient, selected asset, amount and fee, then choose **Approve and pay**. A successful final approval sends the payment in the same transaction.
+6. **Verify it together.** Both signers can inspect the receipt on stellar.expert and the contact's updated confirmed-payment count. To try tokens next, use **Add funds** on the chosen token row; test USDT0 is issued by SoroSafe, not the official Mainnet issuer.
+
+The [demo script](docs/VIDEO-SCRIPT.md) follows this shared workflow. [Submission copy in English and Spanish](docs/HACKATHON-SUBMISSION.md) describes the current Testnet scope.
 
 ## Network fees (gas)
 
@@ -51,14 +57,15 @@ SoroSafe pays the network fee for you **when it can**: it wraps the transaction 
 - Sponsored: proposals, approvals (which also send the payment), cancellations, team changes and adding funds to a SoroSafe vault; on Testnet also the faucets.
 - Not sponsored: creating a vault, or any call outside SoroSafe's verified vaults.
 - Limits: at most 1 XLM per transaction and 20 sponsored transactions per account per day.
-- If sponsorship isn't possible (limit reached, sponsor low on funds), the same signed transaction is submitted and your wallet pays the fee, usually a few cents. Operations are never blocked.
+- If sponsorship isn't possible (limit reached, sponsor low on funds), the app falls back to submitting the signed transaction with the signer's wallet paying the network fee. That wallet must have enough XLM; insufficient funds or network errors can still prevent completion.
 
 ## Business model
 
-- A **0.25 % service fee** on outgoing payments, charged in the same currency and in the same transaction as the payment (it can't be skipped or charged separately). Sending 2 USDT0 costs 2.005 USDT0.
-- The fee accrues inside the vault and anyone can sweep it to the collector account with `claim_fees`; it funds the gas sponsor, which keeps everyday operations free for most users. Payments never depend on the collector, so a problem with that account can't freeze any vault.
+- A **0.25 % service fee** on outgoing payments, recorded atomically with the payment in the same currency and rounded up to the token's smallest unit. Sending 2 USDT0 requires 2.005 USDT0: the recipient receives 2 and 0.005 stays reserved in the vault for the collector.
+- Reserved fees cannot fund another payment. Anyone can call `claim_fees` to send them to the fixed collector; the caller cannot choose another destination. A collector that cannot receive can block that withdrawal, but does not block payments to other eligible recipients.
+- The service fee supports the product and network-fee sponsorship. Sponsored network fees do **not** make outgoing payments free: the 0.25 % service fee still applies.
 - Sponsorship is capped (1 XLM per transaction, 20 transactions per account per day) so the cost stays bounded.
-- Deposits, team changes and approvals carry no service fee.
+- Deposits and team changes carry no service fee. There is no extra service fee per approval; the approval that executes a payment records that payment's fee.
 
 ## How it uses Stellar
 
@@ -87,7 +94,9 @@ flowchart LR
   R --> F["Factory contract<br/>fixed WASM hash, no admin"]
   F -->|"deploys and registers"| V["Vault contract<br/>signers, rule, proposals"]
   R --> V
-  V -->|"payment + 0.25 % fee"| S["Stellar Asset Contracts<br/>XLM · USDC · USDT0"]
+  V -->|"recipient payment"| S["Stellar Asset Contracts<br/>XLM · USDC · USDT0"]
+  V -->|"reserves 0.25 % in the vault"| O["Fees owed"]
+  O -->|"claim_fees sends reserved tokens"| C["Fixed collector"]
 ```
 
 Repository layout (internal codename **junto**: package name, `JUNTO_*` environment variables, `junto_*.wasm`):
@@ -177,8 +186,8 @@ Fixed after an internal review of the contracts (all covered by tests):
 - **Unfunded requests stay pending.** In a 1-of-1 vault, a payment the vault can't cover yet is saved as a pending request instead of reverting, and runs later with "Complete payment".
 - **Amounts the token can't move are rejected** (amount + fee above the Stellar asset limit).
 - **Withdrawing an approval you never gave fails with a clear error** instead of emitting a misleading event.
-- **Recipients are checked before a payment is requested** (account exists and can hold the currency), so an approval can't fail at the last step.
-- **Sponsorship never blocks.** If the fee-bump can't be sponsored or fails before reaching the ledger, the same signed transaction is submitted and the signer pays; a rejected fee-bump doesn't consume the daily allowance.
+- **Recipient checks reduce failed transfers.** The app checks whether a recipient account exists and can hold the currency before proposing or approving. Its trustline, authorization or network state can change afterward, so these checks do not guarantee execution.
+- **Sponsorship has a fallback.** If the fee-bump cannot be sponsored or is rejected before reaching the ledger, the app can submit the signed transaction with the signer paying. The signer still needs enough XLM, and normal network checks apply; a pre-ledger rejection does not consume the daily sponsorship allowance.
 
 ### Before Mainnet
 

@@ -9,7 +9,7 @@
 
 [English](README.md) · Español
 
-**Aprobación compartida del dinero de tu empresa, en Stellar.** Una sola dirección de bóveda para los fondos del equipo, reglas que todos pueden ver y pagos que se entienden antes de firmar.
+**Una bóveda multifirma para equipos, en Stellar.** Una dirección para los fondos compartidos, una libreta para el equipo y pagos que se entienden antes de aprobar.
 
 **[Demo en vivo (Testnet)](https://testnet.sorosafe.app)** · **[Contratos en stellar.expert](https://stellar.expert/explorer/testnet/contract/CDPSLPJELYXX33QRHLKHSEFY7ROSWYZ46I7DMSZNG3OGMVX6WURJRSSW)**
 
@@ -17,32 +17,38 @@
 
 ## El problema
 
-Las pequeñas empresas, equipos y asociaciones que comparten dinero suelen confiar en la wallet o el acceso al banco de una sola persona, más una hoja de cálculo. Quien lleva las finanzas quiere que «dos personas aprueben cada pago», pero las herramientas multifirma actuales están hechas para ingenieros: todos tienen que estar configurados antes de empezar, firmas dos veces para proponer un solo pago, necesitas cripto para pagar gas en cada paso y nada te dice quién es realmente el destinatario.
+Administrar el dinero de un equipo requiere más que reunir firmas. Alguien añade un proveedor, otra persona prepara el pago y sus compañeros lo revisan antes de mover fondos. Cuando las direcciones, solicitudes y aprobaciones se reparten entre libretas personales y chats, hay que reconstruir ese contexto en cada pago.
+
+SoroSafe reúne ese trabajo en una bóveda compartida: los mismos destinatarios, reglas de aprobación visibles y un historial de pagos que todo el equipo puede consultar.
 
 ## Qué hace SoroSafe
 
-- **Empiezas solo y creces después.** Crear una bóveda pide un nombre y una firma de tu wallet. Empiezas como único firmante (1 de 1) y puedes usarla al momento. Añade personas y sube la regla (por ejemplo 2 de 3) cuando el equipo esté listo: hasta 20 firmantes, cualquier umbral de 1 a N, y la bóveda conserva la misma dirección.
-- **Una firma por decisión.** Proponer un pago ya cuenta como tu aprobación, y la aprobación que completa la regla envía el pago en esa misma transacción. Nadie firma dos veces y no hay un paso aparte de «ejecutar».
-- **Legible antes de firmar.** Cada solicitud muestra destinatario, importe, comisión de servicio, total y contrato del activo. La app reconstruye cada transacción localmente y comprueba contrato, función y argumentos byte a byte antes de pedir la firma a tu wallet.
-- **Contactos compartidos.** El equipo mantiene una sola libreta de direcciones con quién añadió cada contacto y cuántos pagos confirmados ha recibido on-chain.
+- **Un flujo de pago compartido.** Una persona guarda un destinatario, otra prepara el pago y los firmantes necesarios lo revisan y aprueban desde sus propias wallets. Todos trabajan con la misma bóveda y los mismos contactos.
+- **Contactos compartidos con contexto.** La libreta muestra quién añadió cada contacto y cuántos pagos confirmados ha recibido esa dirección desde esta bóveda on-chain. El nombre guardado es una etiqueta del equipo, no una verificación de identidad.
+- **Reglas controladas por el equipo.** Elige de 1 a 20 firmantes y cualquier umbral de 1 a N. Cambiar firmantes o el umbral requiere el quórum vigente y conserva la dirección de la bóveda. Su creador no tiene un poder especial para retirar fondos.
+- **Una firma por decisión.** Proponer un pago cuenta como tu aprobación. Cuando la bóveda puede cubrir el pago y la comisión, la aprobación que alcanza el umbral también lo ejecuta. Una solicitud sin fondos queda pendiente y puede completarse tras recibirlos; la transferencia sigue sujeta a las reglas del token y al estado de la red.
+- **Legible antes de firmar.** Cada solicitud muestra destinatario, importe, comisión de servicio, total y contrato del activo. La app reconstruye cada transacción localmente y comprueba contrato, función y argumentos antes de pedir la firma a tu wallet. Las comprobaciones del destinatario reducen fallos evitables, pero no garantizan una ejecución posterior.
+- **Configuración sencilla.** Crear una bóveda pide un nombre y una firma de tu wallet. Empieza como 1 de 1; añade compañeros y sube el umbral antes de usarla con aprobación compartida.
 - **Recibos verificables.** Cada operación confirmada enlaza a la transacción y al contrato de la bóveda en stellar.expert.
 - **Bilingüe.** Español e inglés en toda la app, incluidos errores y confirmaciones.
 
 ## Por qué Stellar
 
-- **Las stablecoins son nativas.** USDC y USDT0 son activos de Stellar con sus propios emisores; los Stellar Asset Contracts (SAC) permiten que una bóveda Soroban los guarde y mueva sin wrappers ni puentes.
+- **Activos que funcionan con contratos.** Los Stellar Asset Contracts (SAC) permiten que una bóveda Soroban guarde y transfiera XLM y activos emitidos. La demo usa XLM de Testnet, USDC de Testnet de Circle y un USDT0 de prueba emitido por SoroSafe; los emisores oficiales de Mainnet están previstos para el lanzamiento.
 - **Las firmas vienen integradas.** `require_auth` de Soroban vincula cada aprobación al contrato, la función y los argumentos exactos, así que SoroSafe no inventa su propio esquema de firmas.
 - **Las comisiones son mínimas y las puede pagar otro.** Un fee-bump de Stellar permite que SoroSafe pague la comisión de red de una transacción que firmó el usuario, sin poder modificarla.
-- **Finalidad rápida.** Un pago queda firme en unos cinco segundos, así que «aprobar y enviar» se siente como un solo paso.
+- **Finalidad rápida.** Stellar suele cerrar un ledger en unos cinco segundos. El tiempo de envío depende de la red y la transacción; una aprobación final exitosa y su pago se confirman juntos.
 
-## Pruébalo en 2 minutos
+## Prueba un pago compartido
 
-1. Abre **https://testnet.sorosafe.app**. Entra con [Freighter](https://www.freighter.app/) en la red **Test Net**, o pulsa **Usar wallet temporal** (no instalas nada; su clave se borra al cerrar la pestaña). Las cuentas nuevas de Testnet reciben XLM de prueba de Friendbot.
-2. **Crea una bóveda**: escribe un nombre y firma una vez. Eres su único firmante (1 de 1).
-3. **Añade fondos**: pasa algo de XLM de prueba a la bóveda. Para USDT0, abre *Añadir fondos* en la fila de USDT0 y pulsa antes **Conseguir 1000 USDT0 de prueba**.
-4. **Envía un pago**: como la bóveda es 1 de 1, sale al instante. Abre el recibo en stellar.expert.
-5. **Añade un segundo firmante** (otra cuenta de Freighter o una wallet temporal en otro perfil del navegador) y fija la regla en 2 de 2.
-6. **Envía otro pago**: ahora queda esperando («1 operación espera tu aprobación» del otro lado). Abre SoroSafe como segundo firmante y elige **Aprobar y completar**: una sola firma aprueba y envía el pago.
+1. **Prepara dos wallets de Testnet.** Abre **https://testnet.sorosafe.app** en dos perfiles distintos del navegador. Usa [Freighter](https://www.freighter.app/) en **Test Net** o **Usar wallet temporal** en cada perfil. Las wallets temporales firman transacciones reales de Testnet; no requieren extensión y sus claves permanecen en el almacenamiento de sesión de la pestaña hasta que se cierra. Mantén ambas pestañas abiertas. Friendbot financia las cuentas nuevas con XLM de prueba.
+2. **Crea y configura la bóveda compartida.** Con la primera wallet, crea una bóveda, abre **Equipo**, añade la dirección de la segunda wallet y establece **2 de 2** aprobaciones. Firma el cambio con la regla inicial de 1 de 1. Abre la misma URL de la bóveda en el segundo perfil; ambos firmantes usan esa bóveda, sin crear otra.
+3. **Añade fondos y guarda un destinatario.** Deposita XLM de prueba y deja algo en tu wallet para comisiones de red sin patrocinio. Añade un contacto compartido con una dirección de Testnet financiada que controles; puedes usar la primera wallet como destinataria de este pago de prueba.
+4. **Prepara el pago como segundo firmante.** Abre el contacto compartido y comprueba quién lo añadió. Solicita un pago que la bóveda pueda cubrir, incluida su comisión de servicio del 0,25 %. Esta firma registra la primera aprobación; los fondos siguen en la bóveda mientras falta la segunda.
+5. **Revisa y completa como primer firmante.** Comprueba destinatario, activo elegido, importe y comisión, y pulsa **Aprobar y pagar**. Una aprobación final exitosa envía el pago en la misma transacción.
+6. **Verifícalo en equipo.** Ambos firmantes pueden consultar el recibo en stellar.expert y el contador actualizado de pagos confirmados del contacto. Para probar tokens después, usa **Añadir fondos** en la fila del token elegido; el USDT0 de prueba lo emite SoroSafe, no el emisor oficial de Mainnet.
+
+El [guion de la demo](docs/VIDEO-SCRIPT.md) sigue este flujo compartido. El [texto para la candidatura en inglés y español](docs/HACKATHON-SUBMISSION.md) describe el alcance actual en Testnet.
 
 ## Comisiones de red (gas)
 
@@ -51,14 +57,15 @@ SoroSafe paga la comisión de red por ti **cuando puede**: envuelve la transacci
 - Patrocinadas: propuestas, aprobaciones (que también envían el pago), cancelaciones, cambios de equipo y añadir fondos a una bóveda de SoroSafe; en Testnet también los faucets.
 - No patrocinadas: crear una bóveda, o cualquier llamada fuera de las bóvedas verificadas de SoroSafe.
 - Límites: como máximo 1 XLM por transacción y 20 transacciones patrocinadas por cuenta al día.
-- Si no es posible patrocinar (límite alcanzado, patrocinador sin fondos suficientes), se envía la misma transacción firmada y tu wallet paga la comisión, normalmente unos céntimos. Las operaciones nunca se bloquean.
+- Si no es posible patrocinar (límite alcanzado, patrocinador sin fondos suficientes), la app intenta enviar la transacción firmada pagando la comisión de red desde la wallet del firmante. Esa wallet debe tener suficiente XLM; la falta de fondos o los errores de red todavía pueden impedir completar la operación.
 
 ## Modelo de negocio
 
-- Una **comisión de servicio del 0,25 %** sobre los pagos salientes, cobrada en la misma moneda y en la misma transacción que el pago (no se puede saltar ni cobrar por separado). Enviar 2 USDT0 cuesta 2,005 USDT0.
-- La comisión se acumula dentro de la bóveda y cualquiera puede enviarla a la cuenta recaudadora con `claim_fees`; financia al patrocinador de gas, que mantiene gratis las operaciones diarias para la mayoría de usuarios. Los pagos nunca dependen de la cuenta recaudadora, así que un problema con ella no puede congelar ninguna bóveda.
+- Una **comisión de servicio del 0,25 %** sobre los pagos salientes, registrada de forma atómica con el pago en la misma moneda y redondeada hacia arriba a la unidad mínima del token. Enviar 2 USDT0 requiere 2,005 USDT0: el destinatario recibe 2 y quedan 0,005 reservados en la bóveda para el recaudador.
+- Las comisiones reservadas no pueden financiar otro pago. Cualquiera puede llamar a `claim_fees` para enviarlas al recaudador fijo; quien llama no puede elegir otro destino. Si el recaudador no puede recibir, esa retirada puede fallar, pero no bloquea los pagos a otros destinatarios habilitados.
+- La comisión de servicio sostiene el producto y el patrocinio de red. Patrocinar la comisión de red **no** hace gratuitos los pagos salientes: la comisión de servicio del 0,25 % sigue aplicándose.
 - El patrocinio tiene topes (1 XLM por transacción, 20 transacciones por cuenta al día) para que el coste esté acotado.
-- Los depósitos, cambios de equipo y aprobaciones no tienen comisión de servicio.
+- Los depósitos y cambios de equipo no tienen comisión de servicio. No hay una comisión adicional por cada aprobación; la aprobación que ejecuta un pago registra la comisión de ese pago.
 
 ## Cómo usa Stellar
 
@@ -87,7 +94,9 @@ flowchart LR
   R --> F["Contrato fábrica<br/>hash WASM fijo, sin admin"]
   F -->|"despliega y registra"| V["Contrato de bóveda<br/>firmantes, regla, propuestas"]
   R --> V
-  V -->|"pago + comisión 0,25 %"| S["Stellar Asset Contracts<br/>XLM · USDC · USDT0"]
+  V -->|"pago al destinatario"| S["Stellar Asset Contracts<br/>XLM · USDC · USDT0"]
+  V -->|"reserva el 0,25 % en la bóveda"| O["Comisiones pendientes"]
+  O -->|"claim_fees envía los tokens reservados"| C["Recaudador fijo"]
 ```
 
 Estructura del repositorio (nombre interno **junto**: nombre del paquete, variables de entorno `JUNTO_*`, `junto_*.wasm`):
@@ -177,8 +186,8 @@ Corregido tras una revisión interna de los contratos (todo cubierto por tests):
 - **Las solicitudes sin fondos quedan pendientes.** En una bóveda 1 de 1, un pago que la bóveda aún no puede cubrir se guarda como solicitud pendiente en lugar de revertirse, y se completa después con «Completar pago».
 - **Se rechazan importes que el token no puede mover** (importe + comisión por encima del límite de los activos de Stellar).
 - **Retirar una aprobación que no diste falla con un error claro** en vez de emitir un evento engañoso.
-- **Se comprueba el destinatario antes de pedir un pago** (que la cuenta exista y pueda recibir la moneda), así una aprobación no puede fallar en el último paso.
-- **El patrocinio nunca bloquea.** Si el fee-bump no se puede patrocinar o falla antes de llegar al ledger, se envía la misma transacción firmada y paga quien firma; un fee-bump rechazado no gasta el cupo diario.
+- **Las comprobaciones del destinatario reducen transferencias fallidas.** La app comprueba que una cuenta exista y pueda recibir la moneda antes de proponer o aprobar. Su trustline, autorización o el estado de la red pueden cambiar después, así que estas comprobaciones no garantizan la ejecución.
+- **El patrocinio tiene una alternativa.** Si el fee-bump no puede patrocinarse o se rechaza antes de llegar al ledger, la app puede enviar la transacción firmada pagando el firmante. Este sigue necesitando suficiente XLM y se aplican las comprobaciones normales de red; un rechazo previo al ledger no consume el cupo diario de patrocinio.
 
 ### Antes de Mainnet
 

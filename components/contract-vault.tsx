@@ -1493,15 +1493,15 @@ export function ContractVault({
                             "Covered by SoroSafe when possible",
                           )
                         : t(
-                            "Unos céntimos, desde tu wallet",
-                            "A few cents, from your wallet",
+                            "Se paga con XLM desde tu wallet",
+                            "Paid in XLM from your wallet",
                           )}
                     </dd>
                   </dl>
                   <p className="footnote">
                     {t(
-                      "SoroSafe cubre el coste de red cuando puede; si no, tu wallet paga unos céntimos.",
-                      "SoroSafe covers network fees when it can; otherwise your wallet pays a few cents.",
+                      "El patrocinio de red tiene límites. Si no está disponible, necesitas XLM en tu wallet. La comisión de servicio del pago se aplica por separado.",
+                      "Network sponsorship has limits. If it is unavailable, you need XLM in your wallet. The payment's service fee applies separately.",
                     )}
                   </p>
                   <details className="tech-details">
@@ -1570,12 +1570,12 @@ export function ContractVault({
               : modal === "pay"
                 ? config && config.rules.threshold <= 1
                   ? t(
-                      "Con tu firma el pago sale de inmediato.",
-                      "With your signature the payment goes out right away.",
+                      "Revisa el importe y la comisión: tu firma envía el pago. Si el saldo cambia antes de ejecutarse, la solicitud puede quedar pendiente.",
+                      "Review the amount and fee: your signature sends the payment. If the balance changes before execution, the request may remain pending.",
                     )
                   : t(
-                      "Tu solicitud cuenta como tu aprobación. El pago sale cuando llegue la última aprobación necesaria.",
-                      "Your request counts as your approval. The payment goes out with the last approval needed.",
+                      "Tu solicitud cuenta como tu aprobación. La última aprobación necesaria envía el pago si hay saldo suficiente.",
+                      "Your request counts as your approval. The final required approval sends the payment if funds are sufficient.",
                     )
                 : modal === "rules" && config && config.rules.threshold > 1
                   ? t(
