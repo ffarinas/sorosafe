@@ -1,107 +1,70 @@
-# SoroSafe · team demo script (maximum 3:00)
+# SoroSafe · video script (max 3:00)
 
-Two alternative narration tracks, English and Spanish. Record each language separately with the app in that language; do not read both in one video. The shared payment is the main demonstration. Creating a vault comes later as a short explanation of how the team got started.
+English narration (~330 words, about 2:30 at a calm pace). Stage directions in Spanish. The story: why a smart contract beats a shared wallet for team money, shown with one real 2-of-2 payment.
 
 ## Antes de grabar
 
-- Usa `https://testnet.sorosafe.app`, Freighter en **Testnet**, 1920×1080 y un zoom que permita leer destinatario, moneda, importe y aprobaciones.
-- Prepara tres wallets reales de prueba: **A**, **B** y **C**, con sus propias claves. Crea una bóveda actual, incorpora a las tres y establece **2 de 3**. Es un ejemplo de configuración, no el límite del producto. No presentes este recorrido controlado como un piloto con clientes.
-- Comprueba que la bóveda pertenece a la fábrica actual publicada en `docs/testnet-demo-factory.json` y que sus versiones coinciden con `lib/contract-artifacts.json`. No reutilices una bóveda antigua para representar los contratos actuales.
-- Inicia las sesiones antes de grabar. La firma para iniciar sesión con SEP-10 es distinta de la firma de una aprobación. Usa perfiles de navegador o sesiones separadas para mostrar a A y B de forma inequívoca.
-- B añade un contacto compartido, por ejemplo **Travel supplier**, con la dirección de una cuarta wallet de prueba. Esa wallet debe existir y aceptar el USDC de Circle en Testnet. A debe ver el mismo contacto y la atribución a B al abrir la bóveda.
-- Fondea la bóveda con USDC de Testnet suficiente para el pago y la comisión. Completa un primer pago real a ese contacto para disponer de historial confirmado; conserva su recibo. No inventes saldos, contactos atribuidos a otras personas ni contadores de pagos.
-- El pago principal será de **2 USDC**: con la comisión actual de **0,25 %**, el coste para la bóveda es **2,005 USDC**. Comprueba en la revisión el porcentaje efectivo de la bóveda y usa los valores reales si cambian.
-- Comprueba disponibilidad del faucet y patrocinio antes de grabar. Si un servicio falla, corrige la causa y repite la operación; no montes un resultado que no ocurrió. Mantén XLM de prueba en las wallets para los costes que no se patrocinen.
-- USDC será la moneda del recorrido. Si enseñas USDT0, identifica expresamente que **el USDT0 de Testnet fue emitido por SoroSafe y no es el token oficial**. No es necesario grabar otra transferencia.
-- Conserva la toma original, la dirección de la bóveda y los hashes de las transacciones del recorrido. Graba más de tres minutos si hace falta; recorta pausas, no pasos necesarios para comprender la aprobación.
+- Graba `https://testnet.sorosafe.app` con la app en inglés, 1920×1080 y un zoom que deje leer destinatario, importe, comisión y aprobaciones.
+- Dos perfiles de navegador, uno por firmante:
+  - **A**: Freighter en **Test Net**.
+  - **B**: otra cuenta de Freighter, o **Start without installing** (wallet temporal).
+  Inicia sesión en los dos antes de grabar: la firma de inicio de sesión no es una aprobación.
+- Con A, crea la bóveda **Team Treasury**. En **Team**, añade la dirección de B y elige **2 of 2**. Tiene que ser una bóveda de la fábrica actual (`docs/testnet-demo-factory.json`); no reutilices bóvedas antiguas.
+- Fondos: en **Add funds**, A pulsa **Get 10 test USDC** y deposita 10 USDC en la bóveda. Deja XLM en ambas wallets para los costes de red que no se patrocinen.
+- Con B, guarda un contacto compartido **Design studio** con una dirección de Testnet que exista y acepte USDC (por ejemplo, una tercera wallet temporal que ya pidió USDC del faucet).
+- Pago principal: **5 USDC**. Con la comisión del 0,25 %, la bóveda gasta 5,0125 USDC.
+- Conserva la dirección de la bóveda y los hashes de las transacciones. No uses las grabaciones del 3 de octubre: muestran la interfaz y el modelo de comisiones anteriores.
 
-## 0:00–0:20 · Shared team money / Dinero del equipo
+## 0:00 – 0:20 · The problem
 
-**Pantalla:** entrada breve desde la landing y bóveda con el saldo, tres miembros y regla **2 de 3**. Rótulo discreto: **Testnet · 2 of 3 approvals** / **Testnet · 2 de 3 aprobaciones**. Evita depender de un titular exacto de la landing.
+**Pantalla:** hero de la landing y bajada hasta la sección **Why a smart contract**.
 
-**English**
+> "Companies moving money on-chain want two people to approve every payment, and security teams want those signers on devices from different makers. On most networks that's hard: multisig means everyone signing the same transaction, often in the same wallet app. SoroSafe takes a different approach."
 
-> SoroSafe is a multisig vault for teams on Stellar. Instead of coordinating addresses and approvals across chats, the team works from one vault. Here, three people share a budget, and any two must approve a payment before the money moves.
+## 0:20 – 0:45 · A contract, not a shared wallet
 
-**Español**
+**Pantalla:** la tabla comparativa de la landing y la tarjeta **Each signer keeps the wallet they trust**.
 
-> SoroSafe es una bóveda multifirma para equipos en Stellar. Las direcciones y las aprobaciones se reúnen en un mismo lugar. En este equipo, tres personas comparten un presupuesto y se necesitan dos aprobaciones para enviar un pago. Todos ven la misma regla.
+> "Each SoroSafe vault is a Soroban smart contract. It keeps payment requests on Stellar, counts the approvals and pays only when the rule is met. People approve on their own time, from the wallet or device they trust, because the contract checks the Stellar signature, not the app."
 
-## 0:20–0:45 · Shared contacts / Contactos compartidos
+## 0:45 – 1:05 · Setup
 
-**Pantalla:** toma de B guardando el contacto; corte identificado a A, que abre la misma libreta sin volver a cargarlo. Muestra **Added by** / **Añadido por** y el contador real de pagos confirmados. La toma de creación del contacto debe preceder al pago de preparación; el montaje puede indicar «Earlier / Antes» para conservar esa secuencia.
+**Pantalla:** toma corta de la creación de **Team Treasury** (grabada en la preparación) y la pestaña **Team** con A, B y **2 of 2**.
 
-**English**
+> "Our vault took one signature to create. Then we added a teammate and set the rule to two of two. Same address; changing the team needs the current approvals."
 
-> My teammate saved this supplier. I see the same contact, who added it, and its confirmed payments from our vault. We do not have to exchange the address again. The history provides context; I still check the destination before paying.
+## 1:05 – 1:25 · Shared contact
 
-**Español**
+**Pantalla:** A abre **Contacts**: **Design studio**, añadido por B.
 
-> Mi compañero guardó este proveedor. Yo veo el mismo contacto, quién lo añadió y cuántos pagos confirmados recibió de nuestra bóveda. No tenemos que volver a compartir la dirección por un chat. El historial aporta contexto; igualmente reviso el destinatario antes de pagar.
+> "My teammate saved a supplier. I see the same contact and who added it, so nobody pastes addresses into a chat."
 
-## 0:45–1:10 · Prepare a payment / Preparar un pago
+## 1:25 – 1:55 · Request a payment
 
-**Pantalla:** con A, abre **Send / Enviar** desde la fila **USDC**; selecciona el contacto compartido, introduce **2 USDC** y revisa destinatario, moneda, comisión y total. Firma la solicitud. Enseña el estado pendiente y la primera aprobación, sin confundirlo con un pago completado.
+**Pantalla:** A → **Send** → contacto **Design studio** → **5 USDC** → revisión (destinatario, importe, comisión, total) → confirmar en Freighter → aviso **Payment requested: 1 of 2 approvals** y la solicitud en **Requests**.
 
-**English**
+> "I request five U-S-D-C. Before signing, I see the recipient, the amount, the point-two-five percent service fee and the total. My request already counts as my approval. Now it waits, on Stellar, for my teammate."
 
-> I select USDC, choose our supplier, and enter the amount. Before signing, I review the recipient, currency, service fee and total. Proposing the payment already counts as my approval. The request now waits for another signer; the money has not moved.
+## 1:55 – 2:25 · Approve on their own time
 
-**Español**
+**Pantalla:** rótulo **Signer B**. B ve el aviso de una solicitud pendiente → **Requests** → **Approve and pay** → firma → **Paid 5 USDC to Design studio**.
 
-> Elijo USDC, selecciono nuestro proveedor e introduzco el importe. Antes de firmar, reviso el destinatario, la moneda, la comisión de servicio y el total. Solicitar el pago ya cuenta como mi aprobación. Ahora falta otra persona: el dinero todavía no se ha enviado.
+> "Later, from a different wallet, my teammate opens the same request and approves. That last approval sends the payment in the same transaction. No half-signed transaction passed around, and no extra execute step."
 
-## 1:10–1:45 · Approve together / Aprobar en equipo
+## 2:25 – 2:45 · Proof on Stellar
 
-**Pantalla:** corte identificado a B, misma dirección de bóveda. B abre la solicitud, revisa sus datos y firma **Approve and pay / Aprobar y pagar**. Muestra **Paid / Pagado**, el recibo en Stellar y el contador actualizado del contacto. C no necesita aprobar este ejemplo de 2 de 3.
+**Pantalla:** **View receipt** en stellar.expert. Si la transacción es un fee-bump, señala la cuenta que pagó la comisión de red (el patrocinador de SoroSafe).
 
-**English**
+> "Everything is verifiable on Stellar. SoroSafe covers the network fee when it can, and the vault can only do two things: pay in its approved currencies, or change its team."
 
-> My teammate opens that same request and reviews the payment. Their approval meets our two-of-three rule and, with sufficient funds available, sends it in the same transaction. There is no separate execution step in this flow. We can open the Stellar receipt, and the supplier's confirmed payment count updates for the team.
+## 2:45 – 3:00 · Close
 
-**Español**
+**Pantalla:** tarjeta final con el logo y `sorosafe.app`.
 
-> Mi compañero abre esa misma solicitud y revisa el pago. Su aprobación completa la regla de dos de tres y, al haber fondos suficientes, lo envía en la misma transacción. En este recorrido no hay un paso adicional para ejecutar. Abrimos el recibo en Stellar y el contador del proveedor se actualiza para todo el equipo.
+> "SoroSafe: shared money, approved together. Live today on Stellar Testnet at sorosafe dot app."
 
-## 1:45–2:10 · Visible costs / Costes visibles
+## Edición
 
-**Pantalla:** revisión capturada del pago y recibo correspondiente. Para el patrocinio, muestra el resultado real de esa operación; solo resalta el patrocinador si el recibo confirma una transacción fee-bump. No presentes la comisión reservada como una transferencia al recaudador.
-
-**English**
-
-> The service fee is 0.25 percent. It is reserved inside the vault when the payment completes, and collected separately. Network fees are different: SoroSafe sponsors eligible operations when available; otherwise the signer needs XLM. Sponsorship has limits and excludes vault creation.
-
-**Español**
-
-> La comisión de servicio es del 0,25 por ciento. Queda reservada en la bóveda al completar el pago y se recauda después. El coste de red es distinto: SoroSafe patrocina operaciones admitidas cuando puede; en caso contrario, el firmante necesita XLM. Hay límites y crear la bóveda no está patrocinado.
-
-## 2:10–2:35 · One address, team rules / Una dirección, reglas del equipo
-
-**Pantalla:** toma breve de la creación de esta misma bóveda, grabada durante la preparación, y transición etiquetada a la bóveda ya configurada. En **People and approvals / Personas y aprobaciones**, enseña los tres miembros y el umbral. No hace falta ejecutar un cambio de equipo durante el video principal.
-
-**English**
-
-> Getting started takes a vault name and a creation signature. You can begin alone, then add signers and change the approval rule while keeping the address. Later changes require the existing quorum. Soroban contracts enforce these rules; SoroSafe has no privileged withdrawal key. Native Stellar multisig also supports quorum protection.
-
-**Español**
-
-> Para empezar, das un nombre a la bóveda y firmas su creación. Puedes comenzar solo, añadir firmantes y cambiar las aprobaciones conservando la dirección. Los cambios posteriores necesitan el umbral vigente. Soroban aplica estas reglas y SoroSafe no tiene una clave privilegiada para retirar fondos. La multifirma nativa de Stellar también protege mediante umbrales.
-
-## 2:35–3:00 · Available today / Disponible hoy
-
-**Pantalla:** recibo, selector de idioma y cierre con `testnet.sorosafe.app`. Rótulos pequeños: **Testnet · Not independently audited** / **Testnet · Sin auditoría independiente**. Si aparece USDT0, añade **SoroSafe-issued test token** / **Token de prueba emitido por SoroSafe**.
-
-**English**
-
-> Built with Soroban, Stellar Asset Contracts, Freighter, SEP-10 sign-in and fee-bump sponsorship. Available in English and Spanish on Testnet, without an independent audit yet. This demo uses Circle's test USDC; test USDT0 is SoroSafe-issued. SoroSafe: one vault, shared contacts, payments approved together.
-
-**Español**
-
-> Usamos Soroban, Stellar Asset Contracts, Freighter, acceso SEP-10 y patrocinio fee-bump. Disponible en inglés y español en Testnet, todavía sin auditoría independiente. Usamos USDC de prueba de Circle; el USDT0 de prueba es emitido por SoroSafe. Una bóveda, contactos compartidos y pagos aprobados en equipo.
-
-## Ritmo y verificación
-
-- Ajusta la voz a un máximo de tres minutos; conserva pausas para leer la revisión del pago y el estado pendiente. Si falta tiempo, recorta la creación antes que el recorrido entre compañeros.
-- No uses «todos tienen que estar conectados», «nadie necesita XLM», «sin riesgo», «sin puertas traseras» ni una comparación que presente los contratos como automáticamente superiores a la multifirma nativa.
-- El video documenta transacciones reales de **Testnet**. No implica uso por clientes, auditoría externa ni disponibilidad en Mainnet.
-- La libreta y los nombres son datos compartidos de la aplicación. Los pagos confirmados y las reglas se verifican en Stellar; no afirmes que todos los contactos están almacenados en el contrato.
+- Acelera solo las esperas (spinners de firma y confirmación); deja legibles la revisión, el estado pendiente y el pago completado.
+- Rótulos: *Why a contract · Setup · Shared contact · Request · Approve together · Verifiable on Stellar*.
+- Mantén visible **Testnet**. Música suave por debajo de la voz.

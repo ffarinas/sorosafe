@@ -885,9 +885,10 @@ export default function Home() {
             className="landing-navigation"
             aria-label={t("Conoce SoroSafe", "About SoroSafe")}
           >
-            <a href="#stellar">Stellar</a>
+            <a href="#contract">{t("Smart contract", "Smart contract")}</a>
             <a href="#why">{t("Por qué SoroSafe", "Why SoroSafe")}</a>
             <a href="#security">{t("Seguridad", "Security")}</a>
+            <a href="#stellar">Stellar</a>
           </nav>
         )}
         <div className="header-right">
@@ -955,8 +956,8 @@ export default function Home() {
                   </h2>
                   <p className="intro-copy">
                     {t(
-                      "Ponle nombre y créala con tu wallet. Después añade a los firmantes y acuerden las aprobaciones. Hasta entonces, la bóveda depende de tu única firma.",
-                      "Name it and create it with your wallet. Then add the signers and agree on the approvals. Until then, the vault depends on your signature alone.",
+                      "Ponle nombre y créala con tu wallet. Después suma a tu equipo y elige cuántas aprobaciones necesita cada pago.",
+                      "Name it and create it with your wallet. Then add your team and choose how many approvals each payment needs.",
                     )}
                   </p>
                 </>

@@ -21,16 +21,35 @@ Administrar el dinero de un equipo requiere más que reunir firmas. Alguien aña
 
 SoroSafe reúne ese trabajo en una bóveda compartida: los mismos destinatarios, reglas de aprobación visibles y un historial de pagos que todo el equipo puede consultar.
 
+**Por qué lo construimos.** Las guías de seguridad corporativa recomiendan repartir los firmantes de una multifirma en wallets hardware de fabricantes distintos, para que un solo firmware comprometido no pueda mover los fondos. En la práctica, en muchas redes la multifirma solo funciona bien con una app de wallet y los dispositivos que esta admite, así que los equipos acaban cambiando esa seguridad por comodidad. Un smart contract elimina esa dependencia: comprueba la firma de cada firmante, venga de la wallet o el dispositivo que venga, y le da al equipo un lugar común para solicitudes, aprobaciones y contactos.
+
 ## Qué hace SoroSafe
 
 - **Un flujo de pago compartido.** Una persona guarda un destinatario, otra prepara el pago y los firmantes necesarios lo revisan y aprueban desde sus propias wallets. Todos trabajan con la misma bóveda y los mismos contactos.
 - **Contactos compartidos con contexto.** La libreta muestra quién añadió cada contacto y cuántos pagos confirmados ha recibido esa dirección desde esta bóveda on-chain. El nombre guardado es una etiqueta del equipo, no una verificación de identidad.
 - **Reglas controladas por el equipo.** Elige de 1 a 20 firmantes y cualquier umbral de 1 a N. Cambiar firmantes o el umbral requiere el quórum vigente y conserva la dirección de la bóveda. Su creador no tiene un poder especial para retirar fondos.
-- **Una firma por decisión.** Proponer un pago cuenta como tu aprobación. Cuando la bóveda puede cubrir el pago y la comisión, la aprobación que alcanza el umbral también lo ejecuta. Una solicitud sin fondos queda pendiente y puede completarse tras recibirlos; la transferencia sigue sujeta a las reglas del token y al estado de la red.
-- **Legible antes de firmar.** Cada solicitud muestra destinatario, importe, comisión de servicio, total y contrato del activo. La app reconstruye cada transacción localmente y comprueba contrato, función y argumentos antes de pedir la firma a tu wallet. Las comprobaciones del destinatario reducen fallos evitables, pero no garantizan una ejecución posterior.
+- **Una firma por decisión.** Proponer un pago cuenta como tu aprobación, y la aprobación que alcanza el umbral envía el pago en la misma transacción. Si la bóveda aún no puede cubrirlo, la solicitud espera y se completa cuando llegan los fondos.
+- **Legible antes de firmar.** Cada solicitud muestra destinatario, importe, comisión de servicio y total. La app reconstruye cada transacción localmente y comprueba contrato, función y argumentos antes de pedir la firma a tu wallet, y comprueba que el destinatario pueda recibir la moneda.
 - **Configuración sencilla.** Crear una bóveda pide un nombre y una firma de tu wallet. Empieza como 1 de 1; añade compañeros y sube el umbral antes de usarla con aprobación compartida.
 - **Recibos verificables.** Cada operación confirmada enlaza a la transacción y al contrato de la bóveda en stellar.expert.
 - **Bilingüe.** Español e inglés en toda la app, incluidos errores y confirmaciones.
+
+## Por qué un smart contract
+
+Una wallet multifirma pide a todos firmar la misma transacción. Una bóveda SoroSafe es un contrato de Soroban: guarda las solicitudes, cuenta las aprobaciones y paga solo cuando se cumple la regla.
+
+| | Multifirma de wallet | Bóveda SoroSafe (contrato) |
+| --- | --- | --- |
+| Firmar | Todos firman la misma transacción antes de enviarla | Cada persona aprueba cuando puede, en su propia transacción |
+| Solicitudes | Una transacción a medio firmar que circula por chats | Guardadas en Stellar y visibles para todo el equipo |
+| Qué puede hacer | Cualquier operación de la cuenta, si se alcanza el umbral | Solo `Pay` en sus monedas aprobadas o `ChangeRules` |
+| Stablecoins | Una trustline y una reserva de XLM por moneda | Guarda USDC y USDT0 directamente, sin trustlines |
+
+- **Cada firmante, con la wallet en la que confía.** El contrato comprueba la firma de Stellar de cada persona (`require_auth`), no una app ni una marca de dispositivo. Con una regla de 2 o más, repartir los firmantes en dispositivos de fabricantes distintos hace que un dispositivo o un firmware comprometido no baste para mover el dinero. Hoy la app integra Freighter; más wallets están en el roadmap.
+- **Cambiar el equipo limpia lo pendiente.** Cambiar personas o la regla necesita el quórum actual y conserva la dirección de la bóveda. Aumenta la época de las reglas, así que las solicitudes pendientes anteriores dejan de contar y la aprobación de alguien que salió nunca puede completar un pago.
+- **Reglas que se cumplen sin SoroSafe.** Sin clave de administrador, sin actualizaciones y sin clave de retiro de SoroSafe; el código se comprueba contra hashes publicados y cualquier cliente puede operar la bóveda directamente desde Stellar.
+
+El contrato hace cumplir la regla; no puede juzgar un pago que el quórum decidió aprobar. Revisar cada solicitud sigue importando, por eso la app lo muestra todo antes de firmar.
 
 ## Por qué Stellar
 
@@ -41,9 +60,9 @@ SoroSafe reúne ese trabajo en una bóveda compartida: los mismos destinatarios,
 
 ## Prueba un pago compartido
 
-1. **Prepara dos wallets de Testnet.** Abre **https://testnet.sorosafe.app** en dos perfiles distintos del navegador. Usa [Freighter](https://www.freighter.app/) en **Test Net** o **Usar wallet temporal** en cada perfil. Las wallets temporales firman transacciones reales de Testnet; no requieren extensión y sus claves permanecen en el almacenamiento de sesión de la pestaña hasta que se cierra. Mantén ambas pestañas abiertas. Friendbot financia las cuentas nuevas con XLM de prueba.
+1. **Prepara dos wallets de Testnet.** Abre **https://testnet.sorosafe.app** en dos perfiles distintos del navegador. Usa [Freighter](https://www.freighter.app/) en **Test Net** o **Empezar sin instalar nada** (una wallet temporal) en cada perfil. Las wallets temporales firman transacciones reales de Testnet; no requieren extensión y sus claves permanecen en el almacenamiento de sesión de la pestaña hasta que se cierra. Mantén ambas pestañas abiertas. Friendbot financia las cuentas nuevas con XLM de prueba.
 2. **Crea y configura la bóveda compartida.** Con la primera wallet, crea una bóveda, abre **Equipo**, añade la dirección de la segunda wallet y establece **2 de 2** aprobaciones. Firma el cambio con la regla inicial de 1 de 1. Abre la misma URL de la bóveda en el segundo perfil; ambos firmantes usan esa bóveda, sin crear otra.
-3. **Añade fondos y guarda un destinatario.** Deposita XLM de prueba y deja algo en tu wallet para comisiones de red sin patrocinio. Añade un contacto compartido con una dirección de Testnet financiada que controles; puedes usar la primera wallet como destinataria de este pago de prueba.
+3. **Añade fondos y guarda un destinatario.** En **Añadir fondos**, usa **Conseguir 100 XLM de prueba** (o **Conseguir 10 USDC de prueba**) y deposítalo, dejando algo de XLM en tu wallet para comisiones de red sin patrocinio. Añade un contacto compartido con una dirección de Testnet financiada que controles; puedes usar la primera wallet como destinataria de este pago de prueba.
 4. **Prepara el pago como segundo firmante.** Abre el contacto compartido y comprueba quién lo añadió. Solicita un pago que la bóveda pueda cubrir, incluida su comisión de servicio del 0,25 %. Esta firma registra la primera aprobación; los fondos siguen en la bóveda mientras falta la segunda.
 5. **Revisa y completa como primer firmante.** Comprueba destinatario, activo elegido, importe y comisión, y pulsa **Aprobar y pagar**. Una aprobación final exitosa envía el pago en la misma transacción.
 6. **Verifícalo en equipo.** Ambos firmantes pueden consultar el recibo en stellar.expert y el contador actualizado de pagos confirmados del contacto. Para probar tokens después, usa **Añadir fondos** en la fila del token elegido; el USDT0 de prueba lo emite SoroSafe, no el emisor oficial de Mainnet.

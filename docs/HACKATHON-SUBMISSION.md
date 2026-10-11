@@ -18,6 +18,8 @@ Managing team money means coordinating recipients, payment requests and approval
 
 Before signing, members see the recipient, asset, amount and fees. Proposing counts as an approval; when funds cover the payment and fee, the final required approval also sends it. Unfunded requests remain pending. Teams can choose up to 20 signers and change their rules through the current quorum, keeping the same vault address.
 
+Why a smart contract: a multisig wallet makes everyone sign the same transaction, usually from the same wallet app. A SoroSafe vault keeps requests and approvals on Stellar, so each signer approves on their own time, from the wallet or device they trust. Corporate teams can spread signers across hardware from different makers, so one compromised firmware isn't enough to move funds. The vault can only pay in its approved currencies or change its team, holds USDC and USDT0 without trustlines, and team changes cancel older pending requests.
+
 Soroban contracts enforce payments and team changes without a privileged creator or SoroSafe withdrawal key. The app uses Stellar Asset Contracts, Freighter with SEP-10, Stellar RPC and fee-bump sponsorship. English and Spanish are available, along with temporary browser wallets for trying Testnet without an extension.
 
 Network-fee sponsorship has limits; the signer needs XLM when it is unavailable. Outgoing payments carry a separate 0.25% service fee, reserved in the vault for later collection.
@@ -31,6 +33,8 @@ SoroSafe es una bóveda multifirma para equipos en Stellar: una dirección para 
 Administrar dinero en equipo requiere coordinar destinatarios, solicitudes y aprobaciones. SoroSafe reúne ese trabajo. Una persona guarda un proveedor, otra prepara el pago y los firmantes necesarios lo revisan desde sus propias wallets. Todos ven quién añadió cada contacto y cuántos pagos confirmados ha recibido esa dirección desde la bóveda.
 
 Antes de firmar, cada miembro ve destinatario, activo, importe y comisiones. Proponer cuenta como aprobación; si hay fondos para el pago y la comisión, la última aprobación necesaria también lo envía. Las solicitudes sin fondos quedan pendientes. El equipo puede tener hasta 20 firmantes y cambiar sus reglas con el quórum vigente, conservando la dirección.
+
+Por qué un smart contract: una wallet multifirma obliga a todos a firmar la misma transacción, normalmente desde la misma app. Una bóveda SoroSafe guarda las solicitudes y aprobaciones en Stellar, así que cada firmante aprueba cuando puede, desde la wallet o el dispositivo en el que confía. Los equipos corporativos pueden repartir los firmantes en hardware de fabricantes distintos, de modo que un firmware comprometido no baste para mover fondos. La bóveda solo puede pagar en sus monedas aprobadas o cambiar el equipo, guarda USDC y USDT0 sin trustlines, y los cambios de equipo anulan las solicitudes pendientes anteriores.
 
 Los contratos Soroban aplican pagos y cambios de equipo sin poderes especiales de retiro para el creador ni SoroSafe. La app integra Stellar Asset Contracts, Freighter con SEP-10, Stellar RPC y patrocinio mediante fee-bump. Está disponible en inglés y español, con wallets temporales del navegador para probar Testnet sin extensión.
 

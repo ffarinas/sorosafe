@@ -199,8 +199,8 @@ export function vaultSteps({
       ),
       note: singleApproval
         ? t(
-            "Con una sola aprobación requerida, tu firma envía el pago al proponerlo si hay saldo suficiente. Si el saldo cambia antes de ejecutarse, la solicitud puede quedar pendiente.",
-            "With one approval required, your signature sends the payment when you propose it if funds are sufficient. If the balance changes before execution, the request may remain pending.",
+            "Con una sola aprobación requerida, tu firma envía el pago al proponerlo.",
+            "With one approval required, your signature sends the payment when you propose it.",
           )
         : t(
             "Al solicitar el pago, tu solicitud ya cuenta como la primera aprobación.",
@@ -222,8 +222,8 @@ export function vaultSteps({
             "See payments and team changes here, along with their status and approvals. After a payment is confirmed, View receipt opens its record on Stellar.",
           )
         : t(
-            "Aprobar en equipo: la última aprobación necesaria envía el pago si hay saldo suficiente. Si falta saldo, queda pendiente. Mientras siga pendiente puedes retirar tu aprobación, y quien lo pidió puede cancelarlo.",
-            "Approve together: the last approval needed sends the payment if funds are sufficient. Otherwise it stays pending. While it is pending, you can withdraw your approval, and whoever requested it can cancel it.",
+            "Aprobar en equipo: la última aprobación necesaria envía el pago. Hasta entonces puedes retirar tu aprobación, y quien lo pidió puede cancelarlo.",
+            "Approve together: the last approval needed sends the payment. Until then you can withdraw your approval, and whoever requested it can cancel it.",
           ),
       note: t(
         "Una solicitud pendiente todavía no es un pago realizado.",
@@ -275,8 +275,8 @@ export function vaultSteps({
       section: "team",
       title: t("Los costes, a la vista", "See the costs clearly"),
       body: t(
-        `La comisión de servicio de esta bóveda es ${fee} % por pago, en la moneda que envías. Es independiente del coste de red. SoroSafe puede patrocinar ese coste dentro de sus límites; si no hay patrocinio, necesitas XLM en tu wallet.`,
-        `This vault's service fee is ${fee}% per payment, in the currency you send. It is separate from the network fee. SoroSafe can sponsor that fee within its limits; without sponsorship, you need XLM in your wallet.`,
+        `La comisión de servicio de esta bóveda es ${fee} % por pago, en la moneda que envías. SoroSafe cubre el coste de red cuando puede; si no, tu wallet paga una pequeña comisión en XLM.`,
+        `This vault's service fee is ${fee}% per payment, in the currency you send. SoroSafe covers network fees when it can; otherwise your wallet pays a small fee in XLM.`,
       ),
       note: t(
         "Revisa el importe y la comisión antes de confirmar en tu wallet.",

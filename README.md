@@ -21,16 +21,35 @@ Managing team money involves more than collecting signatures. Someone adds a sup
 
 SoroSafe brings that work into one shared vault: the same recipients, visible approval rules and a payment history everyone on the team can check.
 
+**Why we built it.** Corporate security guidance recommends spreading multisig signers across hardware wallets from different makers, so that a single compromised firmware can't move the funds. In practice, multisig on many networks works smoothly only through one wallet app and the devices it supports, so teams end up trading that security for convenience. A smart contract removes the dependency: it checks each signer's signature, whatever wallet or device produced it, and gives the team one shared place for requests, approvals and contacts.
+
 ## What SoroSafe does
 
 - **A shared payment workflow.** One teammate saves a recipient, another prepares a payment, and the required signers review and approve it from their own wallets. Everyone works with the same vault and contacts.
 - **Shared contacts with context.** The address book shows who added each contact and how many confirmed payments that address has received from this vault on-chain. A saved name is a team label, not identity verification.
 - **Team-controlled approval rules.** Choose from 1 to 20 signers and any threshold from 1 to N. Changing signers or the threshold requires the current quorum and preserves the vault address. Its creator has no special withdrawal power.
-- **One signature per decision.** Proposing a payment counts as your approval. When the vault can cover the payment and fee, the approval that reaches the threshold also executes it. An unfunded request stays pending and can be completed after funding; transfers remain subject to the token's rules and current network state.
-- **Readable before signing.** Every request shows recipient, amount, service fee, total and asset contract. The app rebuilds each transaction locally and checks contract, function and arguments before asking your wallet to sign. Recipient checks reduce avoidable failures but cannot guarantee later execution.
+- **One signature per decision.** Proposing a payment counts as your approval, and the approval that reaches the threshold sends the payment in the same transaction. If the vault can't cover it yet, the request waits and is completed once funds arrive.
+- **Readable before signing.** Every request shows recipient, amount, service fee and total. The app rebuilds each transaction locally and checks contract, function and arguments before asking your wallet to sign, and checks that the recipient can receive the currency.
 - **Simple setup.** Creating a vault takes a name and one wallet signature. It starts as 1 of 1; add teammates and raise the threshold before using it for shared approval.
 - **Verifiable receipts.** Every confirmed operation links to the transaction and the vault contract on stellar.expert.
 - **Bilingual.** Spanish and English throughout, including errors and confirmations.
+
+## Why a smart contract
+
+A multisig wallet asks everyone to sign the same transaction. A SoroSafe vault is a Soroban contract: it keeps the requests, counts the approvals and pays only when the rule is met.
+
+| | Wallet multisig | SoroSafe vault (contract) |
+| --- | --- | --- |
+| Signing | Everyone signs the same transaction before it is sent | Each person approves on their own time, in their own transaction |
+| Requests | A half-signed transaction passed around in chats | Stored on Stellar and visible to the whole team |
+| What it can do | Any operation the account can do once the threshold is met | Only `Pay` in its approved currencies or `ChangeRules` |
+| Stablecoins | A trustline and an XLM reserve per currency | Holds USDC and USDT0 directly, with no trustlines |
+
+- **Each signer keeps the wallet they trust.** The contract checks each person's Stellar signature (`require_auth`), not an app or a hardware brand. With a rule of 2 or more, signers on devices from different makers mean one compromised device or firmware isn't enough to move the money. The app integrates Freighter today; more wallets are on the roadmap.
+- **Team changes clean up after themselves.** Changing people or the rule needs the current quorum and keeps the vault's address. It bumps the rules epoch, so older pending requests stop counting and a removed signer's approval can never complete a payment.
+- **Rules that hold without SoroSafe.** No admin key, no upgrade path and no SoroSafe withdrawal key; the code is checked against published hashes, and any client can operate the vault directly from Stellar.
+
+The contract enforces the rule; it can't judge a payment the quorum chose to approve. Reviewing each request still matters, which is why the app shows everything before you sign.
 
 ## Why Stellar
 
@@ -41,9 +60,9 @@ SoroSafe brings that work into one shared vault: the same recipients, visible ap
 
 ## Try a shared payment
 
-1. **Prepare two Testnet wallets.** Open **https://testnet.sorosafe.app** in two separate browser profiles. Use [Freighter](https://www.freighter.app/) on **Test Net**, or **Use a temporary wallet** in each profile. Temporary wallets sign real Testnet transactions; they need no extension, and their keys remain in the tab's session storage until it closes. Keep both tabs open. Friendbot funds new accounts with test XLM.
+1. **Prepare two Testnet wallets.** Open **https://testnet.sorosafe.app** in two separate browser profiles. Use [Freighter](https://www.freighter.app/) on **Test Net**, or **Start without installing** (a temporary wallet) in each profile. Temporary wallets sign real Testnet transactions; they need no extension, and their keys remain in the tab's session storage until it closes. Keep both tabs open. Friendbot funds new accounts with test XLM.
 2. **Create and configure the shared vault.** With the first wallet, create a vault, then open **Team**, add the second wallet's address and set **2 of 2** approvals. Sign the rule change under the initial 1-of-1 rule. Open the same vault URL in the second profile; both signers use this vault, rather than creating another one.
-3. **Fund the vault and save a recipient.** Deposit test XLM, leaving some in your wallet for unsponsored network fees. Add a shared contact for a funded Testnet address you control; the first wallet's address can be used for this test payment.
+3. **Fund the vault and save a recipient.** In **Add funds**, use **Get 100 test XLM** (or **Get 10 test USDC**) and deposit it, leaving some XLM in your wallet for unsponsored network fees. Add a shared contact for a funded Testnet address you control; the first wallet's address can be used for this test payment.
 4. **Prepare the payment as the second signer.** Open the shared contact and check who added it. Request a payment the vault can cover, including its 0.25% service fee. This signature records the first approval; funds remain in the vault while a second approval is needed.
 5. **Review and complete as the first signer.** Check the recipient, selected asset, amount and fee, then choose **Approve and pay**. A successful final approval sends the payment in the same transaction.
 6. **Verify it together.** Both signers can inspect the receipt on stellar.expert and the contact's updated confirmed-payment count. To try tokens next, use **Add funds** on the chosen token row; test USDT0 is issued by SoroSafe, not the official Mainnet issuer.
