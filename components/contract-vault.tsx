@@ -1500,8 +1500,8 @@ export function ContractVault({
                   </dl>
                   <p className="footnote">
                     {t(
-                      "El patrocinio de red tiene límites. Si no está disponible, necesitas XLM en tu wallet. La comisión de servicio del pago se aplica por separado.",
-                      "Network sponsorship has limits. If it is unavailable, you need XLM in your wallet. The payment's service fee applies separately.",
+                      "SoroSafe cubre el coste de red cuando puede; si no, tu wallet paga una pequeña comisión en XLM.",
+                      "SoroSafe covers network fees when it can; otherwise your wallet pays a small fee in XLM.",
                     )}
                   </p>
                   <details className="tech-details">
@@ -1570,12 +1570,12 @@ export function ContractVault({
               : modal === "pay"
                 ? config && config.rules.threshold <= 1
                   ? t(
-                      "Revisa el importe y la comisión: tu firma envía el pago. Si el saldo cambia antes de ejecutarse, la solicitud puede quedar pendiente.",
-                      "Review the amount and fee: your signature sends the payment. If the balance changes before execution, the request may remain pending.",
+                      "Con tu firma el pago sale de inmediato.",
+                      "With your signature the payment goes out right away.",
                     )
                   : t(
-                      "Tu solicitud cuenta como tu aprobación. La última aprobación necesaria envía el pago si hay saldo suficiente.",
-                      "Your request counts as your approval. The final required approval sends the payment if funds are sufficient.",
+                      "Tu solicitud cuenta como tu aprobación. El pago sale con la última aprobación necesaria.",
+                      "Your request counts as your approval. The payment goes out with the last approval needed.",
                     )
                 : modal === "rules" && config && config.rules.threshold > 1
                   ? t(
