@@ -37,12 +37,12 @@ export function LandingLayout({
     {
       name: "Soroban",
       label: t(
-        "Cada bóveda, un contrato verificado",
-        "Every vault, a verified contract",
+        "El origen de tu bóveda, comprobado",
+        "Your vault's origin, checked",
       ),
       body: t(
-        "Cada bóveda tiene su propia dirección en Stellar, y SoroSafe comprueba que es una versión auténtica antes de abrirla.",
-        "Each vault has its own address on Stellar, and SoroSafe checks it's a genuine version before opening it.",
+        "SoroSafe comprueba el código y el registro de cada bóveda antes de abrirla. Esto verifica su origen; no sustituye una auditoría de seguridad.",
+        "SoroSafe checks each vault's code and registration before opening it. This verifies its origin; it does not replace a security audit.",
       ),
       href: "https://developers.stellar.org/docs/build/smart-contracts/overview",
       icon: Layers3,
@@ -107,8 +107,8 @@ export function LandingLayout({
         "Why a contract if Stellar already has multisig?",
       ),
       body: t(
-        "La multifirma nativa de Stellar también protege con umbrales. El contrato añade una dirección propia para la bóveda, solicitudes y aprobaciones en cadena y reglas para cambiar el equipo. SoroSafe lo convierte en un espacio de trabajo compartido.",
-        "Stellar's native multisig also protects funds with thresholds. The contract adds a dedicated vault address, on-chain requests and approvals, and rules for team changes. SoroSafe turns that into a shared workspace.",
+        "La multifirma nativa también exige aprobaciones y permite cambiar firmantes sin cambiar de dirección. SoroSafe usa un contrato para reunir solicitudes, aprobaciones y ejecución de pagos en un mismo flujo. La app añade los contactos compartidos y una revisión clara antes de firmar.",
+        "Native multisig also requires approvals and lets you replace signers without changing the address. SoroSafe uses a contract to bring requests, approvals and payment execution into one workflow. The app adds shared contacts and a clear review before signing.",
       ),
     },
     {
@@ -137,8 +137,15 @@ export function LandingLayout({
         "Do I need XLM to use SoroSafe?",
       ),
       body: t(
-        "Para el día a día, no. SoroSafe cubre las comisiones de red de solicitudes, aprobaciones y depósitos cuando puede (hasta un límite diario). Crear una bóveda tiene una pequeña comisión que paga quien la crea.",
-        "Not for daily use. SoroSafe covers network fees for requests, approvals and deposits when it can (up to a daily limit). Creating a vault has a small fee paid by whoever creates it.",
+        "Necesitas XLM para crear la bóveda. SoroSafe puede cubrir las comisiones de red de solicitudes, aprobaciones y depósitos dentro de sus límites de patrocinio. Si el patrocinio no está disponible, tu wallet necesita XLM para pagar la comisión de red.",
+        "You need XLM to create a vault. SoroSafe can cover network fees for requests, approvals and deposits within its sponsorship limits. If sponsorship is unavailable, your wallet needs XLM to pay the network fee.",
+      ),
+    },
+    {
+      title: t("¿Qué comisiones tiene un pago?", "What fees does a payment have?"),
+      body: t(
+        "Cada pago incluye una comisión de servicio en la moneda que envías. El porcentaje está en la bóveda y ves la comisión y el total antes de firmar. Es independiente de la comisión de red: el patrocinio no elimina la comisión de servicio. Añadir fondos o cambiar el equipo no tiene comisión de servicio.",
+        "Each payment includes a service fee in the currency you send. The vault shows its rate, and you see the fee and total before signing. This is separate from the network fee: sponsorship does not remove the service fee. Adding funds or changing the team has no service fee.",
       ),
     },
     chain.id === "testnet"
@@ -165,27 +172,27 @@ export function LandingLayout({
   ];
   const steps = [
     {
-      title: t("Ponle nombre y firma una vez", "Name it and sign once"),
+      title: t("Comparte los contactos", "Share your contacts"),
       body: t(
-        "Elige un nombre y confirma en tu wallet. La bóveda recibe su propia dirección en Stellar.",
-        "Pick a name and confirm in your wallet. The vault gets its own address on Stellar.",
+        "Alguien añade un proveedor. Todo el equipo ve su dirección, quién la añadió y si la bóveda ya le ha pagado.",
+        "A teammate adds a supplier. Everyone sees its address, who added it, and whether the vault has paid it before.",
       ),
     },
     {
       title: t(
-        "Añade personas y elige la regla",
-        "Add people and choose the rule",
+        "Prepara el pago",
+        "Prepare the payment",
       ),
       body: t(
-        "Invita a quienes aprueban pagos y decide cuántas aprobaciones hacen falta, por ejemplo 2 de 3.",
-        "Invite the people who approve payments and decide how many approvals it takes, like 2 of 3.",
+        "Elige el contacto y la moneda. Revisa el importe, la dirección y las comisiones. Tu solicitud firmada cuenta como tu aprobación.",
+        "Choose the contact and currency. Review the amount, address and fees. Your signed request counts as your approval.",
       ),
     },
     {
-      title: t("Solicitud → aprobación → pagado", "Request → approve → paid"),
+      title: t("Revisen y aprueben", "Review and approve"),
       body: t(
-        "Alguien pide un pago y el resto lo revisa. Con las aprobaciones suficientes, se paga automáticamente si hay saldo.",
-        "Someone requests a payment and the others review it. Once enough people approve, it's paid automatically if funds are there.",
+        "Cada firmante revisa la misma solicitud. La última aprobación necesaria envía el pago si hay saldo suficiente; si falta saldo, queda pendiente.",
+        "Each signer reviews the same request. The final required approval sends the payment if funds are sufficient; otherwise it stays pending.",
       ),
     },
   ];
@@ -215,12 +222,12 @@ export function LandingLayout({
     {
       icon: Zap,
       title: t(
-        "Sin comisiones de red,\nnormalmente.",
-        "No network fees,\nusually.",
+        "Ayuda con las\ncomisiones de red.",
+        "Help with\nnetwork fees.",
       ),
       body: t(
-        "SoroSafe las paga con un fee-bump de Stellar cuando puede; si no, tu wallet paga unos céntimos y todo sigue funcionando.",
-        "SoroSafe pays them with a Stellar fee-bump when it can; if not, your wallet pays a few cents and everything still works.",
+        "SoroSafe puede cubrirlas con un fee-bump de Stellar, dentro de sus límites. Si no hay patrocinio, necesitas XLM en tu wallet. La comisión de servicio del pago se aplica por separado.",
+        "SoroSafe can cover them with a Stellar fee-bump, within its limits. Without sponsorship, you need XLM in your wallet. The payment's service fee applies separately.",
       ),
     },
   ];
@@ -235,8 +242,8 @@ export function LandingLayout({
         <div className="landing-hero-copy" data-product-tour="intro-story">
           <p className="landing-kicker">
             {t(
-              "Dinero de empresa compartido, sobre Stellar",
-              "Shared company money on Stellar",
+              "Multifirma para equipos en Stellar",
+              "Multisig for teams on Stellar",
             )}
           </p>
           <h1>
@@ -246,8 +253,8 @@ export function LandingLayout({
           </h1>
           <p className="landing-lead">
             {t(
-              "Una bóveda para el dinero de tu empresa. Tu equipo elige quién aprueba y cuántas aprobaciones necesita cada pago. Ningún pago sale sin esas aprobaciones.",
-              "One vault for your company's money. Your team chooses who approves and how many approvals each payment needs. No payment leaves without those approvals.",
+              "Una bóveda multifirma para tu empresa. Todos comparten los mismos contactos y solicitudes. Tu equipo decide cuántas aprobaciones necesita cada pago; el contrato exige esa regla.",
+              "A multisig vault for your company. Everyone shares the same contacts and payment requests. Your team chooses how many approvals each payment needs; the contract enforces that rule.",
             )}
           </p>
           <div className="landing-cta-row">
@@ -340,7 +347,7 @@ export function LandingLayout({
         <div className="landing-section-heading">
           <p className="landing-kicker">{t("Cómo funciona", "How it works")}</p>
           <h2 id="how-title">
-            {t("Tres pasos, sin sorpresas.", "Three steps, no surprises.")}
+            {t("Así se paga en equipo.", "How your team makes a payment.")}
           </h2>
         </div>
         <ol className="landing-steps">
@@ -399,8 +406,8 @@ export function LandingLayout({
               </h3>
               <p>
                 {t(
-                  "Empieza con tu wallet, añade a tu equipo y decide cuántas aprobaciones autorizan un pago. La dirección de la bóveda no cambia.",
-                  "Start with your wallet, add your team, and decide how many approvals authorize a payment. The vault address stays the same.",
+                  "El equipo elige a sus firmantes y cuántas aprobaciones necesita cada pago. Cambiar personas o reglas requiere las aprobaciones actuales y mantiene la dirección de la bóveda.",
+                  "Your team chooses its signers and how many approvals each payment needs. Changing people or rules requires the current approvals and keeps the vault's address.",
                 )}
               </p>
               <div

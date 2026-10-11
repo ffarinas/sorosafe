@@ -13,8 +13,8 @@ export function introSteps(
       icon: "vault",
       placement: "right",
       title: t(
-        "Un lugar para el dinero en equipo",
-        "A home for your team's money",
+        "Una bóveda multifirma para tu equipo",
+        "A multisig vault for your team",
       ),
       body: joining
         ? t(
@@ -22,8 +22,8 @@ export function introSteps(
             "You've been invited to an existing vault. Once you join, you'll share its funds, contacts and payment requests with the team.",
           )
         : t(
-            "Una bóveda reúne los fondos del grupo en una misma dirección de Stellar. Cada persona conserva su propia wallet para firmar.",
-            "A vault brings the group's funds together at one Stellar address. Each person keeps their own wallet for signing.",
+            "El equipo comparte fondos, contactos y solicitudes en una misma bóveda de Stellar. Cada persona conserva su propia wallet para firmar según la regla de aprobación.",
+            "Your team shares funds, contacts and requests in one Stellar vault. Each person keeps their own wallet to sign according to the approval rule.",
           ),
       note: t(
         "Las reglas de la bóveda controlan quién puede mover el dinero.",
@@ -199,8 +199,8 @@ export function vaultSteps({
       ),
       note: singleApproval
         ? t(
-            "Con una sola aprobación requerida, tu firma envía el pago al proponerlo.",
-            "With one approval required, your signature sends the payment when you propose it.",
+            "Con una sola aprobación requerida, tu firma envía el pago al proponerlo si hay saldo suficiente. Si el saldo cambia antes de ejecutarse, la solicitud puede quedar pendiente.",
+            "With one approval required, your signature sends the payment when you propose it if funds are sufficient. If the balance changes before execution, the request may remain pending.",
           )
         : t(
             "Al solicitar el pago, tu solicitud ya cuenta como la primera aprobación.",
@@ -222,8 +222,8 @@ export function vaultSteps({
             "See payments and team changes here, along with their status and approvals. After a payment is confirmed, View receipt opens its record on Stellar.",
           )
         : t(
-            "Aprobar en equipo: la última aprobación necesaria envía el pago. Hasta entonces puedes retirar tu aprobación, y quien lo pidió puede cancelarlo.",
-            "Approve together: the last approval needed sends the payment. Until then you can withdraw your approval, and whoever requested it can cancel it.",
+            "Aprobar en equipo: la última aprobación necesaria envía el pago si hay saldo suficiente. Si falta saldo, queda pendiente. Mientras siga pendiente puedes retirar tu aprobación, y quien lo pidió puede cancelarlo.",
+            "Approve together: the last approval needed sends the payment if funds are sufficient. Otherwise it stays pending. While it is pending, you can withdraw your approval, and whoever requested it can cancel it.",
           ),
       note: t(
         "Una solicitud pendiente todavía no es un pago realizado.",
@@ -275,8 +275,8 @@ export function vaultSteps({
       section: "team",
       title: t("Los costes, a la vista", "See the costs clearly"),
       body: t(
-        `La comisión de servicio de esta bóveda es ${fee} % por pago, en la misma moneda que envías. SoroSafe cubre el coste de red cuando puede; si no, tu wallet paga unos céntimos.`,
-        `This vault's service fee is ${fee}% per payment, in the currency you send. SoroSafe covers network fees when it can; otherwise your wallet pays a few cents.`,
+        `La comisión de servicio de esta bóveda es ${fee} % por pago, en la moneda que envías. Es independiente del coste de red. SoroSafe puede patrocinar ese coste dentro de sus límites; si no hay patrocinio, necesitas XLM en tu wallet.`,
+        `This vault's service fee is ${fee}% per payment, in the currency you send. It is separate from the network fee. SoroSafe can sponsor that fee within its limits; without sponsorship, you need XLM in your wallet.`,
       ),
       note: t(
         "Revisa el importe y la comisión antes de confirmar en tu wallet.",

@@ -949,14 +949,14 @@ export default function Home() {
                 <>
                   <h2>
                     {t(
-                      "Tu primera bóveda.\nA tu ritmo.",
-                      "Your first vault.\nAt your own pace.",
+                      "La bóveda de\ntu equipo.",
+                      "Your team's\nshared vault.",
                     )}
                   </h2>
                   <p className="intro-copy">
                     {t(
-                      "Ponle un nombre, conecta tu wallet y empieza. Puedes sumar al equipo y ajustar las aprobaciones cuando estés listo.",
-                      "Give it a name, connect your wallet, and get started. Bring in your team and adjust approvals when you're ready.",
+                      "Ponle nombre y créala con tu wallet. Después añade a los firmantes y acuerden las aprobaciones. Hasta entonces, la bóveda depende de tu única firma.",
+                      "Name it and create it with your wallet. Then add the signers and agree on the approvals. Until then, the vault depends on your signature alone.",
                     )}
                   </p>
                 </>
@@ -1004,8 +1004,8 @@ export default function Home() {
                 {joinToken
                   ? t("Conecta tu wallet", "Connect your wallet")
                   : t(
-                      "Añade fondos y paga al instante",
-                      "Add funds and pay right away",
+                      "Añade al equipo y acuerden las aprobaciones",
+                      "Add your team and agree on approvals",
                     )}
               </p>
               <p>
@@ -1013,8 +1013,8 @@ export default function Home() {
                 {joinToken
                   ? t("Entra a la misma bóveda", "Join the same vault")
                   : t(
-                      "Suma a tu equipo cuando quieras",
-                      "Add your team whenever you're ready",
+                      "Compartan contactos y preparen pagos",
+                      "Share contacts and prepare payments",
                     )}
               </p>
             </div>

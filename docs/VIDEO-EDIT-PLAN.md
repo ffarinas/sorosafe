@@ -1,30 +1,46 @@
-# SoroSafe · edit plan for the 3:00 video
+# SoroSafe · edit plan for the 3:00 team demo
 
-Source footage (no audio), both on the Desktop:
+Use the current bilingual narration in [VIDEO-SCRIPT.md](VIDEO-SCRIPT.md). Produce separate English and Spanish versions if both are needed. This plan specifies a new recording; it does not claim that the recording or final edit has been completed.
 
-- **A** = `Screen Recording 2026-10-03 at 10.40.56 PM.mov` (7:26, 1264×882, account 1 `GAWW…X2UX`)
-- **B** = `Screen Recording 2026-10-03 at 11.04.14 PM.mov` (1:27, account 2 `GBM7…J374`)
+## Current recording
 
-Timestamps come from frames sampled every 5 s (A) and 3 s (B); refine each cut ±3 s on the timeline. Narration and blocks follow `docs/VIDEO-SCRIPT.md`.
+Record `https://testnet.sorosafe.app` with a vault deployed from the factory currently recorded in `docs/testnet-demo-factory.json`. Match the published artifact hashes in `lib/contract-artifacts.json` before using footage as evidence of the current version.
 
-| Script block | Clip | Use | Notes |
-| --- | --- | --- | --- |
-| Hook (0:00–0:20) | A 0:00–0:50 | Landing: hero, Stellar, integrations, "Multisig should feel simple", "No gas", security, FAQ | Speed up the scroll ×1.5–2 |
-| Create (0:20–0:45) | A ~1:38–2:05 | Type the name, Continue, Freighter (≈0.20 XLM), vault opens 1/1 | A red "isn't from a verified SoroSafe version" banner sits at the top in this stretch (an older test vault; fixed since). Crop/zoom to the create card, or mask the banner. Skip A 0:55–1:38 (sign-in detour and banner) and the half-second draft screen at ~1:55 |
-| Fund (0:45–1:00) | A 2:15–2:35 | Add funds 1000 XLM → toast "SoroSafe covered the network fee" | |
-| Stablecoins | A 2:55–3:20 | USDT0 row with official logo → "Get 1000 test USDT0" → Freighter "Add Trustline" → "In your wallet: 1000 USDT0" | Skip the USDC attempt (~2:40 and ~3:25–3:35): its faucet was empty |
-| Pay 1/1 (1:00–1:15) | A 3:50–4:25 | Send 10 XLM: review (recipient, fee, "SoroSafe covers it") → Freighter → balance 989.975 → Operations "Completed" | |
-| Grow the team (1:15–1:40) | A 5:00–5:55 | Team → Edit team → add "Partner" → choose 2 → Apply team change → 2/2 | Skip the Freighter account popups at ~5:10–5:25 if they distract |
-| Propose (1:40–1:55) | A 6:05–6:25 then 6:45–7:05 | Add 100 USDT0; pay the contact 2 USDT0 → "Request approvals" → 1/2 | Skip A ~6:35–6:45 (pay dialog showed only XLM: the bug fixed afterwards) |
-| Approve once (1:55–2:20) | B 0:00–0:35 | Sign in as account 2 → "Signed in. Opening TestSafe" → banner "1 operation is waiting for your approval" → Operations (1) → "Approve and complete" → one Freighter signature → "Completed" | The money shot: keep it close to real time |
-| Receipt / trust (2:20–2:45) | B 0:36–1:05 | stellar.expert: approve → transfer 2 USDT0 + 0.005 fee, **Fee Source Account = SoroSafe sponsor** (fee-bump) | Zoom on "Fee Source Account" and the event trace |
-| Close (2:45–3:00) | A 0:45–0:50 or a still of the footer wordmark | Wordmark + URL `sorosafe.app` | End card |
+Use three distinct Testnet signer wallets and a **2-of-3** rule, plus a separate recipient wallet that accepts Circle's Testnet USDC. Follow the funding, contact history and session setup in the script. Keep the raw footage, vault address and transaction hashes together with the recording so every completed payment shown can be checked.
 
-## Captions (lower thirds)
+| Timeline | Fresh footage to capture | What the viewer should understand |
+| --- | --- | --- |
+| 0:00–0:20 | Brief landing introduction, then the team vault: address, three signers, balance and 2-of-3 rule. | This is shared team money, and one signer cannot pay alone under this rule. |
+| 0:20–0:45 | B creates the supplier contact. Then A opens the same shared address book; show creator attribution and a real prior confirmed payment. Label the earlier contact-creation shot if needed. | A teammate can use a contact another person saved, with provenance and payment history. |
+| 0:45–1:10 | A starts from the USDC row, selects the shared supplier, reviews 2 USDC plus the actual service fee and signs. Hold on the pending state and first approval. | Preparing a payment is one approval; pending does not mean paid. |
+| 1:10–1:45 | Identified switch to B. Open the same request, review its details, approve and complete. Show confirmation, receipt and updated contact payment count. | The final required approval sends this funded payment. The third signer is not required for a 2-of-3 rule. |
+| 1:45–2:10 | The recorded fee review and corresponding current-contract receipt. Show fee-bump sponsorship only if the receipt confirms it. | The 0.25% service fee is reserved in the vault for later collection. Sponsorship concerns a separate network fee and is conditional. |
+| 2:10–2:35 | Short creation shot, then a clearly labelled view of the configured team and its unchanged vault address. | Creation starts with one signer; add the team before using shared approvals. Team rules can evolve with the current quorum. |
+| 2:35–3:00 | Language selector, receipt and restrained end card with `testnet.sorosafe.app`. | The product is available in English and Spanish on Testnet; it has not yet had an independent audit. |
 
-Create · Fund · Pay instantly · Stablecoins (USDC · USDT0) · Add a signer · Approve once · Gas on us · Verifiable on Stellar
+## Evidence and continuity
 
-## Audio
+- Keep the vault address, recipient, currency and amount consistent across proposal, approval and receipt. A new transaction requires its own receipt; do not substitute an older successful transaction.
+- Identify account changes with a small **Signer A / Firmante A** or **Signer B / Firmante B** label. Do not imply that opening another account constitutes an approval.
+- Capture real contact attribution and confirmed payment history. The contact-creation shot occurs before the preparation payment; label the time shift or retain that chronology.
+- Do not hide contract verification warnings, replace balances or obscure an asset-selection error to imply the current flow succeeded. Resolve the issue and record the affected sequence again. If unresolved, document the limitation instead of presenting that sequence as working.
+- Keep the review, signature, pending state and completion legible. Trim idle cursor time and long waits; indicate accelerated waiting if shown. Do not imply edited footage measures network latency.
+- The receipt for current contracts shows the recipient's payment; the service fee is accounted for in the vault until `claim_fees`. Do not annotate a collector transfer that did not occur in that transaction.
+- Show the actual sponsorship outcome. If a signer paid the network fee, the narration already accommodates that. Never label the transaction «gas on us» unless its receipt verifies sponsorship.
+- Keep **Testnet** visible and describe any displayed USDT0 as **SoroSafe-issued test USDT0**, not official USDT0. This is a controlled product demonstration, not evidence of customer adoption.
 
-- English narration from `docs/VIDEO-SCRIPT.md` (~330 words), calm, confident.
-- Soft instrumental bed, ducked under the voice.
+## Visuals and audio
+
+- Use restrained black-and-white lower thirds that match SoroSafe. Suggested labels: **Shared vault · Shared contacts · Review payment · Approve together · Stellar receipt**. Spanish: **Bóveda compartida · Contactos compartidos · Revisar pago · Aprobar en equipo · Recibo en Stellar**.
+- Crop for legibility without removing material status or fee information. Include at least one full view showing the interface context and vault identity.
+- Narration stays foremost. Optional instrumental music should remain quiet enough to hear numbers and conditions clearly.
+- Use the script's English or Spanish narration with matching app language and subtitles. Check the delivered duration and captions after export; aim below 3:00 to leave room for the closing frame.
+
+## Archived footage — October 3, 2026
+
+These recordings are historical references, not evidence of the current contracts or the new team-first flow:
+
+- `Screen Recording 2026-10-03 at 10.40.56 PM.mov` — 7:26, 1264×882, account `GAWW…X2UX`.
+- `Screen Recording 2026-10-03 at 11.04.14 PM.mov` — 1:27, account `GBM7…J374`.
+
+They include an older vault verification warning, a token-selection issue and the former fee model that transferred the fee directly to the collector. Do not mask those differences or reuse the old receipt as current evidence. Re-record the affected flows with the current deployment. Any reused purely decorative footage must still match the current interface and claims.
